@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python example.py --episodes 5)",
+      "Bash(python -c \"import stable_baselines3; print\\(stable_baselines3.__version__\\)\")",
+      "Bash(python -c \"import gymnasium; print\\(gymnasium.__version__\\)\")",
+      "Bash(python -c \"import torch; print\\(torch.__version__\\)\")",
+      "Bash(pip install:*)",
+      "Bash(python -c ':*)",
+      "Bash(python -c \"import stable_baselines3; print\\('SB3 version:', stable_baselines3.__version__\\)\")",
+      "Bash(python train.py --timesteps 200000 --n-envs 4 --curriculum)"
+    ]
+  }
+}

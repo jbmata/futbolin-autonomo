@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Entorno virtual
+.venv/
+venv/
+env/
+
+# Modelos entrenados (se gestionan como artefactos de GitHub Actions)
+models/
+!models/.gitkeep
+
+# Logs de TensorBoard (grandes, se generan localmente)
+logs/
+!logs/.gitkeep
+
+# Imágenes generadas
+*.png
+*.gif
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
