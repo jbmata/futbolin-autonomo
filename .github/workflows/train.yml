@@ -30,6 +30,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: train-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   train:
     name: Entrenar PPO
@@ -88,7 +92,9 @@ jobs:
             echo "Sin cambios en el modelo, nada que commitear."
           else
             git commit -m "model: PPO entrenado run #${{ github.run_number }} (${{ github.event.inputs.timesteps || '300000' }} steps)"
-            git push origin ${{ github.ref_name }}
+            git fetch origin ${{ github.ref_name }}
+            git rebase FETCH_HEAD
+            git push origin HEAD:${{ github.ref_name }}
             echo "Modelo guardado en el repositorio."
           fi
 
