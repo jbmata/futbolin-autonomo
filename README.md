@@ -2,7 +2,6 @@
 
 Simulador de futbolín tipo **Madrid** (estilo español tradicional) diseñado para entrenar agentes de **Reinforcement Learning** y transferirlos a hardware real.
 
-El enfoque es **control e inteligencia**, no gráficos. Solo Python + NumPy.
 
 ![Simulador en acción](docs/screenshot.png)
 
