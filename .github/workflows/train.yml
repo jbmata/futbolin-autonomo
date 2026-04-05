@@ -1,7 +1,6 @@
 name: Entrenar Agente RL
 
 on:
-  # Lanzar manualmente desde GitHub UI con parámetros configurables
   workflow_dispatch:
     inputs:
       timesteps:
@@ -9,61 +8,50 @@ on:
         required: true
         default: '300000'
         type: choice
-        options:
-          - '100000'
-          - '300000'
-          - '500000'
-          - '1000000'
+        options: ['100000', '300000', '500000', '1000000']
       curriculum:
-        description: 'Usar entrenamiento curricular (recomendado)'
+        description: 'Usar entrenamiento curricular'
         required: true
         default: 'true'
         type: choice
-        options:
-          - 'true'
-          - 'false'
+        options: ['true', 'false']
       n_envs:
         description: 'Entornos paralelos'
         required: true
         default: '4'
         type: choice
-        options:
-          - '2'
-          - '4'
-          - '8'
+        options: ['2', '4', '8']
 
-  # También ejecutar automáticamente al hacer push a dev1
   push:
-    branches:
-      - dev1
-    paths:
-      - '**.py'           # solo si cambia código Python
-      - 'requirements.txt'
+    branches: [dev1]
+    paths: ['**.py', 'requirements.txt']
+
+# Permisos para que el workflow pueda hacer commit al repo
+permissions:
+  contents: write
 
 jobs:
   train:
     name: Entrenar PPO
-    runs-on: ubuntu-latest   # 2-core CPU gratuito en GitHub Actions
+    runs-on: ubuntu-latest
 
     steps:
-      # 1. Descargar el código
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # historial completo para poder hacer push
 
-      # 2. Configurar Python
       - name: Configurar Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
 
-      # 3. Instalar dependencias (con caché para acelerar runs siguientes)
       - name: Instalar dependencias
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
 
-      # 4. Ejecutar entrenamiento
       - name: Entrenar agente RL
         run: |
           CURRICULUM_FLAG=""
@@ -76,34 +64,42 @@ jobs:
             --n-envs   ${{ github.event.inputs.n_envs    || '4' }} \
             $CURRICULUM_FLAG
 
-      # 5. Guardar el modelo entrenado como artefacto descargable
-      - name: Guardar modelo entrenado
+      # Guardar modelo como artefacto descargable (backup)
+      - name: Guardar artefacto
         uses: actions/upload-artifact@v4
         with:
-          name: modelo-ppo-${{ github.run_number }}
+          name: modelo-ppo-run${{ github.run_number }}
           path: |
             models/foosball_ppo_final.zip
             models/best/best_model.zip
-          retention-days: 30    # disponible 30 días
+          retention-days: 90
 
-      # 6. Guardar logs de TensorBoard
-      - name: Guardar logs TensorBoard
-        uses: actions/upload-artifact@v4
-        with:
-          name: logs-tensorboard-${{ github.run_number }}
-          path: logs/
-          retention-days: 14
-
-      # 7. Resumen en el panel de GitHub
-      - name: Resumen del entrenamiento
+      # Hacer commit del modelo entrenado de vuelta al repo
+      - name: Commit modelo al repositorio
         run: |
-          echo "## Entrenamiento completado" >> $GITHUB_STEP_SUMMARY
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Añadir solo los modelos final y mejor (no checkpoints intermedios)
+          git add models/foosball_ppo_final.zip models/best/ || true
+
+          # Solo hacer commit si hay cambios
+          if git diff --staged --quiet; then
+            echo "Sin cambios en el modelo, nada que commitear."
+          else
+            git commit -m "model: PPO entrenado run #${{ github.run_number }} (${{ github.event.inputs.timesteps || '300000' }} steps)"
+            git push origin ${{ github.ref_name }}
+            echo "Modelo guardado en el repositorio."
+          fi
+
+      - name: Resumen
+        run: |
+          echo "## Entrenamiento completado - Run #${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Parametro | Valor |" >> $GITHUB_STEP_SUMMARY
           echo "|---|---|" >> $GITHUB_STEP_SUMMARY
           echo "| Timesteps | ${{ github.event.inputs.timesteps || '300000' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Curriculo | ${{ github.event.inputs.curriculum || 'true' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Entornos paralelos | ${{ github.event.inputs.n_envs || '4' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Run number | ${{ github.run_number }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Rama | ${{ github.ref_name }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Descarga el modelo desde la seccion **Artifacts** de este run." >> $GITHUB_STEP_SUMMARY
+          echo "El modelo esta disponible en \`models/foosball_ppo_final.zip\` y como artefacto." >> $GITHUB_STEP_SUMMARY

@@ -13,13 +13,12 @@ build/
 venv/
 env/
 
-# Modelos entrenados (se gestionan como artefactos de GitHub Actions)
-models/
-!models/.gitkeep
+# Checkpoints intermedios (solo guardar el final y el mejor)
+models/foosball_ppo_*_steps.zip
+# Logs de TensorBoard
 
 # Logs de TensorBoard (grandes, se generan localmente)
 logs/
-!logs/.gitkeep
 
 # Imágenes generadas
 *.png
