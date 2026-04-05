@@ -4,6 +4,8 @@ Simulador de futbolín tipo **Madrid** (estilo español tradicional) diseñado p
 
 El enfoque es **control e inteligencia**, no gráficos. Solo Python + NumPy.
 
+![Simulador en acción](docs/screenshot.png)
+
 ---
 
 ## Motivación

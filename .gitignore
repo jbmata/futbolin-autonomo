@@ -20,9 +20,10 @@ models/foosball_ppo_*_steps.zip
 # Logs de TensorBoard (grandes, se generan localmente)
 logs/
 
-# Imágenes generadas
-*.png
+# Imágenes generadas localmente
 *.gif
+*.png
+!docs/*.png
 
 # Jupyter
 .ipynb_checkpoints/
