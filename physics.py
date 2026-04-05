@@ -30,7 +30,7 @@ RESTITUTION_WALL   = 0.65    # rebote en pared
 RESTITUTION_PLAYER = 0.72    # rebote en jugador (kick zone activa)
 RESTITUTION_BLOCK  = 0.45    # rebote pasivo (jugador fuera de kick zone)
 PLAYER_IMPULSE_K   = 0.70    # fracción de velocidad del pie transferida a bola
-BAR_LINVEL_TRANSFER = 0.30   # fracción de vel. lineal de barra → bola
+BAR_LINVEL_TRANSFER = 0.65   # fracción de vel. lineal de barra → bola (en Y)
 
 # Zona de contacto en X: más generosa que PLAYER_DEPTH para evitar tunneling
 CONTACT_ZONE_X     = BALL_RADIUS + PLAYER_DEPTH * 2   # ≈ 0.034 m
