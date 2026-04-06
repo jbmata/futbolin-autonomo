@@ -207,11 +207,8 @@ class PhysicsEngine:
                     self._apply_passive_block(ball, bar, approach_sign)
                 return [(bar_idx, j)]
 
-        # Sin alineación con ningún jugador, pero la bola cruzó la barra:
-        # bloqueo pasivo de la propia barra (zona sin jugador)
-        if crossed:
-            self._apply_passive_block(ball, bar, approach_sign)
-
+        # Sin alineación con ningún jugador: la bola pasa libremente.
+        # En el futbolín real la varilla no bloquea donde no hay figura.
         return []
 
     # ------------------------------------------------------------------
