@@ -243,7 +243,14 @@ class FoosballEnv:
         self._step_count     += 1
         self._episode_reward += reward
 
-        # 7. Condiciones de fin
+        # 7. Relanzar bola si se queda parada (velocidad < umbral)
+        ball = self.state.ball
+        if np.hypot(ball.vx, ball.vy) < 0.08:
+            rng = np.random.default_rng()
+            ball.vx = rng.choice([-1, 1]) * rng.uniform(0.4, 0.8)
+            ball.vy = rng.uniform(-0.4, 0.4)
+
+        # 8. Condiciones de fin
         terminated = events.get("ball_out", False)
         truncated  = self._step_count >= self.max_steps
 

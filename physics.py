@@ -25,7 +25,7 @@ from world import (
 # Constantes físicas
 # ---------------------------------------------------------------------------
 
-FRICTION_ROLLING   = 0.18    # coeficiente de fricción rodante [1/s]
+FRICTION_ROLLING   = 0.05    # coeficiente de fricción rodante [1/s]
 RESTITUTION_WALL   = 0.65    # rebote en pared
 RESTITUTION_PLAYER = 0.90    # rebote en jugador (kick zone activa)
 RESTITUTION_BLOCK  = 0.50    # rebote pasivo (jugador fuera de kick zone)
