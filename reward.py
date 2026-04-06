@@ -30,6 +30,7 @@ class RewardConfig:
     proximity_sigma:      float = 0.12  # anchura gaussiana [m]
     ball_in_atk_zone:     float = 0.05  # bola en zona de ataque
     ball_progress_scale:  float = 0.08  # bola avanzando por el campo (shaping)
+    forward_kick_reward:  float = 1.0   # bono por toque propio que mueve bola hacia portería rival
 
     # --- Penalizaciones ---
     action_penalty_scale: float = 0.005 # penalización por |acción| (eficiencia energética)
@@ -68,7 +69,9 @@ def compute_reward(
     bd  = {}          # breakdown
     r   = 0.0
 
-    opponent = 'B' if team == 'A' else 'A'
+    opponent  = 'B' if team == 'A' else 'A'
+    ball      = state.ball
+    direction = 1.0 if team == 'A' else -1.0
 
     # ------------------------------------------------------------------
     # 1. Eventos discretos
@@ -89,15 +92,21 @@ def compute_reward(
         r       += touch_r
         bd["touch"] = touch_r
 
+        # Bono por golpear la bola hacia adelante (toque propio + vx en dirección correcta)
+        ball = state.ball
+        direction = 1.0 if team == 'A' else -1.0
+        fwd_speed = direction * ball.vx  # positivo = bola va hacia portería rival
+        if fwd_speed > 0.3:              # solo si hay velocidad significativa
+            fwd_r = cfg.forward_kick_reward * np.tanh(fwd_speed / MAX_BALL_SPEED * 3.0)
+            r    += fwd_r
+            bd["forward_kick"] = fwd_r
+
     if cfg.sparse_only:
         return float(r), bd
 
     # ------------------------------------------------------------------
     # 2. Recompensa densa: dirección de la bola
     # ------------------------------------------------------------------
-    ball = state.ball
-    # Equipo A ataca hacia x_max (+X), equipo B hacia x_min (-X)
-    direction = 1.0 if team == 'A' else -1.0
     ball_dir_r = cfg.ball_direction_scale * np.tanh(direction * ball.vx / MAX_BALL_SPEED * 3.0)
     r += ball_dir_r
     bd["ball_direction"] = ball_dir_r
