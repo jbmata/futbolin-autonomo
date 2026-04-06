@@ -93,6 +93,7 @@ El vector de observación tiene **36 dimensiones** normalizadas ≈ [-1, 1]:
 | Impacto jugador | Impulso = ω × L × cos(θ) + transferencia vel. lineal |
 | Zona de contacto | \|ángulo\| < 60° (pie en posición de golpeo) |
 | Detección de gol | Bola cruza la línea dentro del ancho de portería |
+| Zona sin jugador | La bola pasa libremente (la varilla no bloquea) |
 
 El ruido en rebotes e impactos es configurable y reduce el **sim-to-real gap**.
 
@@ -120,9 +121,14 @@ Diseño por capas para facilitar el aprendizaje:
 | Gol recibido | -10.0 | Evento |
 | Toque de bola propio | +0.5 | Evento |
 | Bola avanzando hacia portería rival | ≤ +0.3/step | Densa |
-| Proximidad barra-bola (gaussiana) | ≤ +0.15/step | Densa |
+| Proximidad barra más cercana a la bola | ≤ +0.15/step | Densa |
+| Progreso de la bola por el campo | ≤ +0.08/step | Densa |
+| Bola en zona de ataque | +0.05/step | Densa |
 | Penalización por movimiento | -0.02 × \|acción\| | Densa |
 | Penalización por jerk | -0.01 × Δacción | Densa |
+
+La proximidad se calcula sobre **todas las barras del equipo** (GK, DEF, MID, ATK),
+incentivando que cada barra interactúe con la bola cuando está en su zona.
 
 ### `env.py` — Entorno Gymnasium
 
@@ -204,16 +210,17 @@ python train.py --eval-only models/foosball_ppo_final
 tensorboard --logdir logs
 ```
 
-### Resultados (200k pasos, ~30 min en CPU)
+### Resultados (1M pasos, ~24 min en GitHub Actions)
+
+Entrenamiento en la nube mediante el workflow `train.yml` (Ubuntu, CPU).
+Cada run guarda el modelo automáticamente en el repositorio.
 
 | Métrica | Valor |
 |---|---|
-| Reward medio/episodio | 38.7 ± 21 |
-| Goles marcados/ep | 0.10 |
-| Goles recibidos/ep | 0.10 |
-| Toques propios/ep | ~5 |
-
-El agente aprendió a competir al nivel del oponente heurístico. Con más pasos (≥1M) y tuning de hiperparámetros se puede mejorar significativamente.
+| Timesteps | 1.000.000 |
+| Currículo | 3 fases (sin oponente → heurístico → completo) |
+| Duración (GitHub Actions) | ~24 min |
+| Modelo guardado en | `models/foosball_ppo_final.zip` |
 
 ---
 
@@ -256,22 +263,23 @@ while not done:
 ## Dependencias
 
 ```
-numpy
-stable-baselines3[extra]
-gymnasium
-torch
-matplotlib          # opcional, para visualización
+numpy>=2.0
+stable-baselines3[extra]>=2.0
+gymnasium>=0.29
+torch>=2.0
+matplotlib>=3.7
 ```
 
 ```bash
-pip install stable-baselines3[extra] gymnasium torch matplotlib
+pip install -r requirements.txt
 ```
+
+> **Nota:** Se requiere `numpy>=2.0` porque los modelos entrenados se serializan con esa versión. Usar numpy 1.x provocará error al cargar el modelo.
 
 ---
 
 ## Próximos pasos sugeridos
 
-- **Más entrenamiento**: 1M+ pasos para superar claramente al heurístico
 - **Self-play**: que el equipo B también sea un agente RL que mejora junto al A
 - **Observación con cámara**: sustituir la obs. perfecta por detección de bola con visión
 - **Múltiples agentes**: un agente por barra en lugar de uno para todo el equipo
