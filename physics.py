@@ -176,8 +176,9 @@ class PhysicsEngine:
 
         # ¿La bola cruzó la barra este paso?
         crossed = (dx_prev * dx_curr < 0)
-        # ¿O está rozando la zona de contacto actualmente?
-        near    = (abs(dx_curr) <= CONTACT_ZONE_X)
+        # ¿O se está acercando a la zona de contacto (y moviéndose HACIA la barra)?
+        toward_bar = (ball.vx * (bar.bar_x - ball.x)) > 0
+        near       = (abs(dx_curr) <= CONTACT_ZONE_X) and toward_bar
 
         if not (crossed or near):
             return []
