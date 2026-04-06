@@ -29,6 +29,7 @@ class RewardConfig:
     proximity_scale:      float = 0.15  # barra más cercana a la bola
     proximity_sigma:      float = 0.12  # anchura gaussiana [m]
     ball_in_atk_zone:     float = 0.05  # bola en zona de ataque
+    ball_progress_scale:  float = 0.08  # bola avanzando por el campo (shaping)
 
     # --- Penalizaciones ---
     action_penalty_scale: float = 0.02  # penalización por |acción| (eficiencia energética)
@@ -102,13 +103,14 @@ def compute_reward(
     bd["ball_direction"] = ball_dir_r
 
     # ------------------------------------------------------------------
-    # 3. Recompensa densa: proximidad de la barra de ataque a la bola
+    # 3. Recompensa densa: proximidad — barra más cercana en X a la bola
     # ------------------------------------------------------------------
-    # Barra de ataque del equipo (mayor probabilidad de golpear)
-    atk_bars = [b for b in state.bars if b.team == team and b.role == 'ATK']
-    if atk_bars:
+    # Usamos TODAS las barras del equipo: cada barra tiene incentivo de
+    # tocar la bola cuando está en su zona. Solo puntuamos la mejor.
+    own_bars = [b for b in state.bars if b.team == team]
+    if own_bars:
         prox_rewards = []
-        for bar in atk_bars:
+        for bar in own_bars:
             for player_y in bar.get_player_abs_y():
                 dist_y = abs(ball.y - player_y)
                 dist_x = abs(ball.x - bar.bar_x)
@@ -121,13 +123,18 @@ def compute_reward(
             bd["proximity"] = best_prox
 
     # ------------------------------------------------------------------
-    # 4. Bola en zona de ataque
+    # 4. Bola en zona de ataque + progreso por el campo
     # ------------------------------------------------------------------
-    field    = state.field
     in_zone  = (ball.x * direction) > 0   # bola en la mitad del campo rival
     zone_r   = cfg.ball_in_atk_zone if in_zone else 0.0
     r       += zone_r
     bd["zone"] = zone_r
+
+    # Shaping: recompensa proporcional a cuánto ha avanzado la bola
+    # hacia la portería rival (normalizado a [-1, 1])
+    progress_r = cfg.ball_progress_scale * (ball.x * direction) / 0.60
+    r         += progress_r
+    bd["ball_progress"] = progress_r
 
     # ------------------------------------------------------------------
     # 5. Penalización por acción (eficiencia energética)
