@@ -27,8 +27,8 @@ from world import (
 
 FRICTION_ROLLING   = 0.18    # coeficiente de fricción rodante [1/s]
 RESTITUTION_WALL   = 0.65    # rebote en pared
-RESTITUTION_PLAYER = 0.72    # rebote en jugador (kick zone activa)
-RESTITUTION_BLOCK  = 0.45    # rebote pasivo (jugador fuera de kick zone)
+RESTITUTION_PLAYER = 0.90    # rebote en jugador (kick zone activa)
+RESTITUTION_BLOCK  = 0.50    # rebote pasivo (jugador fuera de kick zone)
 PLAYER_IMPULSE_K   = 0.70    # fracción de velocidad del pie transferida a bola
 BAR_LINVEL_TRANSFER = 0.65   # fracción de vel. lineal de barra → bola (en Y)
 

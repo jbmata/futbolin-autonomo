@@ -183,7 +183,7 @@ def make_env_curriculum(phase: int, **base_kwargs):
             ball_direction_scale=0.3,
             goal_reward=10.0,
             goal_penalty=-5.0,
-            action_penalty_scale=0.01,
+            action_penalty_scale=0.002,
         )
         return FoosballGymEnv(
             max_steps=500,
@@ -199,8 +199,8 @@ def make_env_curriculum(phase: int, **base_kwargs):
             ball_direction_scale=0.3,
             goal_reward=10.0,
             goal_penalty=-10.0,
-            action_penalty_scale=0.02,
-            jerk_penalty_scale=0.01,
+            action_penalty_scale=0.005,
+            jerk_penalty_scale=0.002,
         )
         return FoosballGymEnv(
             max_steps=750,

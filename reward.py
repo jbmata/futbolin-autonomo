@@ -32,8 +32,8 @@ class RewardConfig:
     ball_progress_scale:  float = 0.08  # bola avanzando por el campo (shaping)
 
     # --- Penalizaciones ---
-    action_penalty_scale: float = 0.02  # penalización por |acción| (eficiencia energética)
-    jerk_penalty_scale:   float = 0.01  # penalización por cambio brusco de acción
+    action_penalty_scale: float = 0.005 # penalización por |acción| (eficiencia energética)
+    jerk_penalty_scale:   float = 0.002 # penalización por cambio brusco de acción
 
     # --- Modo ---
     sparse_only: bool = False   # si True, solo usa recompensas de evento
