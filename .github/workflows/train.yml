@@ -93,7 +93,7 @@ jobs:
           else
             git commit -m "model: PPO entrenado run #${{ github.run_number }} (${{ github.event.inputs.timesteps || '300000' }} steps)"
             git fetch origin ${{ github.ref_name }}
-            git rebase FETCH_HEAD
+            git rebase --autostash FETCH_HEAD
             git push origin HEAD:${{ github.ref_name }}
             echo "Modelo guardado en el repositorio."
           fi
