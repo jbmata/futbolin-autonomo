@@ -188,17 +188,23 @@ class FoosballVisualizer:
         self._trail_line, = ax.plot([], [], color=COLOR_TRAIL,
                                     lw=1.5, alpha=0.5, zorder=4)
 
-        # Jugadores (círculos)
+        # Jugadores (círculos + línea de pie que muestra el ángulo)
         self._player_circles = {}
+        self._player_foot_lines = {}
         for i, bar in enumerate(self.env.state.bars):
             color = COLOR_TEAM_A if bar.team == 'A' else COLOR_TEAM_B
             circles = []
+            foot_lines = []
             for _ in bar.player_offsets:
                 c = plt.Circle((bar.bar_x, 0), PLAYER_RADIUS,
                                color=color, zorder=5, ec="white", lw=0.8)
                 ax.add_patch(c)
                 circles.append(c)
+                # Línea que indica la dirección del pie
+                ln, = ax.plot([], [], color="white", lw=1.5, zorder=6, alpha=0.8)
+                foot_lines.append(ln)
             self._player_circles[i] = circles
+            self._player_foot_lines[i] = foot_lines
 
         # Bola
         self._ball_circle = plt.Circle((0, 0), BALL_RADIUS + 0.005,
@@ -367,10 +373,20 @@ class FoosballVisualizer:
         # Jugadores
         for i, bar in enumerate(self.env.state.bars):
             base_color = COLOR_TEAM_A if bar.team == 'A' else COLOR_TEAM_B
-            for j, (circle, player_y) in enumerate(
-                zip(self._player_circles[i], bar.get_player_abs_y())
+            foot_len = 0.030  # longitud visual del pie [m]
+            for j, (circle, foot_line, player_y) in enumerate(
+                zip(self._player_circles[i], self._player_foot_lines[i], bar.get_player_abs_y())
             ):
                 circle.center = (bar.bar_x, player_y)
+
+                # Pie: línea desde centro del jugador en dirección del ángulo
+                # El pie se proyecta en X según sin(angle), en Y según cos(angle)
+                kick_dir = 1 if bar.team == 'A' else -1
+                fx = bar.bar_x + kick_dir * foot_len * np.cos(bar.angle)
+                fy = player_y  + foot_len * np.sin(bar.angle)
+                foot_line.set_data([bar.bar_x, fx], [player_y, fy])
+                in_kick = bar.is_in_kick_zone()
+                foot_line.set_color("yellow" if in_kick else "#666666")
 
                 key = (i, j)
                 flash = self._contact_flash.get(key, 0)

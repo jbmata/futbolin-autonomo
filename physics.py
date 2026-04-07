@@ -260,6 +260,10 @@ class PhysicsEngine:
         # Transferencia de velocidad lineal de la barra en Y
         ball.vy += BAR_LINVEL_TRANSFER * (bar.linear_vel - ball.vy)
 
+        # Deflexión Y por ángulo del pie: si el pie está inclinado, la bola sale diagonal
+        angle_deflect = np.sin(bar.angle) * abs(ball.vx) * 0.4
+        ball.vy += angle_deflect
+
         # Separar la bola de la barra
         ball.x = bar.bar_x + approach_sign * (CONTACT_ZONE_X + 1e-4)
 
