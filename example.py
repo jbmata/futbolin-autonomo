@@ -209,7 +209,7 @@ def main():
     env = FoosballEnv()
     print(f"\nEspacio de observacion: {env.obs_dim} dims")
     print(f"Espacio de accion:      {env.action_dim} dims")
-    print("Accion: [lin_GK, ang_GK, lin_ATK, ang_ATK, lin_MID, ang_MID, lin_DEF, ang_DEF]")
+    print("Accion: [lin_GK, ang_GK, lin_DEF, ang_DEF, lin_MID, ang_MID, lin_ATK, ang_ATK]")
 
 
 if __name__ == "__main__":

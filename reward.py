@@ -22,15 +22,15 @@ class RewardConfig:
     # --- Eventos discretos ---
     goal_reward:       float = 10.0   # gol marcado a favor
     goal_penalty:      float = -10.0  # gol recibido
-    touch_reward:      float =  0.5   # bola tocada por un jugador propio
+    touch_reward:      float =  0.0   # ayuda inicial; se activa en el currículo
 
     # --- Recompensas densas (por paso) ---
-    ball_direction_scale: float = 0.3   # bola moviéndose hacia portería rival
-    proximity_scale:      float = 0.15  # barra más cercana a la bola
+    ball_direction_scale: float = 0.0   # bola moviéndose hacia portería rival
+    proximity_scale:      float = 0.0   # barra más cercana a la bola
     proximity_sigma:      float = 0.12  # anchura gaussiana [m]
-    ball_in_atk_zone:     float = 0.05  # bola en zona de ataque
-    ball_progress_scale:  float = 0.08  # bola avanzando por el campo (shaping)
-    forward_kick_reward:  float = 1.0   # bono por toque propio que mueve bola hacia portería rival
+    ball_in_atk_zone:     float = 0.0   # bola en zona de ataque
+    ball_progress_scale:  float = 0.0   # posición de la bola en el campo
+    forward_kick_reward:  float = 0.0   # bono por toque propio hacia portería rival
 
     # --- Penalizaciones ---
     action_penalty_scale: float = 0.005 # penalización por |acción| (eficiencia energética)
@@ -117,7 +117,7 @@ def compute_reward(
     # Usamos TODAS las barras del equipo: cada barra tiene incentivo de
     # tocar la bola cuando está en su zona. Solo puntuamos la mejor.
     own_bars = [b for b in state.bars if b.team == team]
-    if own_bars:
+    if own_bars and cfg.proximity_scale:
         prox_rewards = []
         for bar in own_bars:
             for player_y in bar.get_player_abs_y():
@@ -141,7 +141,7 @@ def compute_reward(
 
     # Shaping: recompensa proporcional a cuánto ha avanzado la bola
     # hacia la portería rival (normalizado a [-1, 1])
-    progress_r = cfg.ball_progress_scale * (ball.x * direction) / 0.60
+    progress_r = cfg.ball_progress_scale * (ball.x * direction) / (state.field.length / 2.0)
     r         += progress_r
     bd["ball_progress"] = progress_r
 

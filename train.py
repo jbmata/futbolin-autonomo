@@ -10,7 +10,7 @@ Requiere:
 Uso:
     python train.py                          # entrena con PPO
     python train.py --timesteps 500000       # más pasos
-    python train.py --eval-only models/best  # solo evaluar modelo guardado
+    python train.py --eval-only models/best/best_model  # evaluar modelo guardado
     python train.py --curriculum             # entrenamiento curricular (fases)
 
 El agente controla el equipo A (4 barras, 8 acciones).
@@ -20,6 +20,8 @@ El equipo B usa el oponente heurístico.
 import argparse
 import os
 import time
+from collections import deque
+from functools import partial
 import numpy as np
 
 # ---------------------------------------------------------------------------
@@ -33,19 +35,18 @@ except ImportError:
     GYM_OK = False
 
 try:
-    from stable_baselines3 import PPO, SAC
+    from stable_baselines3 import PPO
     from stable_baselines3.common.env_util import make_vec_env
     from stable_baselines3.common.callbacks import (
         EvalCallback, CheckpointCallback, BaseCallback
     )
-    from stable_baselines3.common.monitor import Monitor
-    from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
     SB3_OK = True
 except ImportError:
     SB3_OK = False
 
 from env import FoosballEnv
 from reward import RewardConfig
+from world import get_team_bar_indices
 
 
 # ---------------------------------------------------------------------------
@@ -69,7 +70,8 @@ class FoosballGymEnv(gym.Env if GYM_OK else object):
         self.action_space      = self._env.action_space
 
     def reset(self, seed=None, options=None):
-        return self._env.reset(seed=seed)
+        super().reset(seed=seed)
+        return self._env.reset(seed=seed, options=options)
 
     def step(self, action):
         return self._env.step(action)
@@ -90,63 +92,112 @@ class FoosballMetricsCallback(BaseCallback):
     Registra métricas específicas del futbolín en TensorBoard:
       - Goles marcados / recibidos por episodio
       - Toques de bola propios
-      - Duración media del episodio
     """
 
     def __init__(self, verbose: int = 0):
         super().__init__(verbose)
-        self._ep_goals_scored  = []
-        self._ep_goals_conceded = []
-        self._ep_touches       = []
-        self._ep_rewards       = []
-        self._ep_reward        = 0.0
-        self._ep_touches_now   = 0
-        self._goals_scored_now = 0
-        self._goals_conceded_now = 0
+        self._ep_goals_scored = deque(maxlen=10)
+        self._ep_goals_conceded = deque(maxlen=10)
+        self._ep_touches = deque(maxlen=10)
+        self._n_episodes = 0
+        self._team_bar_idxs = set(get_team_bar_indices('A'))
+
+    def _on_training_start(self):
+        self._ep_touches_now = np.zeros(self.training_env.num_envs, dtype=int)
 
     def _on_step(self) -> bool:
-        # Leer info del entorno (primer env en caso de VecEnv)
         infos = self.locals.get("infos", [{}])
         dones = self.locals.get("dones", [False])
 
-        for info, done in zip(infos, dones):
+        for i, (info, done) in enumerate(zip(infos, dones)):
             events = info.get("events", {})
-            goal   = events.get("goal")
-            if goal == 'A':
-                self._goals_scored_now   += 1
-            elif goal == 'B':
-                self._goals_conceded_now += 1
-
-            self._ep_touches_now += len(events.get("touches", []))
-            self._ep_reward      += info.get("episode_reward", 0.0)
+            self._ep_touches_now[i] += sum(
+                bar_idx in self._team_bar_idxs
+                for bar_idx, _ in events.get("touches", [])
+            )
 
             if done:
-                self._ep_goals_scored.append(self._goals_scored_now)
-                self._ep_goals_conceded.append(self._goals_conceded_now)
-                self._ep_touches.append(self._ep_touches_now)
-                self._ep_rewards.append(info.get("episode_reward", 0.0))
-
-                self._goals_scored_now   = 0
-                self._goals_conceded_now = 0
-                self._ep_touches_now     = 0
-                self._ep_reward          = 0.0
+                self._ep_goals_scored.append(info["score"]["A"])
+                self._ep_goals_conceded.append(info["score"]["B"])
+                self._ep_touches.append(self._ep_touches_now[i])
+                self._ep_touches_now[i] = 0
+                self._n_episodes += 1
 
                 # Log cada 10 episodios
-                if len(self._ep_rewards) % 10 == 0:
+                if self._n_episodes % 10 == 0:
                     self.logger.record(
                         "game/goals_scored",
-                        np.mean(self._ep_goals_scored[-10:])
+                        np.mean(self._ep_goals_scored)
                     )
                     self.logger.record(
                         "game/goals_conceded",
-                        np.mean(self._ep_goals_conceded[-10:])
+                        np.mean(self._ep_goals_conceded)
                     )
                     self.logger.record(
                         "game/touches_per_ep",
-                        np.mean(self._ep_touches[-10:])
+                        np.mean(self._ep_touches)
                     )
 
         return True
+
+
+class FoosballEvalCallback(EvalCallback):
+    """Elige modelos por resultados y goles; la recompensa desempata."""
+
+    def __init__(self, eval_env, best_model_save_path, eval_seed=10_042, **kwargs):
+        super().__init__(eval_env, best_model_save_path=None, **kwargs)
+        if self.eval_env.num_envs != self.n_eval_episodes:
+            raise ValueError("La evaluacion necesita un entorno por episodio para fijar las semillas.")
+        self.game_save_path = best_model_save_path
+        self.eval_seed = eval_seed
+        self.best_game_score = None
+        self.game_scores = []
+        self.evaluations_goals = []
+
+    def _init_callback(self):
+        super()._init_callback()
+        os.makedirs(self.game_save_path, exist_ok=True)
+
+    def _log_success_callback(self, locals_, globals_):
+        super()._log_success_callback(locals_, globals_)
+        if locals_["done"]:
+            score = locals_["info"]["score"]
+            self.game_scores.append((score["A"], score["B"]))
+
+    def _on_step(self):
+        evaluating = self.eval_freq > 0 and self.n_calls % self.eval_freq == 0
+        if evaluating:
+            self.game_scores = []
+            self.eval_env.seed(self.eval_seed)
+        continue_training = super()._on_step()
+        if evaluating:
+            goals = np.asarray(self.game_scores)
+            scored, conceded = goals[:, 0], goals[:, 1]
+            wins, draws = scored > conceded, scored == conceded
+            points = float(np.mean(wins + 0.5 * draws))
+            goal_difference = float(np.mean(scored - conceded))
+            game_score = (points, goal_difference, float(np.mean(scored)), self.last_mean_reward)
+            for name, value in (
+                ("win_rate", np.mean(wins)), ("draw_rate", np.mean(draws)),
+                ("loss_rate", np.mean(scored < conceded)), ("points", points),
+                ("goals_scored", np.mean(scored)), ("goals_conceded", np.mean(conceded)),
+                ("goal_difference", goal_difference),
+            ):
+                self.logger.record(f"eval/{name}", float(value))
+            self.logger.dump(self.num_timesteps)
+            if self.log_path is not None:
+                self.evaluations_goals.append(self.game_scores)
+                np.savez(
+                    self.log_path + "_goals", timesteps=self.evaluations_timesteps,
+                    goals=self.evaluations_goals, seed=self.eval_seed,
+                )
+            if self.best_game_score is None or game_score > self.best_game_score:
+                self.model.save(os.path.join(self.game_save_path, "best_model"))
+                self.best_game_score = game_score
+                if self.verbose:
+                    print(f"Nuevo mejor resultado: puntos={points:.3f}, "
+                          f"diferencia de goles={goal_difference:.3f}")
+        return continue_training
 
 
 # ---------------------------------------------------------------------------
@@ -159,12 +210,15 @@ def make_env_curriculum(phase: int, **base_kwargs):
 
     Fase 0: Recompensa densa, oponente estático, episodios cortos.
     Fase 1: Añadir oponente heurístico, episodios más largos.
-    Fase 2: Configuración completa, menos recompensa densa.
+    Fase 2: Configuración completa, goles y penalizaciones de control.
     """
     if phase == 0:
         cfg = RewardConfig(
-            proximity_scale=0.3,       # recompensa densa alta
-            ball_direction_scale=0.4,
+            proximity_scale=0.03,
+            ball_direction_scale=0.03,
+            touch_reward=0.2,
+            forward_kick_reward=0.3,
+            ball_in_atk_zone=0.005,
             goal_reward=5.0,
             goal_penalty=-1.0,         # penalización baja al inicio
             action_penalty_scale=0.0,  # sin penalización de movimiento
@@ -179,8 +233,10 @@ def make_env_curriculum(phase: int, **base_kwargs):
 
     elif phase == 1:
         cfg = RewardConfig(
-            proximity_scale=0.2,
-            ball_direction_scale=0.3,
+            proximity_scale=0.003,
+            ball_direction_scale=0.01,
+            touch_reward=0.05,
+            forward_kick_reward=0.1,
             goal_reward=10.0,
             goal_penalty=-5.0,
             action_penalty_scale=0.002,
@@ -194,14 +250,7 @@ def make_env_curriculum(phase: int, **base_kwargs):
         )
 
     else:  # phase 2+
-        cfg = RewardConfig(
-            proximity_scale=0.15,
-            ball_direction_scale=0.3,
-            goal_reward=10.0,
-            goal_penalty=-10.0,
-            action_penalty_scale=0.005,
-            jerk_penalty_scale=0.002,
-        )
+        cfg = RewardConfig()
         return FoosballGymEnv(
             max_steps=750,
             opponent="heuristic",
@@ -221,143 +270,100 @@ def train_ppo(
     curriculum:      bool = False,
     save_dir:        str = "models",
     log_dir:         str = "logs",
+    seed:            int = 42,
 ):
+    phases = [0, 1, 2] if curriculum else [None]
+    if total_timesteps < len(phases) or n_envs < 1 or seed < 0:
+        raise ValueError("Se necesita al menos un paso por fase, un entorno y una semilla no negativa.")
     os.makedirs(save_dir, exist_ok=True)
-    os.makedirs(log_dir,  exist_ok=True)
+    os.makedirs(log_dir, exist_ok=True)
 
-    print(f"\n{'='*60}")
-    print(f"  Entrenamiento PPO — Futbolin tipo Madrid")
-    print(f"  Total timesteps: {total_timesteps:,}")
-    print(f"  Entornos paralelos: {n_envs}")
-    print(f"  Curriculo: {curriculum}")
-    print(f"{'='*60}\n")
+    print(f"\nEntrenamiento PPO | pasos={total_timesteps:,} | entornos={n_envs} | semilla={seed}")
+    steps_per_phase, remainder = divmod(total_timesteps, len(phases))
+    model = None
 
-    if curriculum:
-        # Fase 0: entrenamiento básico con recompensa densa
-        print("--- Fase 0: oponente estatico, sin ruido ---")
-        env_fn = lambda: Monitor(make_env_curriculum(phase=0))
-        train_env  = DummyVecEnv([env_fn] * n_envs)
-        eval_env_0 = Monitor(make_env_curriculum(phase=0))
+    def learning_rate(remaining):
+        # SB3 calcula el progreso respecto al final de cada llamada a learn().
+        completed_steps = (1.0 - remaining) * phase_target
+        return 3e-5 + 2.7e-4 * max(0.0, 1.0 - completed_steps / total_timesteps)
 
-        model = PPO(
-            policy="MlpPolicy",
-            env=train_env,
-            learning_rate=3e-4,
-            n_steps=1024,
-            batch_size=256,
-            n_epochs=10,
-            gamma=0.99,
-            gae_lambda=0.95,
-            clip_range=0.2,
-            ent_coef=0.01,
-            verbose=1,
-            tensorboard_log=log_dir,
-            policy_kwargs=dict(net_arch=[256, 256]),
+    for i, phase in enumerate(phases):
+        final_phase = i == len(phases) - 1
+        steps = steps_per_phase + (remainder if final_phase else 0)
+        phase_target = (model.num_timesteps if model is not None else 0) + steps
+        label = f"phase{phase}" if curriculum else "direct"
+        env_fn = (partial(make_env_curriculum, phase=phase) if curriculum
+                  else partial(FoosballGymEnv, dt=0.02, max_steps=750))
+        train_env = make_vec_env(
+            env_fn, n_envs=n_envs, seed=seed + i * n_envs,
+            monitor_dir=os.path.join(log_dir, label),
         )
+        eval_env = None
+        try:
+            n_eval_episodes = 15 if final_phase else 10
+            # Un episodio por entorno mantiene las mismas semillas entre modelos.
+            eval_env = make_vec_env(env_fn, n_envs=n_eval_episodes, seed=seed + 10_000)
+            print(f"\n--- {label} ---")
+            if model is None:
+                model = PPO(
+                    policy="MlpPolicy",
+                    env=train_env,
+                    learning_rate=learning_rate,
+                    n_steps=1024 if curriculum else 2048,
+                    batch_size=256,
+                    n_epochs=10,
+                    gamma=0.99,
+                    gae_lambda=0.95,
+                    clip_range=0.2,
+                    ent_coef=0.005,
+                    target_kl=0.02,
+                    use_sde=True,
+                    sde_sample_freq=4,
+                    policy_kwargs=dict(
+                        net_arch=dict(pi=[256, 256], vf=[256, 256]),
+                        log_std_init=-2.0,
+                        squash_output=True,
+                    ),
+                    seed=seed,
+                    device="cpu",
+                    verbose=1,
+                    tensorboard_log=log_dir,
+                )
+            else:
+                model.set_env(train_env)
 
-        eval_cb_0 = EvalCallback(
-            eval_env_0,
-            best_model_save_path=os.path.join(save_dir, "phase0"),
-            log_path=os.path.join(log_dir, "phase0"),
-            eval_freq=max(5000 // n_envs, 1),
-            n_eval_episodes=10,
-            deterministic=True,
-            verbose=1,
-        )
-        model.learn(
-            total_timesteps=total_timesteps // 3,
-            callback=[eval_cb_0, FoosballMetricsCallback()],
-            tb_log_name="ppo_phase0",
-            progress_bar=True,
-        )
-        train_env.close()
-
-        # Fase 1: añadir oponente heurístico y ruido
-        print("\n--- Fase 1: oponente heuristico, ruido activado ---")
-        env_fn_1  = lambda: Monitor(make_env_curriculum(phase=1))
-        train_env = DummyVecEnv([env_fn_1] * n_envs)
-        eval_env_1 = Monitor(make_env_curriculum(phase=1))
-        model.set_env(train_env)
-
-        eval_cb_1 = EvalCallback(
-            eval_env_1,
-            best_model_save_path=os.path.join(save_dir, "phase1"),
-            log_path=os.path.join(log_dir, "phase1"),
-            eval_freq=max(5000 // n_envs, 1),
-            n_eval_episodes=10,
-            deterministic=True,
-            verbose=1,
-        )
-        model.learn(
-            total_timesteps=total_timesteps // 3,
-            callback=[eval_cb_1, FoosballMetricsCallback()],
-            tb_log_name="ppo_phase1",
-            reset_num_timesteps=False,
-            progress_bar=True,
-        )
-        train_env.close()
-
-        # Fase 2: configuración completa
-        print("\n--- Fase 2: configuracion completa ---")
-        env_fn_2  = lambda: Monitor(make_env_curriculum(phase=2))
-        train_env = DummyVecEnv([env_fn_2] * n_envs)
-        eval_env_2 = Monitor(make_env_curriculum(phase=2))
-        model.set_env(train_env)
-
-    else:
-        # Entrenamiento directo sin currículo
-        env_fn    = lambda: Monitor(FoosballGymEnv(dt=0.02, max_steps=750))
-        train_env = DummyVecEnv([env_fn] * n_envs)
-        eval_env_2 = Monitor(FoosballGymEnv(dt=0.02, max_steps=750))
-
-        model = PPO(
-            policy="MlpPolicy",
-            env=train_env,
-            learning_rate=3e-4,
-            n_steps=2048,
-            batch_size=256,
-            n_epochs=10,
-            gamma=0.99,
-            gae_lambda=0.95,
-            clip_range=0.2,
-            ent_coef=0.005,
-            verbose=1,
-            tensorboard_log=log_dir,
-            policy_kwargs=dict(net_arch=[256, 256]),
-        )
-
-    # Callbacks finales
-    checkpoint_cb = CheckpointCallback(
-        save_freq=max(20_000 // n_envs, 1),
-        save_path=save_dir,
-        name_prefix="foosball_ppo",
-    )
-    eval_cb_final = EvalCallback(
-        eval_env_2,
-        best_model_save_path=os.path.join(save_dir, "best"),
-        log_path=os.path.join(log_dir, "eval"),
-        eval_freq=max(10_000 // n_envs, 1),
-        n_eval_episodes=15,
-        deterministic=True,
-        verbose=1,
-    )
-
-    tb_name = "ppo_curriculum_phase2" if curriculum else "ppo_foosball"
-    steps   = total_timesteps // 3 if curriculum else total_timesteps
-    reset   = not curriculum
-
-    model.learn(
-        total_timesteps=steps,
-        callback=[eval_cb_final, checkpoint_cb, FoosballMetricsCallback()],
-        tb_log_name=tb_name,
-        reset_num_timesteps=reset,
-        progress_bar=True,
-    )
-
-    final_path = os.path.join(save_dir, "foosball_ppo_final")
-    model.save(final_path)
-    print(f"\nModelo final guardado en: {final_path}.zip")
-    train_env.close()
+            eval_cb = FoosballEvalCallback(
+                eval_env,
+                best_model_save_path=os.path.join(save_dir, "best" if final_phase else label),
+                eval_seed=seed + 10_000,
+                log_path=os.path.join(log_dir, "eval" if final_phase else label),
+                eval_freq=max((10_000 if final_phase else 5000) // n_envs, 1),
+                n_eval_episodes=n_eval_episodes,
+                deterministic=True,
+                verbose=1,
+            )
+            callbacks = [eval_cb, FoosballMetricsCallback()]
+            if final_phase:
+                callbacks.append(CheckpointCallback(
+                    save_freq=max(20_000 // n_envs, 1),
+                    save_path=save_dir,
+                    name_prefix="foosball_ppo",
+                ))
+            model.learn(
+                total_timesteps=steps,
+                callback=callbacks,
+                tb_log_name=f"ppo_{label}",
+                reset_num_timesteps=i == 0,
+                progress_bar=True,
+            )
+            if final_phase:
+                final_path = os.path.join(save_dir, "foosball_ppo_final")
+                model.save(final_path)
+                print(f"\nModelo final guardado en: {final_path}.zip")
+        finally:
+            train_env.close()
+            if eval_env is not None:
+                eval_env.close()
 
     return model
 
@@ -366,8 +372,11 @@ def train_ppo(
 # Evaluación de un modelo guardado
 # ---------------------------------------------------------------------------
 
-def evaluate_model(model_path: str, n_episodes: int = 20, render: bool = False):
+def evaluate_model(model_path: str, n_episodes: int = 20, render: bool = False,
+                   seed: int = 10_042):
     """Carga y evalúa un modelo PPO guardado."""
+    if n_episodes < 1 or seed < 0:
+        raise ValueError("Se necesita al menos un episodio y una semilla no negativa.")
     print(f"\nCargando modelo: {model_path}")
     model = PPO.load(model_path)
 
@@ -375,7 +384,7 @@ def evaluate_model(model_path: str, n_episodes: int = 20, render: bool = False):
     stats = {"rewards": [], "goals_A": [], "goals_B": [], "touches": []}
 
     for ep in range(n_episodes):
-        obs, _   = env.reset()
+        obs, _   = env.reset(seed=seed + ep)
         done     = False
         ep_r     = 0.0
         ep_touch = 0
@@ -385,7 +394,10 @@ def evaluate_model(model_path: str, n_episodes: int = 20, render: bool = False):
             obs, r, terminated, truncated, info = env.step(action)
             done      = terminated or truncated
             ep_r     += r
-            ep_touch += len(info["events"].get("touches", []))
+            ep_touch += sum(
+                bar_idx in env._team_bar_idxs
+                for bar_idx, _ in info["events"].get("touches", [])
+            )
             if render and ep == 0:
                 env.render()
 
@@ -397,11 +409,22 @@ def evaluate_model(model_path: str, n_episodes: int = 20, render: bool = False):
               f"Score A:{info['score']['A']} B:{info['score']['B']} | "
               f"toques={ep_touch}")
 
-    print(f"\n--- Resumen ({n_episodes} episodios) ---")
+    scored, conceded = np.array(stats["goals_A"]), np.array(stats["goals_B"])
+    stats["win_rate"] = float(np.mean(scored > conceded))
+    stats["draw_rate"] = float(np.mean(scored == conceded))
+    stats["loss_rate"] = float(np.mean(scored < conceded))
+    stats["points"] = stats["win_rate"] + 0.5 * stats["draw_rate"]
+    stats["goal_difference"] = float(np.mean(scored - conceded))
+    print(f"\n--- Resumen ({n_episodes} episodios, semilla {seed}) ---")
     print(f"  Reward medio:    {np.mean(stats['rewards']):.2f} +/- {np.std(stats['rewards']):.2f}")
     print(f"  Goles marcados:  {np.mean(stats['goals_A']):.2f}")
     print(f"  Goles recibidos: {np.mean(stats['goals_B']):.2f}")
     print(f"  Toques/episodio: {np.mean(stats['touches']):.1f}")
+    print(f"  Victorias:       {stats['win_rate']:.1%}")
+    print(f"  Empates:         {stats['draw_rate']:.1%}")
+    print(f"  Derrotas:        {stats['loss_rate']:.1%}")
+    print(f"  Puntos/partida:  {stats['points']:.3f}")
+    print(f"  Diferencia gol:  {stats['goal_difference']:.3f}")
     return stats
 
 
@@ -463,6 +486,12 @@ def main():
                     help="Entornos paralelos")
     ap.add_argument("--curriculum", action="store_true",
                     help="Usar entrenamiento curricular (fases de dificultad)")
+    ap.add_argument("--seed", type=int, default=42,
+                    help="Semilla de entrenamiento; evaluacion usa seed + 10000")
+    ap.add_argument("--save-dir", default="models",
+                    help="Directorio de modelos")
+    ap.add_argument("--log-dir", default="logs",
+                    help="Directorio de metricas y TensorBoard")
     ap.add_argument("--eval-only",  type=str,   default=None,
                     help="Ruta al modelo para solo evaluar (sin entrenar)")
     ap.add_argument("--plot-curve", action="store_true",
@@ -472,27 +501,32 @@ def main():
     args = ap.parse_args()
 
     if args.eval_only:
-        evaluate_model(args.eval_only, n_episodes=20, render=args.render_eval)
+        evaluate_model(args.eval_only, n_episodes=20, render=args.render_eval,
+                       seed=args.seed + 10_000)
 
     elif args.plot_curve:
-        plot_training_curve()
+        plot_training_curve(args.log_dir)
 
     else:
         t0    = time.time()
-        model = train_ppo(
+        train_ppo(
             total_timesteps = args.timesteps,
             n_envs          = args.n_envs,
             curriculum      = args.curriculum,
+            save_dir        = args.save_dir,
+            log_dir         = args.log_dir,
+            seed            = args.seed,
         )
         elapsed = time.time() - t0
         print(f"\nEntrenamiento completado en {elapsed/60:.1f} minutos.")
 
         # Evaluacion rapida del modelo entrenado
         print("\nEvaluando modelo entrenado...")
-        evaluate_model("models/foosball_ppo_final", n_episodes=10)
+        evaluate_model(os.path.join(args.save_dir, "foosball_ppo_final"),
+                       n_episodes=10, seed=args.seed + 10_000)
 
         print("\nPara ver el progreso en TensorBoard:")
-        print("  tensorboard --logdir logs")
+        print(f'  tensorboard --logdir "{args.log_dir}"')
 
 
 if __name__ == "__main__":

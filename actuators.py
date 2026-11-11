@@ -18,7 +18,6 @@ Control: posición objetivo normalizada en [-1, 1].
 """
 
 import numpy as np
-from dataclasses import dataclass
 from world import (
     LINEAR_RANGE, LINEAR_VMAX, LINEAR_AMAX,
     ANGULAR_OMEGA_MAX, ANGULAR_ALPHA_MAX,
@@ -172,7 +171,10 @@ class BarActuator:
             rng       = rng,
         )
 
-    def reset(self):
+    def reset(self, seed=None):
+        if seed is not None:
+            rng = np.random.default_rng(seed)
+            self._linear.rng = self._angular.rng = rng
         self._linear.reset(0.0)
         self._angular.reset(0.0)
 
@@ -220,9 +222,10 @@ class ActuatorBank:
             for s in seeds
         ]
 
-    def reset(self):
-        for act in self.actuators:
-            act.reset()
+    def reset(self, seed=None):
+        seeds = np.random.SeedSequence(seed).spawn(len(self)) if seed is not None else [None] * len(self)
+        for act, child_seed in zip(self.actuators, seeds):
+            act.reset(seed=child_seed)
 
     def set_commands(self, bar_idx: int, linear_cmd: float, angular_cmd: float):
         self.actuators[bar_idx].set_command(linear_cmd, angular_cmd)

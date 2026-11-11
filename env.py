@@ -14,16 +14,16 @@ Espacio de observación (36 dims, todos normalizados ≈ [-1, 1]):
 
 Espacio de acción (8 dims, [-1, 1]):
   Para cada barra del equipo A: [linear_cmd, angular_cmd]
-  Orden: GK(0), ATK(2), MID(4), DEF(6)
+  Orden: GK(0), DEF(1), MID(3), ATK(5)
 
 Para conectar hardware real:
-  Sobreescribir _apply_commands() y _read_sensors().
+  Sobreescribir _apply_agent_commands() y _get_obs().
 """
 
 import numpy as np
 from world import (
     WorldState, create_standard_world, get_team_bar_indices,
-    LINEAR_RANGE, MAX_BALL_SPEED,
+    LINEAR_RANGE,
 )
 from physics import PhysicsEngine
 from actuators import ActuatorBank
@@ -32,16 +32,13 @@ from reward import RewardConfig, compute_reward
 
 # Intentar importar gymnasium; si no, usar gym clásico como fallback
 try:
-    import gymnasium as gym
     from gymnasium import spaces
     GYM_VERSION = "gymnasium"
 except ImportError:
     try:
-        import gym
         from gym import spaces
         GYM_VERSION = "gym"
     except ImportError:
-        gym    = None
         spaces = None
         GYM_VERSION = "none"
 
@@ -137,6 +134,7 @@ class FoosballEnv:
         self.state   = create_standard_world()
         self.physics = PhysicsEngine(dt=dt, noise=noise)
         self.actuators = ActuatorBank(n_bars=8, dt=dt, add_noise=noise)
+        self._rng = np.random.default_rng()
 
         # Índices de barras del equipo controlado
         self._team_bar_idxs = get_team_bar_indices(controlled_team)
@@ -170,13 +168,16 @@ class FoosballEnv:
     # ------------------------------------------------------------------
 
     def reset(self, seed=None, options=None):
+        actuator_seed = None
         if seed is not None:
-            np.random.seed(seed)
+            self._rng = np.random.default_rng(seed)
+            self.physics.rng = np.random.default_rng(self._rng.integers(2**32))
+            actuator_seed = int(self._rng.integers(2**32))
 
-        vx0 = np.random.uniform(0.4, 1.0) * np.random.choice([-1, 1])
-        vy0 = np.random.uniform(-0.5, 0.5)
+        vx0 = self._rng.uniform(0.4, 1.0) * self._rng.choice([-1, 1])
+        vy0 = self._rng.uniform(-0.5, 0.5)
         self.state.reset(ball_vx=vx0, ball_vy=vy0)
-        self.actuators.reset()
+        self.actuators.reset(seed=actuator_seed)
 
         self._step_count     = 0
         self._episode_reward = 0.0
@@ -191,7 +192,7 @@ class FoosballEnv:
         Ejecuta un paso de simulación.
 
         action : ndarray shape (8,) — [lin0, ang0, lin1, ang1, lin2, ang2, lin3, ang3]
-                 para las 4 barras del equipo controlado (GK, ATK, MID, DEF).
+                 para las 4 barras del equipo controlado (GK, DEF, MID, ATK).
         """
         action = np.clip(action, -1.0, 1.0).astype(np.float32)
 
@@ -246,9 +247,8 @@ class FoosballEnv:
         # 7. Relanzar bola si se queda parada (velocidad < umbral)
         ball = self.state.ball
         if np.hypot(ball.vx, ball.vy) < 0.08:
-            rng = np.random.default_rng()
-            ball.vx = rng.choice([-1, 1]) * rng.uniform(0.4, 0.8)
-            ball.vy = rng.uniform(-0.4, 0.4)
+            ball.vx = self._rng.choice([-1, 1]) * self._rng.uniform(0.4, 0.8)
+            ball.vy = self._rng.uniform(-0.4, 0.4)
 
         # 8. Condiciones de fin
         terminated = events.get("ball_out", False)

@@ -29,7 +29,7 @@ from matplotlib.gridspec import GridSpec
 from collections import deque
 
 from env import FoosballEnv
-from world import get_team_bar_indices, LINEAR_RANGE, BALL_RADIUS, FOOT_LENGTH
+from world import BALL_RADIUS
 
 
 # ---------------------------------------------------------------------------

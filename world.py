@@ -2,7 +2,7 @@
 world.py
 --------
 Estado completo del sistema — futbolín tipo Madrid.
-Medidas reales: campo 120 x 68 cm, bola 35 mm de diámetro.
+Campo de referencia: Don Futbolín Madrid, 116 x 70 cm interiores.
 8 barras totales (4 por equipo), con posición lineal Y y ángulo de rotación.
 """
 
@@ -14,12 +14,13 @@ from typing import List
 # Constantes físicas del futbolín tipo Madrid
 # ---------------------------------------------------------------------------
 
-FIELD_LENGTH  = 1.20    # m  (eje X, largo)
-FIELD_WIDTH   = 0.68    # m  (eje Y, ancho)
+FIELD_LENGTH  = 1.16    # m  (eje X, largo)
+FIELD_WIDTH   = 0.70    # m  (eje Y, ancho)
+# shortcut: bola y portería estimadas, sustituir al medir la mesa real.
 BALL_RADIUS   = 0.0175  # m  (diámetro 35 mm)
 GOAL_WIDTH    = 0.20    # m  (abertura de portería, centrada en Y=0)
 
-# Recorrido lineal máximo de cada barra (±7 cm)
+# shortcut: recorrido uniforme estimado de ±7 cm, medir los topes de cada barra.
 LINEAR_RANGE  = 0.07    # m
 
 # Límites de actuador (usados también en physics y reward)
@@ -43,13 +44,14 @@ MAX_BALL_SPEED = 3.5    # m/s
 # Equipo A defiende portería izquierda (x_min), ataca hacia la derecha.
 # Equipo B defiende portería derecha  (x_max), ataca hacia la izquierda.
 #
-# Layout real (de izquierda a derecha):
+# Distribución (de izquierda a derecha):
 #   GK-A | DEF-A | ATK-B | MID-A | MID-B | ATK-A | DEF-B | GK-B
 #
 # Equipo A: GK(-0.50)  DEF(-0.36)  MID(-0.05)  ATK(+0.20)
 # Equipo B: ATK(-0.20) MID(+0.05)  DEF(+0.36)  GK(+0.50)
 # ---------------------------------------------------------------------------
 #  idx  x_pos   n_players  equipo  rol
+# shortcut: posiciones y separaciones de figuras aproximadas, sustituir al medir las barras.
 BAR_DEFINITIONS = [
     (-0.50, 1, 'A', 'GK'),    # 0  Portero A       — guarda portería izquierda
     (-0.36, 2, 'A', 'DEF'),   # 1  Defensa A        — protege su propia portería

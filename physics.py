@@ -16,8 +16,7 @@ Modela:
 import numpy as np
 from world import (
     WorldState, BallState, BarState, FieldConfig,
-    BALL_RADIUS, FOOT_LENGTH, PLAYER_HALF_WIDTH, PLAYER_DEPTH,
-    KICK_ANGLE_MAX, MAX_BALL_SPEED,
+    BALL_RADIUS, PLAYER_HALF_WIDTH, PLAYER_DEPTH, MAX_BALL_SPEED,
 )
 
 
@@ -107,12 +106,12 @@ class PhysicsEngine:
             events["touches"].extend(touches)
 
         # 5. Detección de gol
-        goal = self._check_goal(ball, field)
+        goal = self._check_goal(ball, field, prev_x, prev_y)
         if goal is not None:
             events["goal"]     = goal
             events["ball_out"] = True
-        elif ball.x < field.x_min - 0.05 or ball.x > field.x_max + 0.05:
-            events["ball_out"] = True
+        elif self._resolve_end_wall_bounce(ball, field):
+            events["wall_bounce"] = True
 
         # 6. Limitar velocidad máxima
         speed = np.hypot(ball.vx, ball.vy)
@@ -151,6 +150,27 @@ class PhysicsEngine:
             bounced = True
 
         return bounced
+
+    def _resolve_end_wall_bounce(self, ball: BallState, field: FieldConfig) -> bool:
+        if ball.x - BALL_RADIUS <= field.x_min:
+            ball.x = field.x_min + BALL_RADIUS
+            direction = 1.0
+        elif ball.x + BALL_RADIUS >= field.x_max:
+            ball.x = field.x_max - BALL_RADIUS
+            direction = -1.0
+        else:
+            return False
+
+        rest = RESTITUTION_WALL
+        if self.noise:
+            rest = float(np.clip(
+                rest + self.rng.uniform(-NOISE_RESTITUTION, NOISE_RESTITUTION),
+                0.3, 0.9,
+            ))
+        ball.vx = direction * abs(ball.vx) * rest
+        if self.noise:
+            ball.vy += self.rng.uniform(-NOISE_WALL_ANGLE, NOISE_WALL_ANGLE) * abs(ball.vx)
+        return True
 
     # ------------------------------------------------------------------
     # Colisión bola–barra  (swept detection)
@@ -300,15 +320,20 @@ class PhysicsEngine:
     # Detección de gol
     # ------------------------------------------------------------------
 
-    def _check_goal(self, ball: BallState, field: FieldConfig):
-        in_goal_y = field.goal_y_min <= ball.y <= field.goal_y_max
-
-        if ball.x - BALL_RADIUS <= field.x_min and in_goal_y:
-            return 'B'   # bola entró en portería A → gol de B
-
-        if ball.x + BALL_RADIUS >= field.x_max and in_goal_y:
-            return 'A'   # bola entró en portería B → gol de A
-
+    def _check_goal(self, ball: BallState, field: FieldConfig,
+                    prev_x: float, prev_y: float):
+        for team, line_x, direction in (
+            ('B', field.x_min + BALL_RADIUS, -1.0),
+            ('A', field.x_max - BALL_RADIUS, 1.0),
+        ):
+            if direction * (ball.x - line_x) < 0:
+                continue
+            dx = ball.x - prev_x
+            fraction = float(np.clip((line_x - prev_x) / dx, 0.0, 1.0)) if abs(dx) > 1e-9 else 1.0
+            crossing_y = prev_y + fraction * (ball.y - prev_y)
+            # La bola debe caber entre los postes en el instante del cruce.
+            if field.goal_y_min + BALL_RADIUS <= crossing_y <= field.goal_y_max - BALL_RADIUS:
+                return team
         return None
 
     # ------------------------------------------------------------------
