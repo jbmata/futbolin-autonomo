@@ -176,7 +176,9 @@ class FoosballEvalCallback(EvalCallback):
             wins, draws = scored > conceded, scored == conceded
             points = float(np.mean(wins + 0.5 * draws))
             goal_difference = float(np.mean(scored - conceded))
-            game_score = (points, goal_difference, float(np.mean(scored)), self.last_mean_reward)
+            # Con ~80 % de empates, los puntos casi no discriminan: la diferencia
+            # de goles va primero, y la recompensa solo desempata.
+            game_score = (goal_difference, float(np.mean(scored)), points, self.last_mean_reward)
             for name, value in (
                 ("win_rate", np.mean(wins)), ("draw_rate", np.mean(draws)),
                 ("loss_rate", np.mean(scored < conceded)), ("points", points),
@@ -204,13 +206,30 @@ class FoosballEvalCallback(EvalCallback):
 # Currículo de entrenamiento
 # ---------------------------------------------------------------------------
 
-def make_env_curriculum(phase: int, **base_kwargs):
+def final_reward_config(final_shaping: float = 0.0) -> RewardConfig:
+    """
+    Recompensa de la fase final. Con final_shaping=0 es la recompensa pura
+    (solo goles y penalizaciones de control). Con final_shaping=1 conserva los
+    auxiliares de la fase 1; valores intermedios los escalan linealmente.
+    """
+    if not 0.0 <= final_shaping <= 1.0:
+        raise ValueError("final_shaping debe estar entre 0 y 1.")
+    return RewardConfig(
+        proximity_scale=0.003 * final_shaping,
+        ball_direction_scale=0.01 * final_shaping,
+        touch_reward=0.05 * final_shaping,
+        forward_kick_reward=0.1 * final_shaping,
+    )
+
+
+def make_env_curriculum(phase: int, final_shaping: float = 0.0, **base_kwargs):
     """
     Crea un entorno con dificultad progresiva.
 
     Fase 0: Recompensa densa, oponente estático, episodios cortos.
     Fase 1: Añadir oponente heurístico, episodios más largos.
     Fase 2: Configuración completa, goles y penalizaciones de control.
+            final_shaping (0..1) conserva parte de los auxiliares de la fase 1.
     """
     if phase == 0:
         cfg = RewardConfig(
@@ -250,7 +269,7 @@ def make_env_curriculum(phase: int, **base_kwargs):
         )
 
     else:  # phase 2+
-        cfg = RewardConfig()
+        cfg = final_reward_config(final_shaping)
         return FoosballGymEnv(
             max_steps=750,
             opponent="heuristic",
@@ -271,6 +290,7 @@ def train_ppo(
     save_dir:        str = "models",
     log_dir:         str = "logs",
     seed:            int = 42,
+    final_shaping:   float = 0.0,
 ):
     phases = [0, 1, 2] if curriculum else [None]
     if total_timesteps < len(phases) or n_envs < 1 or seed < 0:
@@ -292,8 +312,10 @@ def train_ppo(
         steps = steps_per_phase + (remainder if final_phase else 0)
         phase_target = (model.num_timesteps if model is not None else 0) + steps
         label = f"phase{phase}" if curriculum else "direct"
-        env_fn = (partial(make_env_curriculum, phase=phase) if curriculum
-                  else partial(FoosballGymEnv, dt=0.02, max_steps=750))
+        env_fn = (partial(make_env_curriculum, phase=phase, final_shaping=final_shaping)
+                  if curriculum
+                  else partial(FoosballGymEnv, dt=0.02, max_steps=750,
+                               reward_config=final_reward_config(final_shaping)))
         train_env = make_vec_env(
             env_fn, n_envs=n_envs, seed=seed + i * n_envs,
             monitor_dir=os.path.join(log_dir, label),
@@ -488,6 +510,9 @@ def main():
                     help="Usar entrenamiento curricular (fases de dificultad)")
     ap.add_argument("--seed", type=int, default=42,
                     help="Semilla de entrenamiento; evaluacion usa seed + 10000")
+    ap.add_argument("--final-shaping", type=float, default=0.0,
+                    help="0..1: fraccion de los auxiliares de la fase 1 que se "
+                         "mantiene en la fase final (0 = recompensa pura)")
     ap.add_argument("--save-dir", default="models",
                     help="Directorio de modelos")
     ap.add_argument("--log-dir", default="logs",
@@ -516,6 +541,7 @@ def main():
             save_dir        = args.save_dir,
             log_dir         = args.log_dir,
             seed            = args.seed,
+            final_shaping   = args.final_shaping,
         )
         elapsed = time.time() - t0
         print(f"\nEntrenamiento completado en {elapsed/60:.1f} minutos.")

@@ -75,6 +75,18 @@ class TrainingTests(unittest.TestCase):
         self.assertTrue(all(cfg.ball_progress_scale == 0 for cfg in configs))
         self.assertEqual(configs[2].ball_in_atk_zone, 0.0)
 
+    def test_final_shaping_scales_phase1_auxiliaries(self):
+        phase1 = make_env_curriculum(1)._env.reward_config
+        full = make_env_curriculum(2, final_shaping=1.0)._env.reward_config
+        half = make_env_curriculum(2, final_shaping=0.5)._env.reward_config
+        for name in ("proximity_scale", "ball_direction_scale", "touch_reward", "forward_kick_reward"):
+            with self.subTest(component=name):
+                self.assertAlmostEqual(getattr(full, name), getattr(phase1, name))
+                self.assertAlmostEqual(getattr(half, name), getattr(phase1, name) / 2)
+        self.assertEqual(make_env_curriculum(2, final_shaping=0.0)._env.reward_config, RewardConfig())
+        with self.assertRaises(ValueError):
+            make_env_curriculum(2, final_shaping=1.5)
+
     def test_reward_progress_uses_field_length(self):
         state = create_standard_world()
         config = RewardConfig(ball_progress_scale=0.08)
@@ -136,7 +148,7 @@ class TrainingTests(unittest.TestCase):
                     self.assertEqual(model.save.call_count, 2)
                     evaluation([(1, 0), (0, 0)], 2)
                     self.assertEqual(model.save.call_count, 3)
-                    self.assertEqual(callback.best_game_score, (0.75, 0.5, 0.5, 2.0))
+                    self.assertEqual(callback.best_game_score, (0.5, 0.5, 0.75, 2.0))
                     self.assertEqual(reseed.call_args_list, [unittest.mock.call(123)] * 4)
                 with np.load(Path(directory) / "evaluations_goals.npz") as data:
                     self.assertEqual(data["goals"].shape, (4, 2, 2))
