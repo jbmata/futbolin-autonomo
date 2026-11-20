@@ -1,0 +1,4825 @@
+
+Entrenamiento PPO | pasos=500,000 | entornos=4 | semilla=42
+
+--- phase0 ---
+Using cpu device
+Logging to logs/ab_shaping0\ppo_phase0_1
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0.1      |
+|    touches_per_ep  | 4.7      |
+| rollout/           |          |
+|    ep_len_mean     | 297      |
+|    ep_rew_mean     | 6.51     |
+| time/              |          |
+|    fps             | 1016     |
+|    iterations      | 1        |
+|    time_elapsed    | 4        |
+|    total_timesteps | 4096     |
+---------------------------------
+Early stopping at step 2 due to reaching max kl: 0.04
+Eval num_timesteps=5000, episode_reward=9.90 +/- 1.97
+Episode length: 300.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 300         |
+|    mean_reward          | 9.9         |
+| time/                   |             |
+|    total_timesteps      | 5000        |
+| train/                  |             |
+|    approx_kl            | 0.036202624 |
+|    clip_fraction        | 0.186       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -1.32       |
+|    explained_variance   | -0.0778     |
+|    learning_rate        | 0.000298    |
+|    loss                 | 0.0139      |
+|    n_updates            | 3           |
+|    policy_gradient_loss | -0.02       |
+|    std                  | 0.135       |
+|    value_loss           | 0.13        |
+-----------------------------------------
+New best mean reward!
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+Nuevo mejor resultado: puntos=0.500, diferencia de goles=0.000
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    touches_per_ep  | 5        |
+| rollout/           |          |
+|    ep_len_mean     | 281      |
+|    ep_rew_mean     | 6.43     |
+| time/              |          |
+|    fps             | 796      |
+|    iterations      | 2        |
+|    time_elapsed    | 10       |
+|    total_timesteps | 8192     |
+---------------------------------
+Early stopping at step 3 due to reaching max kl: 0.03
+Eval num_timesteps=10000, episode_reward=10.13 +/- 1.99
+Episode length: 300.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 300         |
+|    mean_reward          | 10.1        |
+| game/                   |             |
+|    goals_conceded       | 0.2         |
+|    goals_scored         | 0.1         |
+|    touches_per_ep       | 3.8         |
+| time/                   |             |
+|    total_timesteps      | 10000       |
+| train/                  |             |
+|    approx_kl            | 0.027910665 |
+|    clip_fraction        | 0.193       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -1.04       |
+|    explained_variance   | 0.0356      |
+|    learning_rate        | 0.000296    |
+|    loss                 | 0.0248      |
+|    n_updates            | 7           |
+|    policy_gradient_loss | -0.0161     |
+|    std                  | 0.135       |
+|    value_loss           | 0.125       |
+-----------------------------------------
+New best mean reward!
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+Nuevo mejor resultado: puntos=0.500, diferencia de goles=0.000
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0.2      |
+|    touches_per_ep  | 4.3      |
+| rollout/           |          |
+|    ep_len_mean     | 282      |
+|    ep_rew_mean     | 6.77     |
+| time/              |          |
+|    fps             | 775      |
+|    iterations      | 3        |
+|    time_elapsed    | 15       |
+|    total_timesteps | 12288    |
+---------------------------------
+Early stopping at step 2 due to reaching max kl: 0.04
+Eval num_timesteps=15000, episode_reward=11.26 +/- 3.06
+Episode length: 300.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 300         |
+|    mean_reward          | 11.3        |
+| game/                   |             |
+|    goals_conceded       | 0           |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 5.4         |
+| time/                   |             |
+|    total_timesteps      | 15000       |
+| train/                  |             |
+|    approx_kl            | 0.027250964 |
+|    clip_fraction        | 0.17        |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -0.978      |
+|    explained_variance   | 0.0137      |
+|    learning_rate        | 0.000293    |
+|    loss                 | 0.00835     |
+|    n_updates            | 10          |
+|    policy_gradient_loss | -0.0209     |
+|    std                  | 0.135       |
+|    value_loss           | 0.145       |
+-----------------------------------------
+New best mean reward!
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+Nuevo mejor resultado: puntos=0.500, diferencia de goles=0.000
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 286      |
+|    ep_rew_mean     | 6.75     |
+| time/              |          |
+|    fps             | 744      |
+|    iterations      | 4        |
+|    time_elapsed    | 22       |
+|    total_timesteps | 16384    |
+---------------------------------
+Early stopping at step 2 due to reaching max kl: 0.03
+Eval num_timesteps=20000, episode_reward=11.07 +/- 2.44
+Episode length: 300.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 300         |
+|    mean_reward          | 11.1        |
+| game/                   |             |
+|    goals_conceded       | 0           |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 4.6         |
+| time/                   |             |
+|    total_timesteps      | 20000       |
+| train/                  |             |
+|    approx_kl            | 0.024355594 |
+|    clip_fraction        | 0.174       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -1.45       |
+|    explained_variance   | 0.11        |
+|    learning_rate        | 0.000291    |
+|    loss                 | -0.0121     |
+|    n_updates            | 13          |
+|    policy_gradient_loss | -0.0183     |
+|    std                  | 0.135       |
+|    value_loss           | 0.0582      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 289      |
+|    ep_rew_mean     | 6.75     |
+| time/              |          |
+|    fps             | 743      |
+|    iterations      | 5        |
+|    time_elapsed    | 27       |
+|    total_timesteps | 20480    |
+---------------------------------
+Early stopping at step 1 due to reaching max kl: 0.03
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0           |
+|    goals_scored         | 0.1         |
+|    touches_per_ep       | 4.3         |
+| rollout/                |             |
+|    ep_len_mean          | 288         |
+|    ep_rew_mean          | 6.69        |
+| time/                   |             |
+|    fps                  | 776         |
+|    iterations           | 6           |
+|    time_elapsed         | 31          |
+|    total_timesteps      | 24576       |
+| train/                  |             |
+|    approx_kl            | 0.019428955 |
+|    clip_fraction        | 0.106       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -1.19       |
+|    explained_variance   | 0.0533      |
+|    learning_rate        | 0.000289    |
+|    loss                 | -0.0124     |
+|    n_updates            | 15          |
+|    policy_gradient_loss | -0.0135     |
+|    std                  | 0.135       |
+|    value_loss           | 0.0521      |
+-----------------------------------------
+Early stopping at step 1 due to reaching max kl: 0.03
+Eval num_timesteps=25000, episode_reward=10.72 +/- 1.99
+Episode length: 300.00 +/- 0.00
+----------------------------------------
+| eval/                   |            |
+|    mean_ep_length       | 300        |
+|    mean_reward          | 10.7       |
+| time/                   |            |
+|    total_timesteps      | 25000      |
+| train/                  |            |
+|    approx_kl            | 0.02382853 |
+|    clip_fraction        | 0.176      |
+|    clip_range           | 0.2        |
+|    entropy_loss         | -1.42      |
+|    explained_variance   | 0.052      |
+|    learning_rate        | 0.000287   |
+|    loss                 | 0.0447     |
+|    n_updates            | 17         |
+|    policy_gradient_loss | -0.0157    |
+|    std                  | 0.135      |
+|    value_loss           | 0.0843     |
+----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0.1      |
+|    goals_scored    | 0        |
+|    touches_per_ep  | 4.5      |
+| rollout/           |          |
+|    ep_len_mean     | 290      |
+|    ep_rew_mean     | 6.84     |
+| time/              |          |
+|    fps             | 753      |
+|    iterations      | 7        |
+|    time_elapsed    | 38       |
+|    total_timesteps | 28672    |
+---------------------------------
+Early stopping at step 1 due to reaching max kl: 0.03
+Eval num_timesteps=30000, episode_reward=10.68 +/- 1.64
+Episode length: 300.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 300         |
+|    mean_reward          | 10.7        |
+| game/                   |             |
+|    goals_conceded       | 0           |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 5.5         |
+| time/                   |             |
+|    total_timesteps      | 30000       |
+| train/                  |             |
+|    approx_kl            | 0.018073356 |
+|    clip_fraction        | 0.131       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -0.992      |
+|    explained_variance   | 0.174       |
+|    learning_rate        | 0.000285    |
+|    loss                 | -0.0232     |
+|    n_updates            | 19          |
+|    policy_gradient_loss | -0.0162     |
+|    std                  | 0.135       |
+|    value_loss           | 0.0511      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0.1      |
+|    touches_per_ep  | 4        |
+| rollout/           |          |
+|    ep_len_mean     | 290      |
+|    ep_rew_mean     | 6.85     |
+| time/              |          |
+|    fps             | 729      |
+|    iterations      | 8        |
+|    time_elapsed    | 44       |
+|    total_timesteps | 32768    |
+---------------------------------
+Early stopping at step 3 due to reaching max kl: 0.03
+Eval num_timesteps=35000, episode_reward=10.63 +/- 1.65
+Episode length: 300.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 300         |
+|    mean_reward          | 10.6        |
+| time/                   |             |
+|    total_timesteps      | 35000       |
+| train/                  |             |
+|    approx_kl            | 0.026404371 |
+|    clip_fraction        | 0.224       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -1.58       |
+|    explained_variance   | 0.136       |
+|    learning_rate        | 0.000282    |
+|    loss                 | 0.0357      |
+|    n_updates            | 23          |
+|    policy_gradient_loss | -0.0235     |
+|    std                  | 0.135       |
+|    value_loss           | 0.0676      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    touches_per_ep  | 5.6      |
+| rollout/           |          |
+|    ep_len_mean     | 293      |
+|    ep_rew_mean     | 7.03     |
+| time/              |          |
+|    fps             | 733      |
+|    iterations      | 9        |
+|    time_elapsed    | 50       |
+|    total_timesteps | 36864    |
+---------------------------------
+Early stopping at step 2 due to reaching max kl: 0.03
+Eval num_timesteps=40000, episode_reward=10.37 +/- 1.45
+Episode length: 300.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 300         |
+|    mean_reward          | 10.4        |
+| game/                   |             |
+|    goals_conceded       | 0.2         |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 5           |
+| time/                   |             |
+|    total_timesteps      | 40000       |
+| train/                  |             |
+|    approx_kl            | 0.027579233 |
+|    clip_fraction        | 0.184       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -1.21       |
+|    explained_variance   | 0.124       |
+|    learning_rate        | 0.00028     |
+|    loss                 | -0.0171     |
+|    n_updates            | 26          |
+|    policy_gradient_loss | -0.0187     |
+|    std                  | 0.135       |
+|    value_loss           | 0.0753      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 296      |
+|    ep_rew_mean     | 6.93     |
+| time/              |          |
+|    fps             | 739      |
+|    iterations      | 10       |
+|    time_elapsed    | 55       |
+|    total_timesteps | 40960    |
+---------------------------------
+Early stopping at step 1 due to reaching max kl: 0.04
+Eval num_timesteps=45000, episode_reward=9.36 +/- 1.80
+Episode length: 300.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 300         |
+|    mean_reward          | 9.36        |
+| game/                   |             |
+|    goals_conceded       | 0           |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 6.4         |
+| time/                   |             |
+|    total_timesteps      | 45000       |
+| train/                  |             |
+|    approx_kl            | 0.024755925 |
+|    clip_fraction        | 0.153       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -1.47       |
+|    explained_variance   | 0.238       |
+|    learning_rate        | 0.000278    |
+|    loss                 | -0.0333     |
+|    n_updates            | 28          |
+|    policy_gradient_loss | -0.0177     |
+|    std                  | 0.135       |
+|    value_loss           | 0.0349      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 296      |
+|    ep_rew_mean     | 7.05     |
+| time/              |          |
+|    fps             | 743      |
+|    iterations      | 11       |
+|    time_elapsed    | 60       |
+|    total_timesteps | 45056    |
+---------------------------------
+Early stopping at step 1 due to reaching max kl: 0.03
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0.1         |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 4.3         |
+| rollout/                |             |
+|    ep_len_mean          | 294         |
+|    ep_rew_mean          | 7.03        |
+| time/                   |             |
+|    fps                  | 767         |
+|    iterations           | 12          |
+|    time_elapsed         | 64          |
+|    total_timesteps      | 49152       |
+| train/                  |             |
+|    approx_kl            | 0.018874757 |
+|    clip_fraction        | 0.132       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -1.77       |
+|    explained_variance   | 0.334       |
+|    learning_rate        | 0.000276    |
+|    loss                 | -0.00828    |
+|    n_updates            | 30          |
+|    policy_gradient_loss | -0.0136     |
+|    std                  | 0.134       |
+|    value_loss           | 0.0553      |
+-----------------------------------------
+Early stopping at step 1 due to reaching max kl: 0.04
+Eval num_timesteps=50000, episode_reward=9.98 +/- 2.60
+Episode length: 300.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 300         |
+|    mean_reward          | 9.98        |
+| time/                   |             |
+|    total_timesteps      | 50000       |
+| train/                  |             |
+|    approx_kl            | 0.025532924 |
+|    clip_fraction        | 0.157       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -1.89       |
+|    explained_variance   | 0.265       |
+|    learning_rate        | 0.000273    |
+|    loss                 | -0.0112     |
+|    n_updates            | 32          |
+|    policy_gradient_loss | -0.0145     |
+|    std                  | 0.134       |
+|    value_loss           | 0.0588      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0.1      |
+|    goals_scored    | 0.2      |
+|    touches_per_ep  | 4.6      |
+| rollout/           |          |
+|    ep_len_mean     | 293      |
+|    ep_rew_mean     | 7.08     |
+| time/              |          |
+|    fps             | 768      |
+|    iterations      | 13       |
+|    time_elapsed    | 69       |
+|    total_timesteps | 53248    |
+---------------------------------
+Early stopping at step 1 due to reaching max kl: 0.03
+Eval num_timesteps=55000, episode_reward=10.61 +/- 3.05
+Episode length: 300.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 300         |
+|    mean_reward          | 10.6        |
+| time/                   |             |
+|    total_timesteps      | 55000       |
+| train/                  |             |
+|    approx_kl            | 0.023434615 |
+|    clip_fraction        | 0.175       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -1.95       |
+|    explained_variance   | 0.101       |
+|    learning_rate        | 0.000271    |
+|    loss                 | 0.000933    |
+|    n_updates            | 34          |
+|    policy_gradient_loss | -0.0128     |
+|    std                  | 0.134       |
+|    value_loss           | 0.11        |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    touches_per_ep  | 4.7      |
+| rollout/           |          |
+|    ep_len_mean     | 292      |
+|    ep_rew_mean     | 7        |
+| time/              |          |
+|    fps             | 770      |
+|    iterations      | 14       |
+|    time_elapsed    | 74       |
+|    total_timesteps | 57344    |
+---------------------------------
+Early stopping at step 1 due to reaching max kl: 0.03
+Eval num_timesteps=60000, episode_reward=11.16 +/- 1.67
+Episode length: 300.00 +/- 0.00
+----------------------------------------
+| eval/                   |            |
+|    mean_ep_length       | 300        |
+|    mean_reward          | 11.2       |
+| game/                   |            |
+|    goals_conceded       | 0.1        |
+|    goals_scored         | 0          |
+|    touches_per_ep       | 6.7        |
+| time/                   |            |
+|    total_timesteps      | 60000      |
+| train/                  |            |
+|    approx_kl            | 0.02269303 |
+|    clip_fraction        | 0.131      |
+|    clip_range           | 0.2        |
+|    entropy_loss         | -1.98      |
+|    explained_variance   | 0.0787     |
+|    learning_rate        | 0.000269   |
+|    loss                 | 0.00371    |
+|    n_updates            | 36         |
+|    policy_gradient_loss | -0.0158    |
+|    std                  | 0.134      |
+|    value_loss           | 0.0667     |
+----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 292      |
+|    ep_rew_mean     | 7.17     |
+| time/              |          |
+|    fps             | 771      |
+|    iterations      | 15       |
+|    time_elapsed    | 79       |
+|    total_timesteps | 61440    |
+---------------------------------
+Early stopping at step 1 due to reaching max kl: 0.03
+Eval num_timesteps=65000, episode_reward=11.81 +/- 0.95
+Episode length: 300.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 300         |
+|    mean_reward          | 11.8        |
+| game/                   |             |
+|    goals_conceded       | 0           |
+|    goals_scored         | 0.1         |
+|    touches_per_ep       | 5.9         |
+| time/                   |             |
+|    total_timesteps      | 65000       |
+| train/                  |             |
+|    approx_kl            | 0.024478633 |
+|    clip_fraction        | 0.187       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -1.81       |
+|    explained_variance   | 0.248       |
+|    learning_rate        | 0.000267    |
+|    loss                 | -0.0131     |
+|    n_updates            | 38          |
+|    policy_gradient_loss | -0.0182     |
+|    std                  | 0.134       |
+|    value_loss           | 0.051       |
+-----------------------------------------
+New best mean reward!
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+Nuevo mejor resultado: puntos=0.500, diferencia de goles=0.000
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 293      |
+|    ep_rew_mean     | 7.16     |
+| time/              |          |
+|    fps             | 764      |
+|    iterations      | 16       |
+|    time_elapsed    | 85       |
+|    total_timesteps | 65536    |
+---------------------------------
+Early stopping at step 1 due to reaching max kl: 0.03
+----------------------------------------
+| game/                   |            |
+|    goals_conceded       | 0          |
+|    goals_scored         | 0          |
+|    touches_per_ep       | 5.7        |
+| rollout/                |            |
+|    ep_len_mean          | 293        |
+|    ep_rew_mean          | 7.14       |
+| time/                   |            |
+|    fps                  | 744        |
+|    iterations           | 17         |
+|    time_elapsed         | 93         |
+|    total_timesteps      | 69632      |
+| train/                  |            |
+|    approx_kl            | 0.02226673 |
+|    clip_fraction        | 0.135      |
+|    clip_range           | 0.2        |
+|    entropy_loss         | -2.14      |
+|    explained_variance   | 0.271      |
+|    learning_rate        | 0.000265   |
+|    loss                 | 0.0404     |
+|    n_updates            | 40         |
+|    policy_gradient_loss | -0.0147    |
+|    std                  | 0.134      |
+|    value_loss           | 0.0653     |
+----------------------------------------
+Early stopping at step 2 due to reaching max kl: 0.03
+Eval num_timesteps=70000, episode_reward=11.19 +/- 0.77
+Episode length: 300.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 300         |
+|    mean_reward          | 11.2        |
+| time/                   |             |
+|    total_timesteps      | 70000       |
+| train/                  |             |
+|    approx_kl            | 0.026586534 |
+|    clip_fraction        | 0.214       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -2.41       |
+|    explained_variance   | 0.49        |
+|    learning_rate        | 0.000262    |
+|    loss                 | -0.0238     |
+|    n_updates            | 43          |
+|    policy_gradient_loss | -0.0179     |
+|    std                  | 0.134       |
+|    value_loss           | 0.0446      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0.1      |
+|    goals_scored    | 0        |
+|    touches_per_ep  | 6.3      |
+| rollout/           |          |
+|    ep_len_mean     | 293      |
+|    ep_rew_mean     | 7.12     |
+| time/              |          |
+|    fps             | 722      |
+|    iterations      | 18       |
+|    time_elapsed    | 101      |
+|    total_timesteps | 73728    |
+---------------------------------
+Early stopping at step 1 due to reaching max kl: 0.03
+Eval num_timesteps=75000, episode_reward=11.42 +/- 0.98
+Episode length: 300.00 +/- 0.00
+----------------------------------------
+| eval/                   |            |
+|    mean_ep_length       | 300        |
+|    mean_reward          | 11.4       |
+| time/                   |            |
+|    total_timesteps      | 75000      |
+| train/                  |            |
+|    approx_kl            | 0.01895695 |
+|    clip_fraction        | 0.124      |
+|    clip_range           | 0.2        |
+|    entropy_loss         | -2.23      |
+|    explained_variance   | 0.379      |
+|    learning_rate        | 0.00026    |
+|    loss                 | 0.0128     |
+|    n_updates            | 45         |
+|    policy_gradient_loss | -0.0138    |
+|    std                  | 0.134      |
+|    value_loss           | 0.0645     |
+----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    touches_per_ep  | 2.1      |
+| rollout/           |          |
+|    ep_len_mean     | 295      |
+|    ep_rew_mean     | 7.08     |
+| time/              |          |
+|    fps             | 710      |
+|    iterations      | 19       |
+|    time_elapsed    | 109      |
+|    total_timesteps | 77824    |
+---------------------------------
+Early stopping at step 2 due to reaching max kl: 0.03
+Eval num_timesteps=80000, episode_reward=9.93 +/- 2.38
+Episode length: 300.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 300         |
+|    mean_reward          | 9.93        |
+| game/                   |             |
+|    goals_conceded       | 0           |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 6.4         |
+| time/                   |             |
+|    total_timesteps      | 80000       |
+| train/                  |             |
+|    approx_kl            | 0.025821902 |
+|    clip_fraction        | 0.191       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -2.6        |
+|    explained_variance   | 0.682       |
+|    learning_rate        | 0.000258    |
+|    loss                 | -0.034      |
+|    n_updates            | 48          |
+|    policy_gradient_loss | -0.0163     |
+|    std                  | 0.134       |
+|    value_loss           | 0.0332      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 293      |
+|    ep_rew_mean     | 7.15     |
+| time/              |          |
+|    fps             | 707      |
+|    iterations      | 20       |
+|    time_elapsed    | 115      |
+|    total_timesteps | 81920    |
+---------------------------------
+Early stopping at step 1 due to reaching max kl: 0.03
+Eval num_timesteps=85000, episode_reward=10.35 +/- 1.91
+Episode length: 300.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 300         |
+|    mean_reward          | 10.3        |
+| game/                   |             |
+|    goals_conceded       | 0.1         |
+|    goals_scored         | 0.1         |
+|    touches_per_ep       | 8.6         |
+| time/                   |             |
+|    total_timesteps      | 85000       |
+| train/                  |             |
+|    approx_kl            | 0.022571899 |
+|    clip_fraction        | 0.166       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -2.12       |
+|    explained_variance   | 0.256       |
+|    learning_rate        | 0.000256    |
+|    loss                 | 0.0225      |
+|    n_updates            | 50          |
+|    policy_gradient_loss | -0.0168     |
+|    std                  | 0.134       |
+|    value_loss           | 0.109       |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    touches_per_ep  | 5.9      |
+| rollout/           |          |
+|    ep_len_mean     | 295      |
+|    ep_rew_mean     | 7.37     |
+| time/              |          |
+|    fps             | 707      |
+|    iterations      | 21       |
+|    time_elapsed    | 121      |
+|    total_timesteps | 86016    |
+---------------------------------
+Early stopping at step 1 due to reaching max kl: 0.04
+Eval num_timesteps=90000, episode_reward=9.98 +/- 2.19
+Episode length: 300.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 300         |
+|    mean_reward          | 9.98        |
+| game/                   |             |
+|    goals_conceded       | 0           |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 6.4         |
+| time/                   |             |
+|    total_timesteps      | 90000       |
+| train/                  |             |
+|    approx_kl            | 0.023382846 |
+|    clip_fraction        | 0.164       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -2.31       |
+|    explained_variance   | 0.495       |
+|    learning_rate        | 0.000254    |
+|    loss                 | -0.00822    |
+|    n_updates            | 52          |
+|    policy_gradient_loss | -0.0165     |
+|    std                  | 0.134       |
+|    value_loss           | 0.0446      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 295      |
+|    ep_rew_mean     | 7.15     |
+| time/              |          |
+|    fps             | 708      |
+|    iterations      | 22       |
+|    time_elapsed    | 127      |
+|    total_timesteps | 90112    |
+---------------------------------
+Early stopping at step 2 due to reaching max kl: 0.03
+----------------------------------------
+| game/                   |            |
+|    goals_conceded       | 0          |
+|    goals_scored         | 0          |
+|    touches_per_ep       | 4          |
+| rollout/                |            |
+|    ep_len_mean          | 296        |
+|    ep_rew_mean          | 7.09       |
+| time/                   |            |
+|    fps                  | 719        |
+|    iterations           | 23         |
+|    time_elapsed         | 130        |
+|    total_timesteps      | 94208      |
+| train/                  |            |
+|    approx_kl            | 0.03071351 |
+|    clip_fraction        | 0.188      |
+|    clip_range           | 0.2        |
+|    entropy_loss         | -2.47      |
+|    explained_variance   | 0.61       |
+|    learning_rate        | 0.000251   |
+|    loss                 | -0.014     |
+|    n_updates            | 55         |
+|    policy_gradient_loss | -0.0187    |
+|    std                  | 0.134      |
+|    value_loss           | 0.0372     |
+----------------------------------------
+Early stopping at step 1 due to reaching max kl: 0.03
+Eval num_timesteps=95000, episode_reward=10.50 +/- 1.71
+Episode length: 300.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 300         |
+|    mean_reward          | 10.5        |
+| game/                   |             |
+|    goals_conceded       | 0           |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 6.2         |
+| time/                   |             |
+|    total_timesteps      | 95000       |
+| train/                  |             |
+|    approx_kl            | 0.023144972 |
+|    clip_fraction        | 0.198       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -2.51       |
+|    explained_variance   | 0.749       |
+|    learning_rate        | 0.000249    |
+|    loss                 | -0.0312     |
+|    n_updates            | 57          |
+|    policy_gradient_loss | -0.0196     |
+|    std                  | 0.134       |
+|    value_loss           | 0.032       |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    touches_per_ep  | 5.4      |
+| rollout/           |          |
+|    ep_len_mean     | 296      |
+|    ep_rew_mean     | 7.11     |
+| time/              |          |
+|    fps             | 713      |
+|    iterations      | 24       |
+|    time_elapsed    | 137      |
+|    total_timesteps | 98304    |
+---------------------------------
+Early stopping at step 2 due to reaching max kl: 0.04
+Eval num_timesteps=100000, episode_reward=10.93 +/- 1.99
+Episode length: 300.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 300         |
+|    mean_reward          | 10.9        |
+| game/                   |             |
+|    goals_conceded       | 0.1         |
+|    goals_scored         | 0.1         |
+|    touches_per_ep       | 4.7         |
+| time/                   |             |
+|    total_timesteps      | 100000      |
+| train/                  |             |
+|    approx_kl            | 0.024139786 |
+|    clip_fraction        | 0.175       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -2.62       |
+|    explained_variance   | 0.818       |
+|    learning_rate        | 0.000247    |
+|    loss                 | -0.0375     |
+|    n_updates            | 60          |
+|    policy_gradient_loss | -0.0181     |
+|    std                  | 0.134       |
+|    value_loss           | 0.0298      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 294      |
+|    ep_rew_mean     | 7.07     |
+| time/              |          |
+|    fps             | 709      |
+|    iterations      | 25       |
+|    time_elapsed    | 144      |
+|    total_timesteps | 102400   |
+---------------------------------
+Early stopping at step 1 due to reaching max kl: 0.03
+Eval num_timesteps=105000, episode_reward=10.28 +/- 1.39
+Episode length: 300.00 +/- 0.00
+----------------------------------------
+| eval/                   |            |
+|    mean_ep_length       | 300        |
+|    mean_reward          | 10.3       |
+| game/                   |            |
+|    goals_conceded       | 0.1        |
+|    goals_scored         | 0          |
+|    touches_per_ep       | 5.1        |
+| time/                   |            |
+|    total_timesteps      | 105000     |
+| train/                  |            |
+|    approx_kl            | 0.02236522 |
+|    clip_fraction        | 0.182      |
+|    clip_range           | 0.2        |
+|    entropy_loss         | -2.67      |
+|    explained_variance   | 0.507      |
+|    learning_rate        | 0.000245   |
+|    loss                 | 0.0126     |
+|    n_updates            | 62         |
+|    policy_gradient_loss | -0.0166    |
+|    std                  | 0.134      |
+|    value_loss           | 0.0856     |
+----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0.1      |
+|    goals_scored    | 0        |
+|    touches_per_ep  | 4.3      |
+| rollout/           |          |
+|    ep_len_mean     | 292      |
+|    ep_rew_mean     | 7.15     |
+| time/              |          |
+|    fps             | 709      |
+|    iterations      | 26       |
+|    time_elapsed    | 150      |
+|    total_timesteps | 106496   |
+---------------------------------
+Early stopping at step 1 due to reaching max kl: 0.03
+Eval num_timesteps=110000, episode_reward=10.61 +/- 1.88
+Episode length: 300.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 300         |
+|    mean_reward          | 10.6        |
+| game/                   |             |
+|    goals_conceded       | 0.2         |
+|    goals_scored         | 0.1         |
+|    touches_per_ep       | 5.3         |
+| time/                   |             |
+|    total_timesteps      | 110000      |
+| train/                  |             |
+|    approx_kl            | 0.021749249 |
+|    clip_fraction        | 0.164       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -2.6        |
+|    explained_variance   | 0.332       |
+|    learning_rate        | 0.000242    |
+|    loss                 | 0.00229     |
+|    n_updates            | 64          |
+|    policy_gradient_loss | -0.0139     |
+|    std                  | 0.133       |
+|    value_loss           | 0.106       |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 290      |
+|    ep_rew_mean     | 7.14     |
+| time/              |          |
+|    fps             | 683      |
+|    iterations      | 27       |
+|    time_elapsed    | 161      |
+|    total_timesteps | 110592   |
+---------------------------------
+Early stopping at step 1 due to reaching max kl: 0.03
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0.1         |
+|    goals_scored         | 0.2         |
+|    touches_per_ep       | 4.4         |
+| rollout/                |             |
+|    ep_len_mean          | 289         |
+|    ep_rew_mean          | 6.91        |
+| time/                   |             |
+|    fps                  | 684         |
+|    iterations           | 28          |
+|    time_elapsed         | 167         |
+|    total_timesteps      | 114688      |
+| train/                  |             |
+|    approx_kl            | 0.020279918 |
+|    clip_fraction        | 0.159       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -2.77       |
+|    explained_variance   | 0.376       |
+|    learning_rate        | 0.00024     |
+|    loss                 | -0.00738    |
+|    n_updates            | 66          |
+|    policy_gradient_loss | -0.0155     |
+|    std                  | 0.133       |
+|    value_loss           | 0.092       |
+-----------------------------------------
+Early stopping at step 1 due to reaching max kl: 0.03
+Eval num_timesteps=115000, episode_reward=9.29 +/- 2.06
+Episode length: 300.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 300         |
+|    mean_reward          | 9.29        |
+| time/                   |             |
+|    total_timesteps      | 115000      |
+| train/                  |             |
+|    approx_kl            | 0.020130893 |
+|    clip_fraction        | 0.137       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -2.57       |
+|    explained_variance   | 0.264       |
+|    learning_rate        | 0.000238    |
+|    loss                 | -0.000411   |
+|    n_updates            | 68          |
+|    policy_gradient_loss | -0.0137     |
+|    std                  | 0.133       |
+|    value_loss           | 0.0947      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0.1      |
+|    goals_scored    | 0        |
+|    touches_per_ep  | 5.2      |
+| rollout/           |          |
+|    ep_len_mean     | 288      |
+|    ep_rew_mean     | 6.91     |
+| time/              |          |
+|    fps             | 672      |
+|    iterations      | 29       |
+|    time_elapsed    | 176      |
+|    total_timesteps | 118784   |
+---------------------------------
+Early stopping at step 1 due to reaching max kl: 0.03
+Eval num_timesteps=120000, episode_reward=9.77 +/- 1.44
+Episode length: 300.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 300         |
+|    mean_reward          | 9.77        |
+| time/                   |             |
+|    total_timesteps      | 120000      |
+| train/                  |             |
+|    approx_kl            | 0.023232937 |
+|    clip_fraction        | 0.182       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -2.8        |
+|    explained_variance   | 0.406       |
+|    learning_rate        | 0.000236    |
+|    loss                 | -0.00862    |
+|    n_updates            | 70          |
+|    policy_gradient_loss | -0.0154     |
+|    std                  | 0.133       |
+|    value_loss           | 0.0626      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    touches_per_ep  | 5.3      |
+| rollout/           |          |
+|    ep_len_mean     | 288      |
+|    ep_rew_mean     | 6.85     |
+| time/              |          |
+|    fps             | 668      |
+|    iterations      | 30       |
+|    time_elapsed    | 183      |
+|    total_timesteps | 122880   |
+---------------------------------
+Early stopping at step 2 due to reaching max kl: 0.03
+Eval num_timesteps=125000, episode_reward=8.44 +/- 2.20
+Episode length: 300.00 +/- 0.00
+----------------------------------------
+| eval/                   |            |
+|    mean_ep_length       | 300        |
+|    mean_reward          | 8.44       |
+| game/                   |            |
+|    goals_conceded       | 0          |
+|    goals_scored         | 0          |
+|    touches_per_ep       | 4.5        |
+| time/                   |            |
+|    total_timesteps      | 125000     |
+| train/                  |            |
+|    approx_kl            | 0.02638381 |
+|    clip_fraction        | 0.217      |
+|    clip_range           | 0.2        |
+|    entropy_loss         | -2.94      |
+|    explained_variance   | 0.398      |
+|    learning_rate        | 0.000234   |
+|    loss                 | -0.0146    |
+|    n_updates            | 73         |
+|    policy_gradient_loss | -0.0209    |
+|    std                  | 0.133      |
+|    value_loss           | 0.0552     |
+----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    touches_per_ep  | 6.9      |
+| rollout/           |          |
+|    ep_len_mean     | 288      |
+|    ep_rew_mean     | 6.94     |
+| time/              |          |
+|    fps             | 665      |
+|    iterations      | 31       |
+|    time_elapsed    | 190      |
+|    total_timesteps | 126976   |
+---------------------------------
+Early stopping at step 2 due to reaching max kl: 0.04
+Eval num_timesteps=130000, episode_reward=9.49 +/- 1.92
+Episode length: 300.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 300         |
+|    mean_reward          | 9.49        |
+| game/                   |             |
+|    goals_conceded       | 0.1         |
+|    goals_scored         | 0.1         |
+|    touches_per_ep       | 4.8         |
+| time/                   |             |
+|    total_timesteps      | 130000      |
+| train/                  |             |
+|    approx_kl            | 0.026220964 |
+|    clip_fraction        | 0.208       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -2.74       |
+|    explained_variance   | 0.477       |
+|    learning_rate        | 0.000231    |
+|    loss                 | -0.0356     |
+|    n_updates            | 76          |
+|    policy_gradient_loss | -0.0208     |
+|    std                  | 0.133       |
+|    value_loss           | 0.0387      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 288      |
+|    ep_rew_mean     | 6.94     |
+| time/              |          |
+|    fps             | 664      |
+|    iterations      | 32       |
+|    time_elapsed    | 197      |
+|    total_timesteps | 131072   |
+---------------------------------
+Early stopping at step 1 due to reaching max kl: 0.03
+Eval num_timesteps=135000, episode_reward=10.29 +/- 1.68
+Episode length: 300.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 300         |
+|    mean_reward          | 10.3        |
+| game/                   |             |
+|    goals_conceded       | 0.1         |
+|    goals_scored         | 0.1         |
+|    touches_per_ep       | 4.3         |
+| time/                   |             |
+|    total_timesteps      | 135000      |
+| train/                  |             |
+|    approx_kl            | 0.023731768 |
+|    clip_fraction        | 0.183       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -2.78       |
+|    explained_variance   | 0.43        |
+|    learning_rate        | 0.000229    |
+|    loss                 | -0.00106    |
+|    n_updates            | 78          |
+|    policy_gradient_loss | -0.0183     |
+|    std                  | 0.133       |
+|    value_loss           | 0.0798      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 283      |
+|    ep_rew_mean     | 7.04     |
+| time/              |          |
+|    fps             | 662      |
+|    iterations      | 33       |
+|    time_elapsed    | 204      |
+|    total_timesteps | 135168   |
+---------------------------------
+Early stopping at step 2 due to reaching max kl: 0.03
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0           |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 5.1         |
+| rollout/                |             |
+|    ep_len_mean          | 285         |
+|    ep_rew_mean          | 7           |
+| time/                   |             |
+|    fps                  | 667         |
+|    iterations           | 34          |
+|    time_elapsed         | 208         |
+|    total_timesteps      | 139264      |
+| train/                  |             |
+|    approx_kl            | 0.024675678 |
+|    clip_fraction        | 0.151       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -2.44       |
+|    explained_variance   | 0.376       |
+|    learning_rate        | 0.000227    |
+|    loss                 | 0.0223      |
+|    n_updates            | 81          |
+|    policy_gradient_loss | -0.0161     |
+|    std                  | 0.133       |
+|    value_loss           | 0.114       |
+-----------------------------------------
+Early stopping at step 1 due to reaching max kl: 0.04
+Eval num_timesteps=140000, episode_reward=9.53 +/- 2.01
+Episode length: 300.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 300         |
+|    mean_reward          | 9.53        |
+| time/                   |             |
+|    total_timesteps      | 140000      |
+| train/                  |             |
+|    approx_kl            | 0.019778099 |
+|    clip_fraction        | 0.168       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -2.64       |
+|    explained_variance   | 0.573       |
+|    learning_rate        | 0.000225    |
+|    loss                 | 0.0119      |
+|    n_updates            | 83          |
+|    policy_gradient_loss | -0.0138     |
+|    std                  | 0.133       |
+|    value_loss           | 0.063       |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0.1      |
+|    touches_per_ep  | 5.9      |
+| rollout/           |          |
+|    ep_len_mean     | 286      |
+|    ep_rew_mean     | 7.09     |
+| time/              |          |
+|    fps             | 666      |
+|    iterations      | 35       |
+|    time_elapsed    | 215      |
+|    total_timesteps | 143360   |
+---------------------------------
+Early stopping at step 2 due to reaching max kl: 0.03
+Eval num_timesteps=145000, episode_reward=9.20 +/- 2.60
+Episode length: 300.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 300         |
+|    mean_reward          | 9.2         |
+| time/                   |             |
+|    total_timesteps      | 145000      |
+| train/                  |             |
+|    approx_kl            | 0.023512227 |
+|    clip_fraction        | 0.197       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.01       |
+|    explained_variance   | 0.547       |
+|    learning_rate        | 0.000223    |
+|    loss                 | -0.00616    |
+|    n_updates            | 86          |
+|    policy_gradient_loss | -0.0129     |
+|    std                  | 0.132       |
+|    value_loss           | 0.067       |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0.2      |
+|    goals_scored    | 0        |
+|    touches_per_ep  | 6        |
+| rollout/           |          |
+|    ep_len_mean     | 287      |
+|    ep_rew_mean     | 7.07     |
+| time/              |          |
+|    fps             | 659      |
+|    iterations      | 36       |
+|    time_elapsed    | 223      |
+|    total_timesteps | 147456   |
+---------------------------------
+Early stopping at step 1 due to reaching max kl: 0.03
+Eval num_timesteps=150000, episode_reward=9.57 +/- 2.24
+Episode length: 300.00 +/- 0.00
+----------------------------------------
+| eval/                   |            |
+|    mean_ep_length       | 300        |
+|    mean_reward          | 9.57       |
+| game/                   |            |
+|    goals_conceded       | 0.1        |
+|    goals_scored         | 0          |
+|    touches_per_ep       | 6          |
+| time/                   |            |
+|    total_timesteps      | 150000     |
+| train/                  |            |
+|    approx_kl            | 0.02219018 |
+|    clip_fraction        | 0.149      |
+|    clip_range           | 0.2        |
+|    entropy_loss         | -2.75      |
+|    explained_variance   | 0.45       |
+|    learning_rate        | 0.00022    |
+|    loss                 | 0.0399     |
+|    n_updates            | 88         |
+|    policy_gradient_loss | -0.0145    |
+|    std                  | 0.132      |
+|    value_loss           | 0.114      |
+----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0.2      |
+|    touches_per_ep  | 5.8      |
+| rollout/           |          |
+|    ep_len_mean     | 286      |
+|    ep_rew_mean     | 7.36     |
+| time/              |          |
+|    fps             | 659      |
+|    iterations      | 37       |
+|    time_elapsed    | 229      |
+|    total_timesteps | 151552   |
+---------------------------------
+Early stopping at step 1 due to reaching max kl: 0.03
+Eval num_timesteps=155000, episode_reward=9.07 +/- 2.45
+Episode length: 300.00 +/- 0.00
+----------------------------------------
+| eval/                   |            |
+|    mean_ep_length       | 300        |
+|    mean_reward          | 9.07       |
+| game/                   |            |
+|    goals_conceded       | 0          |
+|    goals_scored         | 0          |
+|    touches_per_ep       | 4.7        |
+| time/                   |            |
+|    total_timesteps      | 155000     |
+| train/                  |            |
+|    approx_kl            | 0.02538454 |
+|    clip_fraction        | 0.127      |
+|    clip_range           | 0.2        |
+|    entropy_loss         | -2.56      |
+|    explained_variance   | 0.467      |
+|    learning_rate        | 0.000218   |
+|    loss                 | -0.0138    |
+|    n_updates            | 90         |
+|    policy_gradient_loss | -0.0166    |
+|    std                  | 0.132      |
+|    value_loss           | 0.0748     |
+----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 285      |
+|    ep_rew_mean     | 7.38     |
+| time/              |          |
+|    fps             | 659      |
+|    iterations      | 38       |
+|    time_elapsed    | 235      |
+|    total_timesteps | 155648   |
+---------------------------------
+Early stopping at step 2 due to reaching max kl: 0.03
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0           |
+|    goals_scored         | 0.1         |
+|    touches_per_ep       | 5.1         |
+| rollout/                |             |
+|    ep_len_mean          | 287         |
+|    ep_rew_mean          | 7.27        |
+| time/                   |             |
+|    fps                  | 665         |
+|    iterations           | 39          |
+|    time_elapsed         | 240         |
+|    total_timesteps      | 159744      |
+| train/                  |             |
+|    approx_kl            | 0.031099405 |
+|    clip_fraction        | 0.176       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -2.6        |
+|    explained_variance   | 0.539       |
+|    learning_rate        | 0.000216    |
+|    loss                 | -0.0284     |
+|    n_updates            | 93          |
+|    policy_gradient_loss | -0.018      |
+|    std                  | 0.132       |
+|    value_loss           | 0.058       |
+-----------------------------------------
+Early stopping at step 2 due to reaching max kl: 0.03
+Eval num_timesteps=160000, episode_reward=9.62 +/- 2.84
+Episode length: 300.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 300         |
+|    mean_reward          | 9.62        |
+| time/                   |             |
+|    total_timesteps      | 160000      |
+| train/                  |             |
+|    approx_kl            | 0.026415631 |
+|    clip_fraction        | 0.189       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -2.84       |
+|    explained_variance   | 0.55        |
+|    learning_rate        | 0.000214    |
+|    loss                 | -0.0129     |
+|    n_updates            | 96          |
+|    policy_gradient_loss | -0.0209     |
+|    std                  | 0.132       |
+|    value_loss           | 0.0605      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    touches_per_ep  | 4.5      |
+| rollout/           |          |
+|    ep_len_mean     | 292      |
+|    ep_rew_mean     | 7.19     |
+| time/              |          |
+|    fps             | 664      |
+|    iterations      | 40       |
+|    time_elapsed    | 246      |
+|    total_timesteps | 163840   |
+---------------------------------
+Early stopping at step 5 due to reaching max kl: 0.03
+Eval num_timesteps=165000, episode_reward=7.61 +/- 2.27
+Episode length: 300.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 300         |
+|    mean_reward          | 7.61        |
+| time/                   |             |
+|    total_timesteps      | 165000      |
+| train/                  |             |
+|    approx_kl            | 0.024444448 |
+|    clip_fraction        | 0.265       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -2.55       |
+|    explained_variance   | 0.583       |
+|    learning_rate        | 0.000212    |
+|    loss                 | -0.0036     |
+|    n_updates            | 102         |
+|    policy_gradient_loss | -0.0282     |
+|    std                  | 0.132       |
+|    value_loss           | 0.0626      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0.1      |
+|    goals_scored    | 0.2      |
+|    touches_per_ep  | 6.9      |
+| rollout/           |          |
+|    ep_len_mean     | 288      |
+|    ep_rew_mean     | 7.4      |
+| time/              |          |
+|    fps             | 662      |
+|    iterations      | 41       |
+|    time_elapsed    | 253      |
+|    total_timesteps | 167936   |
+---------------------------------
+Early stopping at step 2 due to reaching max kl: 0.03
+ 100% ----------------------- 167,936/166,666  [ 0:04:12 < 0:00:00 , 694 it/s ]
+
+--- phase1 ---
+Logging to logs/ab_shaping0\ppo_phase1_0
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 301      |
+|    ep_rew_mean     | 6.83     |
+| time/              |          |
+|    fps             | 697      |
+|    iterations      | 1        |
+|    time_elapsed    | 5        |
+|    total_timesteps | 172032   |
+---------------------------------
+Early stopping at step 1 due to reaching max kl: 0.03
+Eval num_timesteps=172936, episode_reward=-0.31 +/- 3.13
+Episode length: 420.80 +/- 152.37
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 421         |
+|    mean_reward          | -0.311      |
+| time/                   |             |
+|    total_timesteps      | 172936      |
+| train/                  |             |
+|    approx_kl            | 0.021848295 |
+|    clip_fraction        | 0.211       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.58       |
+|    explained_variance   | 0.441       |
+|    learning_rate        | 0.000207    |
+|    loss                 | 0.00316     |
+|    n_updates            | 107         |
+|    policy_gradient_loss | -0.0145     |
+|    std                  | 0.132       |
+|    value_loss           | 0.231       |
+-----------------------------------------
+New best mean reward!
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.6      |
+|    goal_difference | -0.4     |
+|    goals_conceded  | 0.4      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.4      |
+|    points          | 0.3      |
+|    win_rate        | 0        |
+---------------------------------
+Nuevo mejor resultado: puntos=0.300, diferencia de goles=-0.400
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0.2      |
+|    goals_scored    | 0        |
+|    touches_per_ep  | 5.6      |
+| rollout/           |          |
+|    ep_len_mean     | 318      |
+|    ep_rew_mean     | 6.2      |
+| time/              |          |
+|    fps             | 454      |
+|    iterations      | 2        |
+|    time_elapsed    | 18       |
+|    total_timesteps | 176128   |
+---------------------------------
+Early stopping at step 5 due to reaching max kl: 0.03
+Eval num_timesteps=177936, episode_reward=1.24 +/- 2.15
+Episode length: 454.60 +/- 136.20
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 455         |
+|    mean_reward          | 1.24        |
+| game/                   |             |
+|    goals_conceded       | 0.2         |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 7.7         |
+| time/                   |             |
+|    total_timesteps      | 177936      |
+| train/                  |             |
+|    approx_kl            | 0.024854474 |
+|    clip_fraction        | 0.247       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.57       |
+|    explained_variance   | 0.37        |
+|    learning_rate        | 0.000205    |
+|    loss                 | -0.0121     |
+|    n_updates            | 113         |
+|    policy_gradient_loss | -0.032      |
+|    std                  | 0.132       |
+|    value_loss           | 0.117       |
+-----------------------------------------
+New best mean reward!
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.9      |
+|    goal_difference | -0.1     |
+|    goals_conceded  | 0.1      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.1      |
+|    points          | 0.45     |
+|    win_rate        | 0        |
+---------------------------------
+Nuevo mejor resultado: puntos=0.450, diferencia de goles=-0.100
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 331      |
+|    ep_rew_mean     | 5.63     |
+| time/              |          |
+|    fps             | 375      |
+|    iterations      | 3        |
+|    time_elapsed    | 32       |
+|    total_timesteps | 180224   |
+---------------------------------
+Early stopping at step 4 due to reaching max kl: 0.03
+Eval num_timesteps=182936, episode_reward=-0.14 +/- 2.74
+Episode length: 429.00 +/- 135.40
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 429         |
+|    mean_reward          | -0.141      |
+| game/                   |             |
+|    goals_conceded       | 0.1         |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 8           |
+| time/                   |             |
+|    total_timesteps      | 182936      |
+| train/                  |             |
+|    approx_kl            | 0.030450635 |
+|    clip_fraction        | 0.236       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.61       |
+|    explained_variance   | 0.439       |
+|    learning_rate        | 0.000203    |
+|    loss                 | -0.0533     |
+|    n_updates            | 118         |
+|    policy_gradient_loss | -0.0283     |
+|    std                  | 0.132       |
+|    value_loss           | 0.142       |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.7      |
+|    goal_difference | -0.3     |
+|    goals_conceded  | 0.3      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.3      |
+|    points          | 0.35     |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 349      |
+|    ep_rew_mean     | 5.06     |
+| time/              |          |
+|    fps             | 368      |
+|    iterations      | 4        |
+|    time_elapsed    | 44       |
+|    total_timesteps | 184320   |
+---------------------------------
+Early stopping at step 3 due to reaching max kl: 0.03
+Eval num_timesteps=187936, episode_reward=0.93 +/- 1.89
+Episode length: 463.90 +/- 108.30
+----------------------------------------
+| eval/                   |            |
+|    mean_ep_length       | 464        |
+|    mean_reward          | 0.934      |
+| game/                   |            |
+|    goals_conceded       | 0.2        |
+|    goals_scored         | 0          |
+|    touches_per_ep       | 6.5        |
+| time/                   |            |
+|    total_timesteps      | 187936     |
+| train/                  |            |
+|    approx_kl            | 0.02525591 |
+|    clip_fraction        | 0.222      |
+|    clip_range           | 0.2        |
+|    entropy_loss         | -4.53      |
+|    explained_variance   | 0.653      |
+|    learning_rate        | 0.0002     |
+|    loss                 | -0.0607    |
+|    n_updates            | 122        |
+|    policy_gradient_loss | -0.0304    |
+|    std                  | 0.132      |
+|    value_loss           | 0.0285     |
+----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.9      |
+|    goal_difference | -0.1     |
+|    goals_conceded  | 0.1      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.1      |
+|    points          | 0.45     |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 361      |
+|    ep_rew_mean     | 4.09     |
+| time/              |          |
+|    fps             | 357      |
+|    iterations      | 5        |
+|    time_elapsed    | 57       |
+|    total_timesteps | 188416   |
+---------------------------------
+Early stopping at step 2 due to reaching max kl: 0.03
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0.1         |
+|    goals_scored         | 0.1         |
+|    touches_per_ep       | 6.9         |
+| rollout/                |             |
+|    ep_len_mean          | 376         |
+|    ep_rew_mean          | 3.74        |
+| time/                   |             |
+|    fps                  | 388         |
+|    iterations           | 6           |
+|    time_elapsed         | 63          |
+|    total_timesteps      | 192512      |
+| train/                  |             |
+|    approx_kl            | 0.023285287 |
+|    clip_fraction        | 0.222       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.52       |
+|    explained_variance   | 0.429       |
+|    learning_rate        | 0.000198    |
+|    loss                 | 0.0403      |
+|    n_updates            | 125         |
+|    policy_gradient_loss | -0.0237     |
+|    std                  | 0.132       |
+|    value_loss           | 0.165       |
+-----------------------------------------
+Early stopping at step 1 due to reaching max kl: 0.03
+Eval num_timesteps=192936, episode_reward=0.90 +/- 1.80
+Episode length: 468.50 +/- 94.50
+----------------------------------------
+| eval/                   |            |
+|    mean_ep_length       | 468        |
+|    mean_reward          | 0.903      |
+| time/                   |            |
+|    total_timesteps      | 192936     |
+| train/                  |            |
+|    approx_kl            | 0.02181105 |
+|    clip_fraction        | 0.167      |
+|    clip_range           | 0.2        |
+|    entropy_loss         | -4.5       |
+|    explained_variance   | 0.51       |
+|    learning_rate        | 0.000196   |
+|    loss                 | -0.0155    |
+|    n_updates            | 127        |
+|    policy_gradient_loss | -0.0184    |
+|    std                  | 0.132      |
+|    value_loss           | 0.171      |
+----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.9      |
+|    goal_difference | -0.1     |
+|    goals_conceded  | 0.1      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.1      |
+|    points          | 0.45     |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 392      |
+|    ep_rew_mean     | 3.08     |
+| time/              |          |
+|    fps             | 384      |
+|    iterations      | 7        |
+|    time_elapsed    | 74       |
+|    total_timesteps | 196608   |
+---------------------------------
+Early stopping at step 2 due to reaching max kl: 0.03
+Eval num_timesteps=197936, episode_reward=0.28 +/- 2.34
+Episode length: 474.60 +/- 56.06
+----------------------------------------
+| eval/                   |            |
+|    mean_ep_length       | 475        |
+|    mean_reward          | 0.285      |
+| game/                   |            |
+|    goals_conceded       | 0          |
+|    goals_scored         | 0          |
+|    touches_per_ep       | 6.3        |
+| time/                   |            |
+|    total_timesteps      | 197936     |
+| train/                  |            |
+|    approx_kl            | 0.02572816 |
+|    clip_fraction        | 0.21       |
+|    clip_range           | 0.2        |
+|    entropy_loss         | -4.59      |
+|    explained_variance   | 0.54       |
+|    learning_rate        | 0.000194   |
+|    loss                 | -0.0639    |
+|    n_updates            | 130        |
+|    policy_gradient_loss | -0.0287    |
+|    std                  | 0.132      |
+|    value_loss           | 0.0315     |
+----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.8      |
+|    goal_difference | -0.2     |
+|    goals_conceded  | 0.2      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.2      |
+|    points          | 0.4      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 408      |
+|    ep_rew_mean     | 2.8      |
+| time/              |          |
+|    fps             | 379      |
+|    iterations      | 8        |
+|    time_elapsed    | 86       |
+|    total_timesteps | 200704   |
+---------------------------------
+Early stopping at step 3 due to reaching max kl: 0.03
+Eval num_timesteps=202936, episode_reward=0.23 +/- 2.43
+Episode length: 444.60 +/- 117.29
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 445         |
+|    mean_reward          | 0.226       |
+| game/                   |             |
+|    goals_conceded       | 0.1         |
+|    goals_scored         | 0.1         |
+|    touches_per_ep       | 7.7         |
+| time/                   |             |
+|    total_timesteps      | 202936      |
+| train/                  |             |
+|    approx_kl            | 0.026968602 |
+|    clip_fraction        | 0.242       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.49       |
+|    explained_variance   | 0.211       |
+|    learning_rate        | 0.000192    |
+|    loss                 | -0.0352     |
+|    n_updates            | 134         |
+|    policy_gradient_loss | -0.0237     |
+|    std                  | 0.132       |
+|    value_loss           | 0.126       |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.8      |
+|    goal_difference | -0.2     |
+|    goals_conceded  | 0.2      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.2      |
+|    points          | 0.4      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 426      |
+|    ep_rew_mean     | 2.02     |
+| time/              |          |
+|    fps             | 373      |
+|    iterations      | 9        |
+|    time_elapsed    | 98       |
+|    total_timesteps | 204800   |
+---------------------------------
+Early stopping at step 2 due to reaching max kl: 0.03
+Eval num_timesteps=207936, episode_reward=0.92 +/- 1.72
+Episode length: 492.30 +/- 23.10
+---------------------------------------
+| eval/                   |           |
+|    mean_ep_length       | 492       |
+|    mean_reward          | 0.919     |
+| game/                   |           |
+|    goals_conceded       | 0.1       |
+|    goals_scored         | 0         |
+|    touches_per_ep       | 7.7       |
+| time/                   |           |
+|    total_timesteps      | 207936    |
+| train/                  |           |
+|    approx_kl            | 0.0240198 |
+|    clip_fraction        | 0.209     |
+|    clip_range           | 0.2       |
+|    entropy_loss         | -4.45     |
+|    explained_variance   | 0.603     |
+|    learning_rate        | 0.000189  |
+|    loss                 | -0.0167   |
+|    n_updates            | 137       |
+|    policy_gradient_loss | -0.0262   |
+|    std                  | 0.132     |
+|    value_loss           | 0.126     |
+---------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.9      |
+|    goal_difference | -0.1     |
+|    goals_conceded  | 0.1      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.1      |
+|    points          | 0.45     |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 441      |
+|    ep_rew_mean     | 1.51     |
+| time/              |          |
+|    fps             | 366      |
+|    iterations      | 10       |
+|    time_elapsed    | 111      |
+|    total_timesteps | 208896   |
+---------------------------------
+Early stopping at step 2 due to reaching max kl: 0.03
+Eval num_timesteps=212936, episode_reward=1.72 +/- 3.34
+Episode length: 459.40 +/- 120.80
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 459         |
+|    mean_reward          | 1.72        |
+| game/                   |             |
+|    goals_conceded       | 0.1         |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 6.5         |
+| time/                   |             |
+|    total_timesteps      | 212936      |
+| train/                  |             |
+|    approx_kl            | 0.026694927 |
+|    clip_fraction        | 0.22        |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.51       |
+|    explained_variance   | 0.614       |
+|    learning_rate        | 0.000187    |
+|    loss                 | -0.0497     |
+|    n_updates            | 140         |
+|    policy_gradient_loss | -0.0268     |
+|    std                  | 0.132       |
+|    value_loss           | 0.0652      |
+-----------------------------------------
+New best mean reward!
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.8      |
+|    goal_difference | 0        |
+|    goals_conceded  | 0.1      |
+|    goals_scored    | 0.1      |
+|    loss_rate       | 0.1      |
+|    points          | 0.5      |
+|    win_rate        | 0.1      |
+---------------------------------
+Nuevo mejor resultado: puntos=0.500, diferencia de goles=0.000
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 461      |
+|    ep_rew_mean     | 0.852    |
+| time/              |          |
+|    fps             | 361      |
+|    iterations      | 11       |
+|    time_elapsed    | 124      |
+|    total_timesteps | 212992   |
+---------------------------------
+Early stopping at step 3 due to reaching max kl: 0.03
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0.1         |
+|    goals_scored         | 0.1         |
+|    touches_per_ep       | 6.6         |
+| rollout/                |             |
+|    ep_len_mean          | 472         |
+|    ep_rew_mean          | 0.492       |
+| time/                   |             |
+|    fps                  | 375         |
+|    iterations           | 12          |
+|    time_elapsed         | 130         |
+|    total_timesteps      | 217088      |
+| train/                  |             |
+|    approx_kl            | 0.027273603 |
+|    clip_fraction        | 0.239       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.55       |
+|    explained_variance   | 0.715       |
+|    learning_rate        | 0.000185    |
+|    loss                 | -0.0791     |
+|    n_updates            | 144         |
+|    policy_gradient_loss | -0.0303     |
+|    std                  | 0.131       |
+|    value_loss           | 0.0158      |
+-----------------------------------------
+Early stopping at step 5 due to reaching max kl: 0.03
+Eval num_timesteps=217936, episode_reward=1.01 +/- 1.78
+Episode length: 485.50 +/- 43.50
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 486         |
+|    mean_reward          | 1.01        |
+| time/                   |             |
+|    total_timesteps      | 217936      |
+| train/                  |             |
+|    approx_kl            | 0.034459338 |
+|    clip_fraction        | 0.24        |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.51       |
+|    explained_variance   | 0.548       |
+|    learning_rate        | 0.000183    |
+|    loss                 | 0.148       |
+|    n_updates            | 150         |
+|    policy_gradient_loss | -0.0244     |
+|    std                  | 0.131       |
+|    value_loss           | 0.174       |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.9      |
+|    goal_difference | -0.1     |
+|    goals_conceded  | 0.1      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.1      |
+|    points          | 0.45     |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    touches_per_ep  | 5.8      |
+| rollout/           |          |
+|    ep_len_mean     | 476      |
+|    ep_rew_mean     | 0.546    |
+| time/              |          |
+|    fps             | 367      |
+|    iterations      | 13       |
+|    time_elapsed    | 144      |
+|    total_timesteps | 221184   |
+---------------------------------
+Early stopping at step 3 due to reaching max kl: 0.03
+Eval num_timesteps=222936, episode_reward=0.75 +/- 1.85
+Episode length: 455.40 +/- 133.80
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 455         |
+|    mean_reward          | 0.747       |
+| time/                   |             |
+|    total_timesteps      | 222936      |
+| train/                  |             |
+|    approx_kl            | 0.024575025 |
+|    clip_fraction        | 0.202       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.38       |
+|    explained_variance   | 0.481       |
+|    learning_rate        | 0.000181    |
+|    loss                 | -0.0479     |
+|    n_updates            | 154         |
+|    policy_gradient_loss | -0.0269     |
+|    std                  | 0.131       |
+|    value_loss           | 0.0299      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.9      |
+|    goal_difference | -0.1     |
+|    goals_conceded  | 0.1      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.1      |
+|    points          | 0.45     |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 480      |
+|    ep_rew_mean     | 0.601    |
+| time/              |          |
+|    fps             | 367      |
+|    iterations      | 14       |
+|    time_elapsed    | 155      |
+|    total_timesteps | 225280   |
+---------------------------------
+Early stopping at step 3 due to reaching max kl: 0.03
+Eval num_timesteps=227936, episode_reward=0.71 +/- 1.32
+Episode length: 500.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 500         |
+|    mean_reward          | 0.705       |
+| game/                   |             |
+|    goals_conceded       | 0.1         |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 6.4         |
+| time/                   |             |
+|    total_timesteps      | 227936      |
+| train/                  |             |
+|    approx_kl            | 0.026714321 |
+|    clip_fraction        | 0.242       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.41       |
+|    explained_variance   | 0.597       |
+|    learning_rate        | 0.000178    |
+|    loss                 | -0.0442     |
+|    n_updates            | 158         |
+|    policy_gradient_loss | -0.0302     |
+|    std                  | 0.131       |
+|    value_loss           | 0.058       |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.9      |
+|    goal_difference | -0.1     |
+|    goals_conceded  | 0.1      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.1      |
+|    points          | 0.45     |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 476      |
+|    ep_rew_mean     | 0.597    |
+| time/              |          |
+|    fps             | 366      |
+|    iterations      | 15       |
+|    time_elapsed    | 167      |
+|    total_timesteps | 229376   |
+---------------------------------
+Early stopping at step 3 due to reaching max kl: 0.03
+Eval num_timesteps=232936, episode_reward=-0.28 +/- 2.83
+Episode length: 406.50 +/- 150.47
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 406         |
+|    mean_reward          | -0.28       |
+| game/                   |             |
+|    goals_conceded       | 0.1         |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 8.4         |
+| time/                   |             |
+|    total_timesteps      | 232936      |
+| train/                  |             |
+|    approx_kl            | 0.030694572 |
+|    clip_fraction        | 0.218       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.46       |
+|    explained_variance   | 0.621       |
+|    learning_rate        | 0.000176    |
+|    loss                 | -0.0204     |
+|    n_updates            | 162         |
+|    policy_gradient_loss | -0.0244     |
+|    std                  | 0.131       |
+|    value_loss           | 0.0548      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.7      |
+|    goal_difference | -0.3     |
+|    goals_conceded  | 0.3      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.3      |
+|    points          | 0.35     |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 471      |
+|    ep_rew_mean     | 0.636    |
+| time/              |          |
+|    fps             | 360      |
+|    iterations      | 16       |
+|    time_elapsed    | 181      |
+|    total_timesteps | 233472   |
+---------------------------------
+Early stopping at step 3 due to reaching max kl: 0.03
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0.2         |
+|    goals_scored         | 0.1         |
+|    touches_per_ep       | 6.4         |
+| rollout/                |             |
+|    ep_len_mean          | 478         |
+|    ep_rew_mean          | 0.735       |
+| time/                   |             |
+|    fps                  | 364         |
+|    iterations           | 17          |
+|    time_elapsed         | 191         |
+|    total_timesteps      | 237568      |
+| train/                  |             |
+|    approx_kl            | 0.029039888 |
+|    clip_fraction        | 0.185       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.34       |
+|    explained_variance   | 0.429       |
+|    learning_rate        | 0.000174    |
+|    loss                 | 0.0105      |
+|    n_updates            | 166         |
+|    policy_gradient_loss | -0.0204     |
+|    std                  | 0.131       |
+|    value_loss           | 0.214       |
+-----------------------------------------
+Early stopping at step 2 due to reaching max kl: 0.03
+Eval num_timesteps=237936, episode_reward=0.01 +/- 2.47
+Episode length: 437.00 +/- 116.23
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 437         |
+|    mean_reward          | 0.00599     |
+| time/                   |             |
+|    total_timesteps      | 237936      |
+| train/                  |             |
+|    approx_kl            | 0.022901408 |
+|    clip_fraction        | 0.189       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.36       |
+|    explained_variance   | 0.621       |
+|    learning_rate        | 0.000172    |
+|    loss                 | 0.00588     |
+|    n_updates            | 169         |
+|    policy_gradient_loss | -0.0246     |
+|    std                  | 0.13        |
+|    value_loss           | 0.174       |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.7      |
+|    goal_difference | -0.3     |
+|    goals_conceded  | 0.3      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.3      |
+|    points          | 0.35     |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0.1      |
+|    goals_scored    | 0.1      |
+|    touches_per_ep  | 6.5      |
+| rollout/           |          |
+|    ep_len_mean     | 474      |
+|    ep_rew_mean     | 0.652    |
+| time/              |          |
+|    fps             | 357      |
+|    iterations      | 18       |
+|    time_elapsed    | 206      |
+|    total_timesteps | 241664   |
+---------------------------------
+Early stopping at step 4 due to reaching max kl: 0.03
+Eval num_timesteps=242936, episode_reward=1.18 +/- 1.59
+Episode length: 496.50 +/- 10.50
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 496         |
+|    mean_reward          | 1.18        |
+| time/                   |             |
+|    total_timesteps      | 242936      |
+| train/                  |             |
+|    approx_kl            | 0.026013019 |
+|    clip_fraction        | 0.26        |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.41       |
+|    explained_variance   | 0.559       |
+|    learning_rate        | 0.00017     |
+|    loss                 | -0.0229     |
+|    n_updates            | 174         |
+|    policy_gradient_loss | -0.0324     |
+|    std                  | 0.13        |
+|    value_loss           | 0.0902      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.9      |
+|    goal_difference | -0.1     |
+|    goals_conceded  | 0.1      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.1      |
+|    points          | 0.45     |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0.1      |
+|    goals_scored    | 0        |
+|    touches_per_ep  | 7.1      |
+| rollout/           |          |
+|    ep_len_mean     | 473      |
+|    ep_rew_mean     | 0.481    |
+| time/              |          |
+|    fps             | 355      |
+|    iterations      | 19       |
+|    time_elapsed    | 218      |
+|    total_timesteps | 245760   |
+---------------------------------
+Early stopping at step 3 due to reaching max kl: 0.03
+Eval num_timesteps=247936, episode_reward=0.18 +/- 2.07
+Episode length: 494.20 +/- 11.63
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 494         |
+|    mean_reward          | 0.185       |
+| time/                   |             |
+|    total_timesteps      | 247936      |
+| train/                  |             |
+|    approx_kl            | 0.027423818 |
+|    clip_fraction        | 0.194       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.3        |
+|    explained_variance   | 0.637       |
+|    learning_rate        | 0.000167    |
+|    loss                 | -0.051      |
+|    n_updates            | 178         |
+|    policy_gradient_loss | -0.0232     |
+|    std                  | 0.13        |
+|    value_loss           | 0.0495      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.8      |
+|    goal_difference | -0.2     |
+|    goals_conceded  | 0.2      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.2      |
+|    points          | 0.4      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0.2      |
+|    goals_scored    | 0        |
+|    touches_per_ep  | 5.6      |
+| rollout/           |          |
+|    ep_len_mean     | 469      |
+|    ep_rew_mean     | 0.363    |
+| time/              |          |
+|    fps             | 354      |
+|    iterations      | 20       |
+|    time_elapsed    | 231      |
+|    total_timesteps | 249856   |
+---------------------------------
+Early stopping at step 4 due to reaching max kl: 0.03
+Eval num_timesteps=252936, episode_reward=-0.59 +/- 2.89
+Episode length: 404.50 +/- 117.31
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 404         |
+|    mean_reward          | -0.589      |
+| time/                   |             |
+|    total_timesteps      | 252936      |
+| train/                  |             |
+|    approx_kl            | 0.025842404 |
+|    clip_fraction        | 0.233       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.25       |
+|    explained_variance   | 0.699       |
+|    learning_rate        | 0.000165    |
+|    loss                 | -0.0331     |
+|    n_updates            | 183         |
+|    policy_gradient_loss | -0.0305     |
+|    std                  | 0.13        |
+|    value_loss           | 0.104       |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.6      |
+|    goal_difference | -0.4     |
+|    goals_conceded  | 0.4      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.4      |
+|    points          | 0.3      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0.2      |
+|    goals_scored    | 0.1      |
+|    touches_per_ep  | 7.3      |
+| rollout/           |          |
+|    ep_len_mean     | 468      |
+|    ep_rew_mean     | 0.506    |
+| time/              |          |
+|    fps             | 350      |
+|    iterations      | 21       |
+|    time_elapsed    | 245      |
+|    total_timesteps | 253952   |
+---------------------------------
+Early stopping at step 3 due to reaching max kl: 0.03
+Eval num_timesteps=257936, episode_reward=0.39 +/- 2.39
+Episode length: 450.70 +/- 98.84
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 451         |
+|    mean_reward          | 0.394       |
+| game/                   |             |
+|    goals_conceded       | 0.3         |
+|    goals_scored         | 0.1         |
+|    touches_per_ep       | 4.9         |
+| time/                   |             |
+|    total_timesteps      | 257936      |
+| train/                  |             |
+|    approx_kl            | 0.025730822 |
+|    clip_fraction        | 0.222       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.34       |
+|    explained_variance   | 0.523       |
+|    learning_rate        | 0.000163    |
+|    loss                 | -0.0309     |
+|    n_updates            | 187         |
+|    policy_gradient_loss | -0.0273     |
+|    std                  | 0.13        |
+|    value_loss           | 0.171       |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.8      |
+|    goal_difference | -0.2     |
+|    goals_conceded  | 0.2      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.2      |
+|    points          | 0.4      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 456      |
+|    ep_rew_mean     | 0.414    |
+| time/              |          |
+|    fps             | 350      |
+|    iterations      | 22       |
+|    time_elapsed    | 256      |
+|    total_timesteps | 258048   |
+---------------------------------
+Early stopping at step 5 due to reaching max kl: 0.03
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0.2         |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 8           |
+| rollout/                |             |
+|    ep_len_mean          | 457         |
+|    ep_rew_mean          | 0.338       |
+| time/                   |             |
+|    fps                  | 357         |
+|    iterations           | 23          |
+|    time_elapsed         | 263         |
+|    total_timesteps      | 262144      |
+| train/                  |             |
+|    approx_kl            | 0.025841083 |
+|    clip_fraction        | 0.243       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.2        |
+|    explained_variance   | 0.55        |
+|    learning_rate        | 0.000161    |
+|    loss                 | 0.0647      |
+|    n_updates            | 193         |
+|    policy_gradient_loss | -0.0272     |
+|    std                  | 0.13        |
+|    value_loss           | 0.218       |
+-----------------------------------------
+Early stopping at step 3 due to reaching max kl: 0.03
+Eval num_timesteps=262936, episode_reward=0.38 +/- 2.06
+Episode length: 471.80 +/- 60.03
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 472         |
+|    mean_reward          | 0.379       |
+| time/                   |             |
+|    total_timesteps      | 262936      |
+| train/                  |             |
+|    approx_kl            | 0.024688318 |
+|    clip_fraction        | 0.251       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.33       |
+|    explained_variance   | 0.769       |
+|    learning_rate        | 0.000158    |
+|    loss                 | -0.0373     |
+|    n_updates            | 197         |
+|    policy_gradient_loss | -0.0345     |
+|    std                  | 0.13        |
+|    value_loss           | 0.0598      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.8      |
+|    goal_difference | -0.2     |
+|    goals_conceded  | 0.2      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.2      |
+|    points          | 0.4      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0.1      |
+|    goals_scored    | 0        |
+|    touches_per_ep  | 6.7      |
+| rollout/           |          |
+|    ep_len_mean     | 455      |
+|    ep_rew_mean     | 0.306    |
+| time/              |          |
+|    fps             | 355      |
+|    iterations      | 24       |
+|    time_elapsed    | 276      |
+|    total_timesteps | 266240   |
+---------------------------------
+Early stopping at step 5 due to reaching max kl: 0.03
+Eval num_timesteps=267936, episode_reward=-0.36 +/- 2.43
+Episode length: 458.10 +/- 100.98
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 458         |
+|    mean_reward          | -0.36       |
+| time/                   |             |
+|    total_timesteps      | 267936      |
+| train/                  |             |
+|    approx_kl            | 0.024633849 |
+|    clip_fraction        | 0.245       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.28       |
+|    explained_variance   | 0.809       |
+|    learning_rate        | 0.000156    |
+|    loss                 | -0.0665     |
+|    n_updates            | 203         |
+|    policy_gradient_loss | -0.0364     |
+|    std                  | 0.13        |
+|    value_loss           | 0.0485      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.7      |
+|    goal_difference | -0.3     |
+|    goals_conceded  | 0.3      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.3      |
+|    points          | 0.35     |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 452      |
+|    ep_rew_mean     | 0.306    |
+| time/              |          |
+|    fps             | 354      |
+|    iterations      | 25       |
+|    time_elapsed    | 288      |
+|    total_timesteps | 270336   |
+---------------------------------
+Early stopping at step 3 due to reaching max kl: 0.04
+Eval num_timesteps=272936, episode_reward=0.97 +/- 0.24
+Episode length: 500.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 500         |
+|    mean_reward          | 0.966       |
+| game/                   |             |
+|    goals_conceded       | 0.2         |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 6.7         |
+| time/                   |             |
+|    total_timesteps      | 272936      |
+| train/                  |             |
+|    approx_kl            | 0.026137134 |
+|    clip_fraction        | 0.232       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.22       |
+|    explained_variance   | 0.72        |
+|    learning_rate        | 0.000154    |
+|    loss                 | -0.0729     |
+|    n_updates            | 207         |
+|    policy_gradient_loss | -0.0324     |
+|    std                  | 0.13        |
+|    value_loss           | 0.0502      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 453      |
+|    ep_rew_mean     | 0.238    |
+| time/              |          |
+|    fps             | 354      |
+|    iterations      | 26       |
+|    time_elapsed    | 300      |
+|    total_timesteps | 274432   |
+---------------------------------
+Early stopping at step 5 due to reaching max kl: 0.03
+Eval num_timesteps=277936, episode_reward=0.35 +/- 2.49
+Episode length: 463.60 +/- 79.78
+----------------------------------------
+| eval/                   |            |
+|    mean_ep_length       | 464        |
+|    mean_reward          | 0.347      |
+| game/                   |            |
+|    goals_conceded       | 0.2        |
+|    goals_scored         | 0.1        |
+|    touches_per_ep       | 5.7        |
+| time/                   |            |
+|    total_timesteps      | 277936     |
+| train/                  |            |
+|    approx_kl            | 0.02895014 |
+|    clip_fraction        | 0.258      |
+|    clip_range           | 0.2        |
+|    entropy_loss         | -4.24      |
+|    explained_variance   | 0.851      |
+|    learning_rate        | 0.000152   |
+|    loss                 | -0.072     |
+|    n_updates            | 213        |
+|    policy_gradient_loss | -0.0329    |
+|    std                  | 0.13       |
+|    value_loss           | 0.0444     |
+----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.8      |
+|    goal_difference | -0.2     |
+|    goals_conceded  | 0.2      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.2      |
+|    points          | 0.4      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 455      |
+|    ep_rew_mean     | 0.271    |
+| time/              |          |
+|    fps             | 354      |
+|    iterations      | 27       |
+|    time_elapsed    | 311      |
+|    total_timesteps | 278528   |
+---------------------------------
+Early stopping at step 2 due to reaching max kl: 0.03
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0           |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 6.6         |
+| rollout/                |             |
+|    ep_len_mean          | 454         |
+|    ep_rew_mean          | 0.294       |
+| time/                   |             |
+|    fps                  | 360         |
+|    iterations           | 28          |
+|    time_elapsed         | 317         |
+|    total_timesteps      | 282624      |
+| train/                  |             |
+|    approx_kl            | 0.022857638 |
+|    clip_fraction        | 0.166       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.27       |
+|    explained_variance   | 0.573       |
+|    learning_rate        | 0.00015     |
+|    loss                 | 0.00889     |
+|    n_updates            | 216         |
+|    policy_gradient_loss | -0.0239     |
+|    std                  | 0.13        |
+|    value_loss           | 0.165       |
+-----------------------------------------
+Early stopping at step 4 due to reaching max kl: 0.03
+Eval num_timesteps=282936, episode_reward=-0.03 +/- 2.05
+Episode length: 467.50 +/- 65.20
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 468         |
+|    mean_reward          | -0.0281     |
+| time/                   |             |
+|    total_timesteps      | 282936      |
+| train/                  |             |
+|    approx_kl            | 0.030355714 |
+|    clip_fraction        | 0.198       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.28       |
+|    explained_variance   | 0.656       |
+|    learning_rate        | 0.000147    |
+|    loss                 | 0.0512      |
+|    n_updates            | 221         |
+|    policy_gradient_loss | -0.0257     |
+|    std                  | 0.129       |
+|    value_loss           | 0.123       |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.8      |
+|    goal_difference | -0.2     |
+|    goals_conceded  | 0.2      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.2      |
+|    points          | 0.4      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0.2      |
+|    touches_per_ep  | 8.6      |
+| rollout/           |          |
+|    ep_len_mean     | 456      |
+|    ep_rew_mean     | 0.503    |
+| time/              |          |
+|    fps             | 360      |
+|    iterations      | 29       |
+|    time_elapsed    | 329      |
+|    total_timesteps | 286720   |
+---------------------------------
+Early stopping at step 4 due to reaching max kl: 0.03
+Eval num_timesteps=287936, episode_reward=1.18 +/- 0.33
+Episode length: 500.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 500         |
+|    mean_reward          | 1.18        |
+| time/                   |             |
+|    total_timesteps      | 287936      |
+| train/                  |             |
+|    approx_kl            | 0.026826214 |
+|    clip_fraction        | 0.229       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.3        |
+|    explained_variance   | 0.509       |
+|    learning_rate        | 0.000145    |
+|    loss                 | -0.0505     |
+|    n_updates            | 226         |
+|    policy_gradient_loss | -0.0294     |
+|    std                  | 0.129       |
+|    value_loss           | 0.128       |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    touches_per_ep  | 7.5      |
+| rollout/           |          |
+|    ep_len_mean     | 456      |
+|    ep_rew_mean     | 0.53     |
+| time/              |          |
+|    fps             | 360      |
+|    iterations      | 30       |
+|    time_elapsed    | 341      |
+|    total_timesteps | 290816   |
+---------------------------------
+Early stopping at step 5 due to reaching max kl: 0.03
+Eval num_timesteps=292936, episode_reward=0.85 +/- 1.84
+Episode length: 471.70 +/- 84.90
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 472         |
+|    mean_reward          | 0.85        |
+| time/                   |             |
+|    total_timesteps      | 292936      |
+| train/                  |             |
+|    approx_kl            | 0.025253555 |
+|    clip_fraction        | 0.233       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.3        |
+|    explained_variance   | 0.752       |
+|    learning_rate        | 0.000143    |
+|    loss                 | -0.0656     |
+|    n_updates            | 232         |
+|    policy_gradient_loss | -0.0307     |
+|    std                  | 0.13        |
+|    value_loss           | 0.0594      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.9      |
+|    goal_difference | -0.1     |
+|    goals_conceded  | 0.1      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.1      |
+|    points          | 0.45     |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0.2      |
+|    goals_scored    | 0.1      |
+|    touches_per_ep  | 7.8      |
+| rollout/           |          |
+|    ep_len_mean     | 455      |
+|    ep_rew_mean     | 0.702    |
+| time/              |          |
+|    fps             | 359      |
+|    iterations      | 31       |
+|    time_elapsed    | 352      |
+|    total_timesteps | 294912   |
+---------------------------------
+Early stopping at step 5 due to reaching max kl: 0.03
+Eval num_timesteps=297936, episode_reward=0.24 +/- 2.24
+Episode length: 455.80 +/- 89.16
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 456         |
+|    mean_reward          | 0.237       |
+| time/                   |             |
+|    total_timesteps      | 297936      |
+| train/                  |             |
+|    approx_kl            | 0.025589274 |
+|    clip_fraction        | 0.234       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.29       |
+|    explained_variance   | 0.732       |
+|    learning_rate        | 0.000141    |
+|    loss                 | -0.0116     |
+|    n_updates            | 238         |
+|    policy_gradient_loss | -0.0332     |
+|    std                  | 0.129       |
+|    value_loss           | 0.138       |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.8      |
+|    goal_difference | -0.2     |
+|    goals_conceded  | 0.2      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.2      |
+|    points          | 0.4      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 462      |
+|    ep_rew_mean     | 0.649    |
+| time/              |          |
+|    fps             | 358      |
+|    iterations      | 32       |
+|    time_elapsed    | 365      |
+|    total_timesteps | 299008   |
+---------------------------------
+Early stopping at step 6 due to reaching max kl: 0.03
+Eval num_timesteps=302936, episode_reward=0.76 +/- 1.65
+Episode length: 490.10 +/- 29.70
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 490         |
+|    mean_reward          | 0.758       |
+| game/                   |             |
+|    goals_conceded       | 0           |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 6.5         |
+| time/                   |             |
+|    total_timesteps      | 302936      |
+| train/                  |             |
+|    approx_kl            | 0.029242348 |
+|    clip_fraction        | 0.273       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.25       |
+|    explained_variance   | 0.729       |
+|    learning_rate        | 0.000139    |
+|    loss                 | -0.0615     |
+|    n_updates            | 245         |
+|    policy_gradient_loss | -0.0384     |
+|    std                  | 0.129       |
+|    value_loss           | 0.0301      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.9      |
+|    goal_difference | -0.1     |
+|    goals_conceded  | 0.1      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.1      |
+|    points          | 0.45     |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 465      |
+|    ep_rew_mean     | 0.667    |
+| time/              |          |
+|    fps             | 358      |
+|    iterations      | 33       |
+|    time_elapsed    | 377      |
+|    total_timesteps | 303104   |
+---------------------------------
+Early stopping at step 3 due to reaching max kl: 0.03
+----------------------------------------
+| game/                   |            |
+|    goals_conceded       | 0.2        |
+|    goals_scored         | 0          |
+|    touches_per_ep       | 6.9        |
+| rollout/                |            |
+|    ep_len_mean          | 471        |
+|    ep_rew_mean          | 0.571      |
+| time/                   |            |
+|    fps                  | 363        |
+|    iterations           | 34         |
+|    time_elapsed         | 383        |
+|    total_timesteps      | 307200     |
+| train/                  |            |
+|    approx_kl            | 0.02508263 |
+|    clip_fraction        | 0.209      |
+|    clip_range           | 0.2        |
+|    entropy_loss         | -4.21      |
+|    explained_variance   | 0.827      |
+|    learning_rate        | 0.000136   |
+|    loss                 | -0.0292    |
+|    n_updates            | 249        |
+|    policy_gradient_loss | -0.0322    |
+|    std                  | 0.13       |
+|    value_loss           | 0.082      |
+----------------------------------------
+Early stopping at step 4 due to reaching max kl: 0.03
+Eval num_timesteps=307936, episode_reward=0.93 +/- 1.82
+Episode length: 498.70 +/- 3.90
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 499         |
+|    mean_reward          | 0.933       |
+| time/                   |             |
+|    total_timesteps      | 307936      |
+| train/                  |             |
+|    approx_kl            | 0.026597306 |
+|    clip_fraction        | 0.212       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.29       |
+|    explained_variance   | 0.66        |
+|    learning_rate        | 0.000134    |
+|    loss                 | -0.0624     |
+|    n_updates            | 254         |
+|    policy_gradient_loss | -0.029      |
+|    std                  | 0.13        |
+|    value_loss           | 0.0922      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.9      |
+|    goal_difference | -0.1     |
+|    goals_conceded  | 0.1      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.1      |
+|    points          | 0.45     |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0.2      |
+|    goals_scored    | 0        |
+|    touches_per_ep  | 8        |
+| rollout/           |          |
+|    ep_len_mean     | 472      |
+|    ep_rew_mean     | 0.609    |
+| time/              |          |
+|    fps             | 362      |
+|    iterations      | 35       |
+|    time_elapsed    | 395      |
+|    total_timesteps | 311296   |
+---------------------------------
+Early stopping at step 6 due to reaching max kl: 0.03
+Eval num_timesteps=312936, episode_reward=0.64 +/- 1.66
+Episode length: 491.40 +/- 25.80
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 491         |
+|    mean_reward          | 0.639       |
+| time/                   |             |
+|    total_timesteps      | 312936      |
+| train/                  |             |
+|    approx_kl            | 0.028550526 |
+|    clip_fraction        | 0.261       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.15       |
+|    explained_variance   | 0.82        |
+|    learning_rate        | 0.000132    |
+|    loss                 | -0.0748     |
+|    n_updates            | 261         |
+|    policy_gradient_loss | -0.0406     |
+|    std                  | 0.13        |
+|    value_loss           | 0.0153      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.9      |
+|    goal_difference | -0.1     |
+|    goals_conceded  | 0.1      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.1      |
+|    points          | 0.45     |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    touches_per_ep  | 6.6      |
+| rollout/           |          |
+|    ep_len_mean     | 472      |
+|    ep_rew_mean     | 0.599    |
+| time/              |          |
+|    fps             | 361      |
+|    iterations      | 36       |
+|    time_elapsed    | 407      |
+|    total_timesteps | 315392   |
+---------------------------------
+Early stopping at step 4 due to reaching max kl: 0.03
+Eval num_timesteps=317936, episode_reward=0.97 +/- 0.32
+Episode length: 500.00 +/- 0.00
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 500         |
+|    mean_reward          | 0.971       |
+| time/                   |             |
+|    total_timesteps      | 317936      |
+| train/                  |             |
+|    approx_kl            | 0.022801835 |
+|    clip_fraction        | 0.228       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.25       |
+|    explained_variance   | 0.818       |
+|    learning_rate        | 0.00013     |
+|    loss                 | -0.0661     |
+|    n_updates            | 266         |
+|    policy_gradient_loss | -0.0345     |
+|    std                  | 0.129       |
+|    value_loss           | 0.0452      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0.2      |
+|    goals_scored    | 0        |
+|    touches_per_ep  | 5.7      |
+| rollout/           |          |
+|    ep_len_mean     | 474      |
+|    ep_rew_mean     | 0.666    |
+| time/              |          |
+|    fps             | 360      |
+|    iterations      | 37       |
+|    time_elapsed    | 420      |
+|    total_timesteps | 319488   |
+---------------------------------
+Early stopping at step 5 due to reaching max kl: 0.03
+Eval num_timesteps=322936, episode_reward=0.23 +/- 2.23
+Episode length: 465.40 +/- 72.32
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 465         |
+|    mean_reward          | 0.23        |
+| game/                   |             |
+|    goals_conceded       | 0.3         |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 8.1         |
+| time/                   |             |
+|    total_timesteps      | 322936      |
+| train/                  |             |
+|    approx_kl            | 0.025160206 |
+|    clip_fraction        | 0.241       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.23       |
+|    explained_variance   | 0.704       |
+|    learning_rate        | 0.000127    |
+|    loss                 | -0.0406     |
+|    n_updates            | 272         |
+|    policy_gradient_loss | -0.0323     |
+|    std                  | 0.129       |
+|    value_loss           | 0.0426      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.8      |
+|    goal_difference | -0.2     |
+|    goals_conceded  | 0.2      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.2      |
+|    points          | 0.4      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 472      |
+|    ep_rew_mean     | 0.467    |
+| time/              |          |
+|    fps             | 359      |
+|    iterations      | 38       |
+|    time_elapsed    | 432      |
+|    total_timesteps | 323584   |
+---------------------------------
+Early stopping at step 7 due to reaching max kl: 0.03
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0.3         |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 7.9         |
+| rollout/                |             |
+|    ep_len_mean          | 464         |
+|    ep_rew_mean          | 0.196       |
+| time/                   |             |
+|    fps                  | 363         |
+|    iterations           | 39          |
+|    time_elapsed         | 439         |
+|    total_timesteps      | 327680      |
+| train/                  |             |
+|    approx_kl            | 0.026987944 |
+|    clip_fraction        | 0.257       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.16       |
+|    explained_variance   | 0.56        |
+|    learning_rate        | 0.000125    |
+|    loss                 | 0.0156      |
+|    n_updates            | 280         |
+|    policy_gradient_loss | -0.0334     |
+|    std                  | 0.129       |
+|    value_loss           | 0.121       |
+-----------------------------------------
+Early stopping at step 4 due to reaching max kl: 0.03
+Eval num_timesteps=327936, episode_reward=-0.22 +/- 2.59
+Episode length: 458.50 +/- 76.67
+----------------------------------------
+| eval/                   |            |
+|    mean_ep_length       | 458        |
+|    mean_reward          | -0.218     |
+| time/                   |            |
+|    total_timesteps      | 327936     |
+| train/                  |            |
+|    approx_kl            | 0.02381819 |
+|    clip_fraction        | 0.23       |
+|    clip_range           | 0.2        |
+|    entropy_loss         | -4.16      |
+|    explained_variance   | 0.656      |
+|    learning_rate        | 0.000123   |
+|    loss                 | -0.0382    |
+|    n_updates            | 285        |
+|    policy_gradient_loss | -0.0318    |
+|    std                  | 0.129      |
+|    value_loss           | 0.0948     |
+----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.7      |
+|    goal_difference | -0.3     |
+|    goals_conceded  | 0.3      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.3      |
+|    points          | 0.35     |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0.2      |
+|    goals_scored    | 0        |
+|    touches_per_ep  | 6.8      |
+| rollout/           |          |
+|    ep_len_mean     | 465      |
+|    ep_rew_mean     | 0.0307   |
+| time/              |          |
+|    fps             | 361      |
+|    iterations      | 40       |
+|    time_elapsed    | 452      |
+|    total_timesteps | 331776   |
+---------------------------------
+Early stopping at step 5 due to reaching max kl: 0.03
+Eval num_timesteps=332936, episode_reward=1.27 +/- 0.41
+Episode length: 500.00 +/- 0.00
+----------------------------------------
+| eval/                   |            |
+|    mean_ep_length       | 500        |
+|    mean_reward          | 1.27       |
+| time/                   |            |
+|    total_timesteps      | 332936     |
+| train/                  |            |
+|    approx_kl            | 0.02683737 |
+|    clip_fraction        | 0.223      |
+|    clip_range           | 0.2        |
+|    entropy_loss         | -4.11      |
+|    explained_variance   | 0.774      |
+|    learning_rate        | 0.000121   |
+|    loss                 | -0.0514    |
+|    n_updates            | 291        |
+|    policy_gradient_loss | -0.0338    |
+|    std                  | 0.129      |
+|    value_loss           | 0.0551     |
+----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 1        |
+|    goal_difference | 0        |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    loss_rate       | 0        |
+|    points          | 0.5      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 463      |
+|    ep_rew_mean     | -0.0169  |
+| time/              |          |
+|    fps             | 361      |
+|    iterations      | 41       |
+|    time_elapsed    | 465      |
+|    total_timesteps | 335872   |
+---------------------------------
+Early stopping at step 6 due to reaching max kl: 0.03
+ 100% ----------------------- 167,936/166,666  [ 0:07:43 < 0:00:00 , 369 it/s ]
+
+--- phase2 ---
+Logging to logs/ab_shaping0\ppo_phase2_0
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 471      |
+|    ep_rew_mean     | 0.132    |
+| time/              |          |
+|    fps             | 731      |
+|    iterations      | 1        |
+|    time_elapsed    | 5        |
+|    total_timesteps | 339968   |
+---------------------------------
+Early stopping at step 4 due to reaching max kl: 0.03
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0           |
+|    goals_scored         | 0.3         |
+|    touches_per_ep       | 6.7         |
+| rollout/                |             |
+|    ep_len_mean          | 477         |
+|    ep_rew_mean          | -0.116      |
+| time/                   |             |
+|    fps                  | 661         |
+|    iterations           | 2           |
+|    time_elapsed         | 12          |
+|    total_timesteps      | 344064      |
+| train/                  |             |
+|    approx_kl            | 0.026005011 |
+|    clip_fraction        | 0.205       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.17       |
+|    explained_variance   | 0.417       |
+|    learning_rate        | 0.000116    |
+|    loss                 | 0.0144      |
+|    n_updates            | 303         |
+|    policy_gradient_loss | -0.0242     |
+|    std                  | 0.129       |
+|    value_loss           | 0.248       |
+-----------------------------------------
+Early stopping at step 5 due to reaching max kl: 0.03
+Eval num_timesteps=345872, episode_reward=-2.15 +/- 6.10
+Episode length: 669.93 +/- 130.98
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 670         |
+|    mean_reward          | -2.15       |
+| time/                   |             |
+|    total_timesteps      | 345872      |
+| train/                  |             |
+|    approx_kl            | 0.025598792 |
+|    clip_fraction        | 0.222       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.13       |
+|    explained_variance   | 0.55        |
+|    learning_rate        | 0.000114    |
+|    loss                 | 0.136       |
+|    n_updates            | 309         |
+|    policy_gradient_loss | -0.0266     |
+|    std                  | 0.129       |
+|    value_loss           | 0.235       |
+-----------------------------------------
+New best mean reward!
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.6      |
+|    goal_difference | -0.133   |
+|    goals_conceded  | 0.267    |
+|    goals_scored    | 0.133    |
+|    loss_rate       | 0.267    |
+|    points          | 0.433    |
+|    win_rate        | 0.133    |
+---------------------------------
+Nuevo mejor resultado: puntos=0.433, diferencia de goles=-0.133
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 489      |
+|    ep_rew_mean     | -0.263   |
+| time/              |          |
+|    fps             | 388      |
+|    iterations      | 3        |
+|    time_elapsed    | 31       |
+|    total_timesteps | 348160   |
+---------------------------------
+Early stopping at step 4 due to reaching max kl: 0.03
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0.1         |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 10.7        |
+| rollout/                |             |
+|    ep_len_mean          | 508         |
+|    ep_rew_mean          | -0.514      |
+| time/                   |             |
+|    fps                  | 428         |
+|    iterations           | 4           |
+|    time_elapsed         | 38          |
+|    total_timesteps      | 352256      |
+| train/                  |             |
+|    approx_kl            | 0.025232581 |
+|    clip_fraction        | 0.22        |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.09       |
+|    explained_variance   | 0.689       |
+|    learning_rate        | 0.000112    |
+|    loss                 | -0.0728     |
+|    n_updates            | 314         |
+|    policy_gradient_loss | -0.0391     |
+|    std                  | 0.129       |
+|    value_loss           | 0.0315      |
+-----------------------------------------
+Early stopping at step 6 due to reaching max kl: 0.03
+Eval num_timesteps=355872, episode_reward=-0.30 +/- 2.52
+Episode length: 740.67 +/- 34.92
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 741         |
+|    mean_reward          | -0.302      |
+| time/                   |             |
+|    total_timesteps      | 355872      |
+| train/                  |             |
+|    approx_kl            | 0.027566517 |
+|    clip_fraction        | 0.239       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.04       |
+|    explained_variance   | 0.58        |
+|    learning_rate        | 0.00011     |
+|    loss                 | -0.0156     |
+|    n_updates            | 321         |
+|    policy_gradient_loss | -0.0331     |
+|    std                  | 0.129       |
+|    value_loss           | 0.169       |
+-----------------------------------------
+New best mean reward!
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.933    |
+|    goal_difference | 0.0667   |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0.0667   |
+|    loss_rate       | 0        |
+|    points          | 0.533    |
+|    win_rate        | 0.0667   |
+---------------------------------
+Nuevo mejor resultado: puntos=0.533, diferencia de goles=0.067
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 516      |
+|    ep_rew_mean     | -0.686   |
+| time/              |          |
+|    fps             | 355      |
+|    iterations      | 5        |
+|    time_elapsed    | 57       |
+|    total_timesteps | 356352   |
+---------------------------------
+Early stopping at step 7 due to reaching max kl: 0.03
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0.3         |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 6.6         |
+| rollout/                |             |
+|    ep_len_mean          | 524         |
+|    ep_rew_mean          | -0.841      |
+| time/                   |             |
+|    fps                  | 384         |
+|    iterations           | 6           |
+|    time_elapsed         | 63          |
+|    total_timesteps      | 360448      |
+| train/                  |             |
+|    approx_kl            | 0.027192997 |
+|    clip_fraction        | 0.239       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.97       |
+|    explained_variance   | 0.607       |
+|    learning_rate        | 0.000108    |
+|    loss                 | 0.0274      |
+|    n_updates            | 329         |
+|    policy_gradient_loss | -0.0311     |
+|    std                  | 0.129       |
+|    value_loss           | 0.145       |
+-----------------------------------------
+Early stopping at step 7 due to reaching max kl: 0.03
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0.1         |
+|    goals_scored         | 0.1         |
+|    touches_per_ep       | 7.6         |
+| rollout/                |             |
+|    ep_len_mean          | 539         |
+|    ep_rew_mean          | -1.03       |
+| time/                   |             |
+|    fps                  | 401         |
+|    iterations           | 7           |
+|    time_elapsed         | 71          |
+|    total_timesteps      | 364544      |
+| train/                  |             |
+|    approx_kl            | 0.026034052 |
+|    clip_fraction        | 0.252       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.03       |
+|    explained_variance   | 0.522       |
+|    learning_rate        | 0.000105    |
+|    loss                 | 0.0337      |
+|    n_updates            | 337         |
+|    policy_gradient_loss | -0.0312     |
+|    std                  | 0.129       |
+|    value_loss           | 0.231       |
+-----------------------------------------
+Early stopping at step 6 due to reaching max kl: 0.03
+Eval num_timesteps=365872, episode_reward=-2.29 +/- 4.86
+Episode length: 660.00 +/- 191.25
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 660         |
+|    mean_reward          | -2.29       |
+| time/                   |             |
+|    total_timesteps      | 365872      |
+| train/                  |             |
+|    approx_kl            | 0.027305996 |
+|    clip_fraction        | 0.214       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.98       |
+|    explained_variance   | 0.628       |
+|    learning_rate        | 0.000103    |
+|    loss                 | 0.0431      |
+|    n_updates            | 344         |
+|    policy_gradient_loss | -0.0319     |
+|    std                  | 0.129       |
+|    value_loss           | 0.137       |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.733    |
+|    goal_difference | -0.133   |
+|    goals_conceded  | 0.2      |
+|    goals_scored    | 0.0667   |
+|    loss_rate       | 0.2      |
+|    points          | 0.433    |
+|    win_rate        | 0.0667   |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 545      |
+|    ep_rew_mean     | -1.36    |
+| time/              |          |
+|    fps             | 361      |
+|    iterations      | 8        |
+|    time_elapsed    | 90       |
+|    total_timesteps | 368640   |
+---------------------------------
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0.2         |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 7.3         |
+| rollout/                |             |
+|    ep_len_mean          | 564         |
+|    ep_rew_mean          | -1.51       |
+| time/                   |             |
+|    fps                  | 375         |
+|    iterations           | 9           |
+|    time_elapsed         | 98          |
+|    total_timesteps      | 372736      |
+| train/                  |             |
+|    approx_kl            | 0.024405055 |
+|    clip_fraction        | 0.272       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.99       |
+|    explained_variance   | 0.53        |
+|    learning_rate        | 0.000101    |
+|    loss                 | 0.086       |
+|    n_updates            | 354         |
+|    policy_gradient_loss | -0.0336     |
+|    std                  | 0.129       |
+|    value_loss           | 0.21        |
+-----------------------------------------
+Early stopping at step 6 due to reaching max kl: 0.03
+Eval num_timesteps=375872, episode_reward=-2.35 +/- 3.27
+Episode length: 716.47 +/- 87.54
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 716         |
+|    mean_reward          | -2.35       |
+| time/                   |             |
+|    total_timesteps      | 375872      |
+| train/                  |             |
+|    approx_kl            | 0.025437487 |
+|    clip_fraction        | 0.265       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.91       |
+|    explained_variance   | 0.298       |
+|    learning_rate        | 9.87e-05    |
+|    loss                 | -0.0515     |
+|    n_updates            | 361         |
+|    policy_gradient_loss | -0.0385     |
+|    std                  | 0.128       |
+|    value_loss           | 0.0638      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.867    |
+|    goal_difference | -0.133   |
+|    goals_conceded  | 0.133    |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.133    |
+|    points          | 0.433    |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 575      |
+|    ep_rew_mean     | -1.75    |
+| time/              |          |
+|    fps             | 350      |
+|    iterations      | 10       |
+|    time_elapsed    | 116      |
+|    total_timesteps | 376832   |
+---------------------------------
+Early stopping at step 8 due to reaching max kl: 0.03
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0.2         |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 10.1        |
+| rollout/                |             |
+|    ep_len_mean          | 597         |
+|    ep_rew_mean          | -1.92       |
+| time/                   |             |
+|    fps                  | 365         |
+|    iterations           | 11          |
+|    time_elapsed         | 123         |
+|    total_timesteps      | 380928      |
+| train/                  |             |
+|    approx_kl            | 0.030328369 |
+|    clip_fraction        | 0.269       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.94       |
+|    explained_variance   | 0.626       |
+|    learning_rate        | 9.65e-05    |
+|    loss                 | 0.0682      |
+|    n_updates            | 370         |
+|    policy_gradient_loss | -0.0389     |
+|    std                  | 0.128       |
+|    value_loss           | 0.233       |
+-----------------------------------------
+Early stopping at step 6 due to reaching max kl: 0.03
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0           |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 8.4         |
+| rollout/                |             |
+|    ep_len_mean          | 610         |
+|    ep_rew_mean          | -2.08       |
+| time/                   |             |
+|    fps                  | 375         |
+|    iterations           | 12          |
+|    time_elapsed         | 131         |
+|    total_timesteps      | 385024      |
+| train/                  |             |
+|    approx_kl            | 0.025674814 |
+|    clip_fraction        | 0.234       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.87       |
+|    explained_variance   | 0.679       |
+|    learning_rate        | 9.43e-05    |
+|    loss                 | -0.0858     |
+|    n_updates            | 377         |
+|    policy_gradient_loss | -0.0429     |
+|    std                  | 0.128       |
+|    value_loss           | 0.0218      |
+-----------------------------------------
+Early stopping at step 4 due to reaching max kl: 0.03
+Eval num_timesteps=385872, episode_reward=-3.11 +/- 3.95
+Episode length: 728.73 +/- 64.72
+----------------------------------------
+| eval/                   |            |
+|    mean_ep_length       | 729        |
+|    mean_reward          | -3.11      |
+| time/                   |            |
+|    total_timesteps      | 385872     |
+| train/                  |            |
+|    approx_kl            | 0.02401588 |
+|    clip_fraction        | 0.207      |
+|    clip_range           | 0.2        |
+|    entropy_loss         | -3.89      |
+|    explained_variance   | 0.514      |
+|    learning_rate        | 9.21e-05   |
+|    loss                 | -0.0159    |
+|    n_updates            | 382        |
+|    policy_gradient_loss | -0.0292    |
+|    std                  | 0.128      |
+|    value_loss           | 0.186      |
+----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.8      |
+|    goal_difference | -0.2     |
+|    goals_conceded  | 0.2      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.2      |
+|    points          | 0.4      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 629      |
+|    ep_rew_mean     | -2.16    |
+| time/              |          |
+|    fps             | 355      |
+|    iterations      | 13       |
+|    time_elapsed    | 149      |
+|    total_timesteps | 389120   |
+---------------------------------
+Early stopping at step 5 due to reaching max kl: 0.03
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0.2         |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 6.8         |
+| rollout/                |             |
+|    ep_len_mean          | 644         |
+|    ep_rew_mean          | -2.35       |
+| time/                   |             |
+|    fps                  | 363         |
+|    iterations           | 14          |
+|    time_elapsed         | 157         |
+|    total_timesteps      | 393216      |
+| train/                  |             |
+|    approx_kl            | 0.024160175 |
+|    clip_fraction        | 0.212       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.84       |
+|    explained_variance   | 0.498       |
+|    learning_rate        | 8.99e-05    |
+|    loss                 | -0.0215     |
+|    n_updates            | 388         |
+|    policy_gradient_loss | -0.0331     |
+|    std                  | 0.128       |
+|    value_loss           | 0.162       |
+-----------------------------------------
+Early stopping at step 6 due to reaching max kl: 0.03
+Eval num_timesteps=395872, episode_reward=-2.44 +/- 3.21
+Episode length: 701.27 +/- 124.28
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 701         |
+|    mean_reward          | -2.44       |
+| time/                   |             |
+|    total_timesteps      | 395872      |
+| train/                  |             |
+|    approx_kl            | 0.025613228 |
+|    clip_fraction        | 0.247       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.89       |
+|    explained_variance   | 0.628       |
+|    learning_rate        | 8.77e-05    |
+|    loss                 | -0.0777     |
+|    n_updates            | 395         |
+|    policy_gradient_loss | -0.0394     |
+|    std                  | 0.128       |
+|    value_loss           | 0.0183      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.867    |
+|    goal_difference | -0.133   |
+|    goals_conceded  | 0.133    |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.133    |
+|    points          | 0.433    |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 656      |
+|    ep_rew_mean     | -2.54    |
+| time/              |          |
+|    fps             | 344      |
+|    iterations      | 15       |
+|    time_elapsed    | 178      |
+|    total_timesteps | 397312   |
+---------------------------------
+Early stopping at step 8 due to reaching max kl: 0.04
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0.1         |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 11.4        |
+| rollout/                |             |
+|    ep_len_mean          | 671         |
+|    ep_rew_mean          | -2.78       |
+| time/                   |             |
+|    fps                  | 351         |
+|    iterations           | 16          |
+|    time_elapsed         | 186         |
+|    total_timesteps      | 401408      |
+| train/                  |             |
+|    approx_kl            | 0.025825467 |
+|    clip_fraction        | 0.266       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.92       |
+|    explained_variance   | 0.46        |
+|    learning_rate        | 8.55e-05    |
+|    loss                 | 0.0198      |
+|    n_updates            | 404         |
+|    policy_gradient_loss | -0.0321     |
+|    std                  | 0.128       |
+|    value_loss           | 0.119       |
+-----------------------------------------
+Early stopping at step 8 due to reaching max kl: 0.03
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0.2         |
+|    goals_scored         | 0.1         |
+|    touches_per_ep       | 7.1         |
+| rollout/                |             |
+|    ep_len_mean          | 678         |
+|    ep_rew_mean          | -2.99       |
+| time/                   |             |
+|    fps                  | 359         |
+|    iterations           | 17          |
+|    time_elapsed         | 193         |
+|    total_timesteps      | 405504      |
+| train/                  |             |
+|    approx_kl            | 0.025880061 |
+|    clip_fraction        | 0.222       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.92       |
+|    explained_variance   | 0.555       |
+|    learning_rate        | 8.32e-05    |
+|    loss                 | -0.0158     |
+|    n_updates            | 413         |
+|    policy_gradient_loss | -0.0274     |
+|    std                  | 0.128       |
+|    value_loss           | 0.307       |
+-----------------------------------------
+Early stopping at step 6 due to reaching max kl: 0.03
+Eval num_timesteps=405872, episode_reward=-2.40 +/- 4.80
+Episode length: 672.13 +/- 158.30
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 672         |
+|    mean_reward          | -2.4        |
+| time/                   |             |
+|    total_timesteps      | 405872      |
+| train/                  |             |
+|    approx_kl            | 0.024927083 |
+|    clip_fraction        | 0.241       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.74       |
+|    explained_variance   | 0.698       |
+|    learning_rate        | 8.1e-05     |
+|    loss                 | -0.0151     |
+|    n_updates            | 420         |
+|    policy_gradient_loss | -0.0327     |
+|    std                  | 0.128       |
+|    value_loss           | 0.129       |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.733    |
+|    goal_difference | -0.133   |
+|    goals_conceded  | 0.2      |
+|    goals_scored    | 0.0667   |
+|    loss_rate       | 0.2      |
+|    points          | 0.433    |
+|    win_rate        | 0.0667   |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 684      |
+|    ep_rew_mean     | -3.32    |
+| time/              |          |
+|    fps             | 347      |
+|    iterations      | 18       |
+|    time_elapsed    | 212      |
+|    total_timesteps | 409600   |
+---------------------------------
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0.2         |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 9           |
+| rollout/                |             |
+|    ep_len_mean          | 694         |
+|    ep_rew_mean          | -3.35       |
+| time/                   |             |
+|    fps                  | 353         |
+|    iterations           | 19          |
+|    time_elapsed         | 220         |
+|    total_timesteps      | 413696      |
+| train/                  |             |
+|    approx_kl            | 0.023080513 |
+|    clip_fraction        | 0.245       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.69       |
+|    explained_variance   | 0.587       |
+|    learning_rate        | 7.88e-05    |
+|    loss                 | -0.0505     |
+|    n_updates            | 430         |
+|    policy_gradient_loss | -0.0341     |
+|    std                  | 0.128       |
+|    value_loss           | 0.11        |
+-----------------------------------------
+Early stopping at step 5 due to reaching max kl: 0.03
+Eval num_timesteps=415872, episode_reward=-1.78 +/- 4.42
+Episode length: 694.27 +/- 125.08
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 694         |
+|    mean_reward          | -1.78       |
+| time/                   |             |
+|    total_timesteps      | 415872      |
+| train/                  |             |
+|    approx_kl            | 0.023563521 |
+|    clip_fraction        | 0.209       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.67       |
+|    explained_variance   | 0.737       |
+|    learning_rate        | 7.66e-05    |
+|    loss                 | -0.0401     |
+|    n_updates            | 436         |
+|    policy_gradient_loss | -0.0309     |
+|    std                  | 0.127       |
+|    value_loss           | 0.0482      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.8      |
+|    goal_difference | -0.0667  |
+|    goals_conceded  | 0.133    |
+|    goals_scored    | 0.0667   |
+|    loss_rate       | 0.133    |
+|    points          | 0.467    |
+|    win_rate        | 0.0667   |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 694      |
+|    ep_rew_mean     | -3.46    |
+| time/              |          |
+|    fps             | 343      |
+|    iterations      | 20       |
+|    time_elapsed    | 238      |
+|    total_timesteps | 417792   |
+---------------------------------
+----------------------------------------
+| game/                   |            |
+|    goals_conceded       | 0.1        |
+|    goals_scored         | 0.1        |
+|    touches_per_ep       | 8.8        |
+| rollout/                |            |
+|    ep_len_mean          | 691        |
+|    ep_rew_mean          | -3.25      |
+| time/                   |            |
+|    fps                  | 349        |
+|    iterations           | 21         |
+|    time_elapsed         | 246        |
+|    total_timesteps      | 421888     |
+| train/                  |            |
+|    approx_kl            | 0.02258426 |
+|    clip_fraction        | 0.223      |
+|    clip_range           | 0.2        |
+|    entropy_loss         | -3.77      |
+|    explained_variance   | 0.544      |
+|    learning_rate        | 7.44e-05   |
+|    loss                 | -0.0462    |
+|    n_updates            | 446        |
+|    policy_gradient_loss | -0.0273    |
+|    std                  | 0.127      |
+|    value_loss           | 0.0796     |
+----------------------------------------
+Early stopping at step 7 due to reaching max kl: 0.03
+Eval num_timesteps=425872, episode_reward=-3.12 +/- 3.83
+Episode length: 696.13 +/- 113.49
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 696         |
+|    mean_reward          | -3.12       |
+| time/                   |             |
+|    total_timesteps      | 425872      |
+| train/                  |             |
+|    approx_kl            | 0.023431258 |
+|    clip_fraction        | 0.209       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.79       |
+|    explained_variance   | 0.76        |
+|    learning_rate        | 7.22e-05    |
+|    loss                 | -0.0183     |
+|    n_updates            | 454         |
+|    policy_gradient_loss | -0.0337     |
+|    std                  | 0.127       |
+|    value_loss           | 0.0976      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.8      |
+|    goal_difference | -0.2     |
+|    goals_conceded  | 0.2      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.2      |
+|    points          | 0.4      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 692      |
+|    ep_rew_mean     | -3.26    |
+| time/              |          |
+|    fps             | 338      |
+|    iterations      | 22       |
+|    time_elapsed    | 266      |
+|    total_timesteps | 425984   |
+---------------------------------
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0.1         |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 11.3        |
+| rollout/                |             |
+|    ep_len_mean          | 699         |
+|    ep_rew_mean          | -3.29       |
+| time/                   |             |
+|    fps                  | 344         |
+|    iterations           | 23          |
+|    time_elapsed         | 273         |
+|    total_timesteps      | 430080      |
+| train/                  |             |
+|    approx_kl            | 0.020819448 |
+|    clip_fraction        | 0.218       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.76       |
+|    explained_variance   | 0.651       |
+|    learning_rate        | 7e-05       |
+|    loss                 | -0.0389     |
+|    n_updates            | 464         |
+|    policy_gradient_loss | -0.0328     |
+|    std                  | 0.127       |
+|    value_loss           | 0.11        |
+-----------------------------------------
+Early stopping at step 9 due to reaching max kl: 0.03
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0.1         |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 7.4         |
+| rollout/                |             |
+|    ep_len_mean          | 699         |
+|    ep_rew_mean          | -3.29       |
+| time/                   |             |
+|    fps                  | 347         |
+|    iterations           | 24          |
+|    time_elapsed         | 282         |
+|    total_timesteps      | 434176      |
+| train/                  |             |
+|    approx_kl            | 0.024112875 |
+|    clip_fraction        | 0.235       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.68       |
+|    explained_variance   | 0.737       |
+|    learning_rate        | 6.78e-05    |
+|    loss                 | -0.0568     |
+|    n_updates            | 474         |
+|    policy_gradient_loss | -0.0408     |
+|    std                  | 0.127       |
+|    value_loss           | 0.0182      |
+-----------------------------------------
+Early stopping at step 8 due to reaching max kl: 0.03
+Eval num_timesteps=435872, episode_reward=-1.20 +/- 3.66
+Episode length: 712.93 +/- 94.71
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 713         |
+|    mean_reward          | -1.2        |
+| time/                   |             |
+|    total_timesteps      | 435872      |
+| train/                  |             |
+|    approx_kl            | 0.027344665 |
+|    clip_fraction        | 0.246       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.53       |
+|    explained_variance   | 0.682       |
+|    learning_rate        | 6.55e-05    |
+|    loss                 | -0.0346     |
+|    n_updates            | 483         |
+|    policy_gradient_loss | -0.0352     |
+|    std                  | 0.127       |
+|    value_loss           | 0.121       |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.867    |
+|    goal_difference | 0        |
+|    goals_conceded  | 0.0667   |
+|    goals_scored    | 0.0667   |
+|    loss_rate       | 0.0667   |
+|    points          | 0.5      |
+|    win_rate        | 0.0667   |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 705      |
+|    ep_rew_mean     | -3.12    |
+| time/              |          |
+|    fps             | 338      |
+|    iterations      | 25       |
+|    time_elapsed    | 302      |
+|    total_timesteps | 438272   |
+---------------------------------
+----------------------------------------
+| game/                   |            |
+|    goals_conceded       | 0          |
+|    goals_scored         | 0          |
+|    touches_per_ep       | 8.6        |
+| rollout/                |            |
+|    ep_len_mean          | 703        |
+|    ep_rew_mean          | -3.21      |
+| time/                   |            |
+|    fps                  | 342        |
+|    iterations           | 26         |
+|    time_elapsed         | 310        |
+|    total_timesteps      | 442368     |
+| train/                  |            |
+|    approx_kl            | 0.02267506 |
+|    clip_fraction        | 0.239      |
+|    clip_range           | 0.2        |
+|    entropy_loss         | -3.51      |
+|    explained_variance   | 0.653      |
+|    learning_rate        | 6.33e-05   |
+|    loss                 | -0.0771    |
+|    n_updates            | 493        |
+|    policy_gradient_loss | -0.0447    |
+|    std                  | 0.127      |
+|    value_loss           | 0.00801    |
+----------------------------------------
+Eval num_timesteps=445872, episode_reward=-2.52 +/- 3.17
+Episode length: 699.80 +/- 138.16
+----------------------------------------
+| eval/                   |            |
+|    mean_ep_length       | 700        |
+|    mean_reward          | -2.52      |
+| time/                   |            |
+|    total_timesteps      | 445872     |
+| train/                  |            |
+|    approx_kl            | 0.02092699 |
+|    clip_fraction        | 0.183      |
+|    clip_range           | 0.2        |
+|    entropy_loss         | -3.57      |
+|    explained_variance   | 0.29       |
+|    learning_rate        | 6.11e-05   |
+|    loss                 | 0.0197     |
+|    n_updates            | 503        |
+|    policy_gradient_loss | -0.0223    |
+|    std                  | 0.127      |
+|    value_loss           | 0.128      |
+----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.867    |
+|    goal_difference | -0.133   |
+|    goals_conceded  | 0.133    |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.133    |
+|    points          | 0.433    |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 694      |
+|    ep_rew_mean     | -3.29    |
+| time/              |          |
+|    fps             | 335      |
+|    iterations      | 27       |
+|    time_elapsed    | 329      |
+|    total_timesteps | 446464   |
+---------------------------------
+Early stopping at step 9 due to reaching max kl: 0.03
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0.4         |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 8.5         |
+| rollout/                |             |
+|    ep_len_mean          | 686         |
+|    ep_rew_mean          | -3.57       |
+| time/                   |             |
+|    fps                  | 339         |
+|    iterations           | 28          |
+|    time_elapsed         | 337         |
+|    total_timesteps      | 450560      |
+| train/                  |             |
+|    approx_kl            | 0.025372727 |
+|    clip_fraction        | 0.221       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.53       |
+|    explained_variance   | 0.603       |
+|    learning_rate        | 5.89e-05    |
+|    loss                 | 0.0952      |
+|    n_updates            | 513         |
+|    policy_gradient_loss | -0.0349     |
+|    std                  | 0.127       |
+|    value_loss           | 0.315       |
+-----------------------------------------
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0.3         |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 7.7         |
+| rollout/                |             |
+|    ep_len_mean          | 681         |
+|    ep_rew_mean          | -3.16       |
+| time/                   |             |
+|    fps                  | 344         |
+|    iterations           | 29          |
+|    time_elapsed         | 344         |
+|    total_timesteps      | 454656      |
+| train/                  |             |
+|    approx_kl            | 0.023494948 |
+|    clip_fraction        | 0.229       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.59       |
+|    explained_variance   | 0.721       |
+|    learning_rate        | 5.67e-05    |
+|    loss                 | 0.0506      |
+|    n_updates            | 523         |
+|    policy_gradient_loss | -0.036      |
+|    std                  | 0.127       |
+|    value_loss           | 0.247       |
+-----------------------------------------
+Eval num_timesteps=455872, episode_reward=-3.15 +/- 3.83
+Episode length: 694.20 +/- 137.49
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 694         |
+|    mean_reward          | -3.15       |
+| time/                   |             |
+|    total_timesteps      | 455872      |
+| train/                  |             |
+|    approx_kl            | 0.023318384 |
+|    clip_fraction        | 0.224       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.53       |
+|    explained_variance   | 0.684       |
+|    learning_rate        | 5.45e-05    |
+|    loss                 | -0.0316     |
+|    n_updates            | 533         |
+|    policy_gradient_loss | -0.0371     |
+|    std                  | 0.126       |
+|    value_loss           | 0.175       |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.8      |
+|    goal_difference | -0.2     |
+|    goals_conceded  | 0.2      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.2      |
+|    points          | 0.4      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 676      |
+|    ep_rew_mean     | -3.25    |
+| time/              |          |
+|    fps             | 337      |
+|    iterations      | 30       |
+|    time_elapsed    | 364      |
+|    total_timesteps | 458752   |
+---------------------------------
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0.1         |
+|    goals_scored         | 0.2         |
+|    touches_per_ep       | 7.2         |
+| rollout/                |             |
+|    ep_len_mean          | 676         |
+|    ep_rew_mean          | -3.25       |
+| time/                   |             |
+|    fps                  | 341         |
+|    iterations           | 31          |
+|    time_elapsed         | 371         |
+|    total_timesteps      | 462848      |
+| train/                  |             |
+|    approx_kl            | 0.022776812 |
+|    clip_fraction        | 0.209       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.69       |
+|    explained_variance   | 0.711       |
+|    learning_rate        | 5.23e-05    |
+|    loss                 | -0.0367     |
+|    n_updates            | 543         |
+|    policy_gradient_loss | -0.0385     |
+|    std                  | 0.126       |
+|    value_loss           | 0.144       |
+-----------------------------------------
+Early stopping at step 9 due to reaching max kl: 0.03
+Eval num_timesteps=465872, episode_reward=-1.12 +/- 5.21
+Episode length: 630.87 +/- 208.86
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 631         |
+|    mean_reward          | -1.12       |
+| time/                   |             |
+|    total_timesteps      | 465872      |
+| train/                  |             |
+|    approx_kl            | 0.022593591 |
+|    clip_fraction        | 0.216       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.57       |
+|    explained_variance   | 0.835       |
+|    learning_rate        | 5.01e-05    |
+|    loss                 | -0.0655     |
+|    n_updates            | 553         |
+|    policy_gradient_loss | -0.04       |
+|    std                  | 0.126       |
+|    value_loss           | 0.0179      |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.733    |
+|    goal_difference | 0        |
+|    goals_conceded  | 0.133    |
+|    goals_scored    | 0.133    |
+|    loss_rate       | 0.133    |
+|    points          | 0.5      |
+|    win_rate        | 0.133    |
+---------------------------------
+---------------------------------
+| game/              |          |
+|    goals_conceded  | 0        |
+|    goals_scored    | 0        |
+|    touches_per_ep  | 9.2      |
+| rollout/           |          |
+|    ep_len_mean     | 679      |
+|    ep_rew_mean     | -3.16    |
+| time/              |          |
+|    fps             | 331      |
+|    iterations      | 32       |
+|    time_elapsed    | 395      |
+|    total_timesteps | 466944   |
+---------------------------------
+-----------------------------------------
+| rollout/                |             |
+|    ep_len_mean          | 690         |
+|    ep_rew_mean          | -3.1        |
+| time/                   |             |
+|    fps                  | 336         |
+|    iterations           | 33          |
+|    time_elapsed         | 402         |
+|    total_timesteps      | 471040      |
+| train/                  |             |
+|    approx_kl            | 0.021518104 |
+|    clip_fraction        | 0.23        |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.5        |
+|    explained_variance   | 0.821       |
+|    learning_rate        | 4.79e-05    |
+|    loss                 | -0.0628     |
+|    n_updates            | 563         |
+|    policy_gradient_loss | -0.0454     |
+|    std                  | 0.126       |
+|    value_loss           | 0.0304      |
+-----------------------------------------
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0.1         |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 7.6         |
+| rollout/                |             |
+|    ep_len_mean          | 693         |
+|    ep_rew_mean          | -3.11       |
+| time/                   |             |
+|    fps                  | 340         |
+|    iterations           | 34          |
+|    time_elapsed         | 409         |
+|    total_timesteps      | 475136      |
+| train/                  |             |
+|    approx_kl            | 0.015599864 |
+|    clip_fraction        | 0.157       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.39       |
+|    explained_variance   | 0.755       |
+|    learning_rate        | 4.56e-05    |
+|    loss                 | -0.0631     |
+|    n_updates            | 573         |
+|    policy_gradient_loss | -0.034      |
+|    std                  | 0.126       |
+|    value_loss           | 0.0217      |
+-----------------------------------------
+Eval num_timesteps=475872, episode_reward=-2.50 +/- 4.92
+Episode length: 649.13 +/- 198.25
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 649         |
+|    mean_reward          | -2.5        |
+| time/                   |             |
+|    total_timesteps      | 475872      |
+| train/                  |             |
+|    approx_kl            | 0.016992006 |
+|    clip_fraction        | 0.16        |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.43       |
+|    explained_variance   | 0.607       |
+|    learning_rate        | 4.34e-05    |
+|    loss                 | 0.035       |
+|    n_updates            | 583         |
+|    policy_gradient_loss | -0.0284     |
+|    std                  | 0.126       |
+|    value_loss           | 0.166       |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.733    |
+|    goal_difference | -0.133   |
+|    goals_conceded  | 0.2      |
+|    goals_scored    | 0.0667   |
+|    loss_rate       | 0.2      |
+|    points          | 0.433    |
+|    win_rate        | 0.0667   |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 693      |
+|    ep_rew_mean     | -3.11    |
+| time/              |          |
+|    fps             | 333      |
+|    iterations      | 35       |
+|    time_elapsed    | 429      |
+|    total_timesteps | 479232   |
+---------------------------------
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0.2         |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 9.5         |
+| rollout/                |             |
+|    ep_len_mean          | 692         |
+|    ep_rew_mean          | -3.21       |
+| time/                   |             |
+|    fps                  | 337         |
+|    iterations           | 36          |
+|    time_elapsed         | 436         |
+|    total_timesteps      | 483328      |
+| train/                  |             |
+|    approx_kl            | 0.015920468 |
+|    clip_fraction        | 0.152       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.42       |
+|    explained_variance   | 0.755       |
+|    learning_rate        | 4.12e-05    |
+|    loss                 | -0.0547     |
+|    n_updates            | 593         |
+|    policy_gradient_loss | -0.0346     |
+|    std                  | 0.126       |
+|    value_loss           | 0.0332      |
+-----------------------------------------
+Eval num_timesteps=485872, episode_reward=-3.24 +/- 3.66
+Episode length: 661.20 +/- 196.90
+----------------------------------------
+| eval/                   |            |
+|    mean_ep_length       | 661        |
+|    mean_reward          | -3.24      |
+| time/                   |            |
+|    total_timesteps      | 485872     |
+| train/                  |            |
+|    approx_kl            | 0.01497104 |
+|    clip_fraction        | 0.137      |
+|    clip_range           | 0.2        |
+|    entropy_loss         | -3.51      |
+|    explained_variance   | 0.632      |
+|    learning_rate        | 3.9e-05    |
+|    loss                 | -0.00694   |
+|    n_updates            | 603        |
+|    policy_gradient_loss | -0.0268    |
+|    std                  | 0.126      |
+|    value_loss           | 0.0996     |
+----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.8      |
+|    goal_difference | -0.2     |
+|    goals_conceded  | 0.2      |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.2      |
+|    points          | 0.4      |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 697      |
+|    ep_rew_mean     | -3.13    |
+| time/              |          |
+|    fps             | 332      |
+|    iterations      | 37       |
+|    time_elapsed    | 455      |
+|    total_timesteps | 487424   |
+---------------------------------
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0           |
+|    goals_scored         | 0.1         |
+|    touches_per_ep       | 9.7         |
+| rollout/                |             |
+|    ep_len_mean          | 690         |
+|    ep_rew_mean          | -3.21       |
+| time/                   |             |
+|    fps                  | 335         |
+|    iterations           | 38          |
+|    time_elapsed         | 463         |
+|    total_timesteps      | 491520      |
+| train/                  |             |
+|    approx_kl            | 0.015146194 |
+|    clip_fraction        | 0.123       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.37       |
+|    explained_variance   | 0.318       |
+|    learning_rate        | 3.68e-05    |
+|    loss                 | -0.0326     |
+|    n_updates            | 613         |
+|    policy_gradient_loss | -0.0269     |
+|    std                  | 0.126       |
+|    value_loss           | 0.156       |
+-----------------------------------------
+-----------------------------------------
+| rollout/                |             |
+|    ep_len_mean          | 694         |
+|    ep_rew_mean          | -3.22       |
+| time/                   |             |
+|    fps                  | 339         |
+|    iterations           | 39          |
+|    time_elapsed         | 470         |
+|    total_timesteps      | 495616      |
+| train/                  |             |
+|    approx_kl            | 0.016912553 |
+|    clip_fraction        | 0.157       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.34       |
+|    explained_variance   | 0.512       |
+|    learning_rate        | 3.46e-05    |
+|    loss                 | 0.00433     |
+|    n_updates            | 623         |
+|    policy_gradient_loss | -0.0295     |
+|    std                  | 0.126       |
+|    value_loss           | 0.136       |
+-----------------------------------------
+Eval num_timesteps=495872, episode_reward=-3.90 +/- 4.16
+Episode length: 660.80 +/- 162.93
+-----------------------------------------
+| eval/                   |             |
+|    mean_ep_length       | 661         |
+|    mean_reward          | -3.9        |
+| game/                   |             |
+|    goals_conceded       | 0.2         |
+|    goals_scored         | 0           |
+|    touches_per_ep       | 8.7         |
+| time/                   |             |
+|    total_timesteps      | 495872      |
+| train/                  |             |
+|    approx_kl            | 0.014511272 |
+|    clip_fraction        | 0.124       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.4        |
+|    explained_variance   | 0.553       |
+|    learning_rate        | 3.24e-05    |
+|    loss                 | -0.0131     |
+|    n_updates            | 633         |
+|    policy_gradient_loss | -0.0269     |
+|    std                  | 0.126       |
+|    value_loss           | 0.137       |
+-----------------------------------------
+---------------------------------
+| eval/              |          |
+|    draw_rate       | 0.733    |
+|    goal_difference | -0.267   |
+|    goals_conceded  | 0.267    |
+|    goals_scored    | 0        |
+|    loss_rate       | 0.267    |
+|    points          | 0.367    |
+|    win_rate        | 0        |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 693      |
+|    ep_rew_mean     | -3.12    |
+| time/              |          |
+|    fps             | 333      |
+|    iterations      | 40       |
+|    time_elapsed    | 491      |
+|    total_timesteps | 499712   |
+---------------------------------
+-----------------------------------------
+| game/                   |             |
+|    goals_conceded       | 0.1         |
+|    goals_scored         | 0.1         |
+|    touches_per_ep       | 9.5         |
+| rollout/                |             |
+|    ep_len_mean          | 685         |
+|    ep_rew_mean          | -3.3        |
+| time/                   |             |
+|    fps                  | 336         |
+|    iterations           | 41          |
+|    time_elapsed         | 498         |
+|    total_timesteps      | 503808      |
+| train/                  |             |
+|    approx_kl            | 0.018207204 |
+|    clip_fraction        | 0.161       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -3.43       |
+|    explained_variance   | 0.755       |
+|    learning_rate        | 3.02e-05    |
+|    loss                 | 0.0306      |
+|    n_updates            | 643         |
+|    policy_gradient_loss | -0.0313     |
+|    std                  | 0.126       |
+|    value_loss           | 0.113       |
+-----------------------------------------
+ 100% ----------------------- 167,936/166,668  [ 0:08:16 < 0:00:00 , 307 it/s ]
+
+Modelo final guardado en: models/ab_shaping0\foosball_ppo_final.zip
+
+Entrenamiento completado en 20.4 minutos.
+
+Evaluando modelo entrenado...
+
+Cargando modelo: models/ab_shaping0\foosball_ppo_final
+  Ep  1: reward=  -1.31 | Score A:0 B:0 | toques=11
+  Ep  2: reward= -11.02 | Score A:0 B:1 | toques=11
+  Ep  3: reward=  -1.37 | Score A:0 B:0 | toques=8
+  Ep  4: reward=  -1.58 | Score A:0 B:0 | toques=12
+  Ep  5: reward=  -1.40 | Score A:0 B:0 | toques=8
+  Ep  6: reward=  -1.47 | Score A:0 B:0 | toques=5
+  Ep  7: reward=  -1.46 | Score A:0 B:0 | toques=3
+  Ep  8: reward=  -1.37 | Score A:0 B:0 | toques=6
+  Ep  9: reward=  -1.45 | Score A:0 B:0 | toques=6
+  Ep 10: reward=   9.13 | Score A:1 B:0 | toques=4
+
+--- Resumen (10 episodios, semilla 10042) ---
+  Reward medio:    -1.33 +/- 4.51
+  Goles marcados:  0.10
+  Goles recibidos: 0.10
+  Toques/episodio: 7.4
+  Victorias:       10.0%
+  Empates:         80.0%
+  Derrotas:        10.0%
+  Puntos/partida:  0.500
+  Diferencia gol:  0.000
+
+Para ver el progreso en TensorBoard:
+  tensorboard --logdir "logs/ab_shaping0"

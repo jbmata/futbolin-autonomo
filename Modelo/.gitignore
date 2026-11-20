@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Entorno virtual
+.venv/
+venv/
+env/
+
+# Checkpoints intermedios (solo guardar el final y el mejor)
+models/**/foosball_ppo_*_steps.zip
+# Logs de TensorBoard (grandes, se generan localmente)
+logs/
+
+# Temporales de herramientas y copias locales de modelos
+/.codex-*
+/models_local_backup/
+
+# Imágenes generadas localmente
+*.gif
+*.png
+!docs/*.png
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
