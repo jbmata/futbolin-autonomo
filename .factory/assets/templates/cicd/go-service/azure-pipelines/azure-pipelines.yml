@@ -1,0 +1,241 @@
+# Software Factory - Azure Pipelines (go-service starterkit): Quality -> Build -> Deploy.
+# Copy to the repo root as azure-pipelines.yml (the factory-cicd skill does it) and read
+# .azure-pipelines/service-connection.md and .azure-pipelines/pipeline-variables.example.md first.
+#
+# - Quality runs on pull requests and on main. It runs the SAME gate as factory-quality and local runs
+#   (bash .factory/assets/scripts/test-gate.sh run), so CI and local give one verdict, then SonarQube.
+#   It needs no secret: pull requests never read Key Vault.
+# - Build and Deploy run only on main. Secrets come from Azure Key Vault at run time through a service
+#   connection with workload identity federation (AzureKeyVault@2). Nothing secret lives in this file, in a
+#   variable group or in Azure DevOps variables: only Key Vault secret NAMES appear here.
+# - Rules for every script step: no `set -x`, no `echo` of a secret, a secret is mapped to an environment
+#   variable only in the step that uses it, and a derived secret is marked with issecret=true.
+# - Go: the agent needs Go 1.21 or later (ubuntu-latest has it); GOTOOLCHAIN=auto then downloads the toolchain
+#   that go.mod asks for.
+
+parameters:
+  - name: selfHostedPool # leave empty for the Microsoft-hosted ubuntu-latest image
+    type: string
+    default: ""
+  - name: keyVaultServiceConnection # Azure Resource Manager, workload identity federation (manual)
+    type: string
+    default: factoria-keyvault
+  - name: sonarServiceConnection # SonarQube service connection (SonarQube extension)
+    type: string
+    default: sonarqube
+  - name: deployEnvironment # Azure DevOps Environment that holds the approvals
+    type: string
+    default: prod
+    values: [dev, prod]
+  - name: variableGroup # NON-secret variables of that environment (SSH_HOST, DEPLOY_PATH, ...)
+    type: string
+    default: factoria-prod
+  - name: secretPrefix # prefix of the Key Vault secret names, e.g. "myproject-prod-"; may be empty
+    type: string
+    default: ""
+
+trigger:
+  branches:
+    include: [main]
+  paths:
+    include: [cmd, internal, web, go.mod, go.sum, Dockerfile, compose.yml, azure-pipelines.yml, .azure-pipelines]
+pr:
+  branches:
+    include: [main]
+
+variables:
+  GOTOOLCHAIN: auto
+
+pool:
+  ${{ if eq(parameters.selfHostedPool, '') }}:
+    vmImage: ubuntu-latest
+  ${{ if ne(parameters.selfHostedPool, '') }}:
+    name: ${{ parameters.selfHostedPool }}
+
+stages:
+  - stage: Quality
+    displayName: Quality
+    jobs:
+      - job: quality
+        displayName: Tests, coverage and SonarQube
+        steps:
+          - checkout: self
+            fetchDepth: "0" # full history: Sonar blame and new-code analysis
+
+          - task: NodeTool@0
+            displayName: Setup Node
+            inputs:
+              versionSpec: "22.x"
+
+          - task: SonarQubePrepare@7
+            displayName: Sonar prepare
+            inputs:
+              SonarQube: ${{ parameters.sonarServiceConnection }}
+              scannerMode: cli
+              configMode: manual
+              cliProjectKey: $(SONAR_PROJECT_KEY)
+              cliProjectName: $(SONAR_PROJECT_KEY)
+              cliSources: cmd,internal,web/src
+              extraProperties: |
+                sonar.tests=cmd,internal,web/src
+                sonar.test.inclusions=**/*_test.go,**/*.test.ts
+                sonar.go.coverage.reportPaths=coverage.out
+                sonar.javascript.lcov.reportPaths=web/coverage/lcov.info
+                sonar.exclusions=**/*_test.go,**/*.test.ts,**/node_modules/**,web/dist/**,web/coverage/**
+
+          # Exit 1 (failing tests or coverage below the minimum) and exit 3 (nothing to run) fail the job:
+          # the same blocking verdict as factory-quality. The gate runs `go test -coverprofile=coverage.out ./...`
+          # and `npm run coverage` in web (its test_cmd). GOFLAGS=-v makes go test print the per-test lines that
+          # the JUnit conversion below reads from the saved log; the job fails with the gate exit code (pipefail).
+          - bash: |
+              set -euo pipefail
+              bash .factory/assets/scripts/test-gate.sh run 2>&1 | tee "$AGENT_TEMPDIRECTORY/gate.log"
+            displayName: Quality gate (test-gate.sh run)
+            env:
+              GOFLAGS: -v
+
+          # Azure reads JUnit and Cobertura, Go writes neither: convert the log and coverage.out with two pinned,
+          # documented tools (go run <module>@<version> needs network access to the Go module proxy), and
+          # convert the web lcov.info. Sonar keeps reading coverage.out and lcov.info.
+          - bash: |
+              set -euo pipefail
+              mkdir -p test-results
+              go run github.com/jstemmer/go-junit-report/v2@v2.1.0 -in "$AGENT_TEMPDIRECTORY/gate.log" -out test-results/go.xml
+              if [ -f coverage.out ]; then
+                go run github.com/boumenot/gocover-cobertura@v1.3.0 < coverage.out > coverage-cobertura.xml
+              fi
+              if [ -f web/coverage/lcov.info ]; then
+                python3 -m pip install --quiet lcov_cobertura
+                lcov_cobertura web/coverage/lcov.info --output web/coverage/coverage-cobertura.xml
+              fi
+            displayName: Convert Go log and coverage to JUnit and Cobertura
+            condition: succeededOrFailed()
+
+          # For the web tests, configure the JUnit reporter of the project (e.g. vitest --reporter=junit
+          # --outputFile=test-results/junit.xml); a missing file is not an error.
+          - task: PublishTestResults@2
+            displayName: Publish test results
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: JUnit
+              testResultsFiles: "**/test-results/*.xml"
+              failTaskOnMissingResultsFile: false
+              testRunTitle: Quality
+          - task: PublishCodeCoverageResults@2
+            displayName: Publish code coverage
+            condition: succeededOrFailed()
+            inputs:
+              summaryFileLocation: $(Build.SourcesDirectory)/**/coverage-cobertura.xml
+              failIfCoverageEmpty: false
+
+          - task: SonarQubeAnalyze@7
+            displayName: Sonar analyze
+          - task: SonarQubePublish@7
+            displayName: Sonar quality gate
+            inputs:
+              pollingTimeoutSec: "300"
+
+  - stage: Build
+    displayName: Build and push to Harbor
+    dependsOn: Quality
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'), ne(variables['Build.Reason'], 'PullRequest'))
+    jobs:
+      - job: build
+        displayName: Build and push the image
+        steps:
+          - checkout: self
+          - task: AzureKeyVault@2
+            displayName: Read secrets from Key Vault
+            inputs:
+              azureSubscription: ${{ parameters.keyVaultServiceConnection }}
+              KeyVaultName: $(KEY_VAULT_NAME)
+              SecretsFilter: ${{ parameters.secretPrefix }}harbor-registry-password
+              RunAsPreJob: false
+          - bash: |
+              set -euo pipefail
+              for v in REGISTRY_URL REGISTRY_USERNAME REGISTRY_PASSWORD IMAGE_REPOSITORY; do
+                eval "val=\${$v:-}"; test -n "$val" || { echo "##vso[task.logissue type=error]$v is not set"; exit 1; }
+              done
+              printf '%s' "$REGISTRY_PASSWORD" | docker login "$REGISTRY_URL" -u "$REGISTRY_USERNAME" --password-stdin
+              docker build -f Dockerfile \
+                -t "$REGISTRY_URL/$IMAGE_REPOSITORY:$IMAGE_TAG" -t "$REGISTRY_URL/$IMAGE_REPOSITORY:latest" .
+              docker push --all-tags "$REGISTRY_URL/$IMAGE_REPOSITORY"
+            displayName: Build and push (docker login with the Key Vault token)
+            env:
+              REGISTRY_URL: $(HARBOR_REGISTRY_URL)
+              REGISTRY_USERNAME: $(HARBOR_REGISTRY_USERNAME)
+              REGISTRY_PASSWORD: $(${{ parameters.secretPrefix }}harbor-registry-password)
+              IMAGE_REPOSITORY: $(HARBOR_IMAGE_REPOSITORY)
+              IMAGE_TAG: $(Build.SourceVersion)
+          - bash: docker logout "$REGISTRY_URL" || true
+            displayName: Docker logout
+            condition: always()
+            env:
+              REGISTRY_URL: $(HARBOR_REGISTRY_URL)
+
+  - stage: Deploy
+    displayName: Deploy
+    dependsOn: Build
+    condition: succeeded()
+    variables:
+      - group: ${{ parameters.variableGroup }} # NON-secret values only
+    jobs:
+      - deployment: deploy
+        displayName: Deploy over SSH with docker compose
+        environment: ${{ parameters.deployEnvironment }} # approvals and checks are set on this Environment
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                - task: AzureKeyVault@2
+                  displayName: Read secrets from Key Vault
+                  inputs:
+                    azureSubscription: ${{ parameters.keyVaultServiceConnection }}
+                    KeyVaultName: $(KEY_VAULT_NAME)
+                    SecretsFilter: ${{ parameters.secretPrefix }}harbor-registry-password,${{ parameters.secretPrefix }}ssh-private-key,${{ parameters.secretPrefix }}ssh-known-hosts
+                    RunAsPreJob: false
+                - bash: |
+                    set -euo pipefail
+                    umask 077
+                    D="$AGENT_TEMPDIRECTORY/deploy"; mkdir -p "$D"
+                    for v in REGISTRY_URL REGISTRY_USERNAME REGISTRY_PASSWORD IMAGE_REPOSITORY IMAGE_TAG \
+                             SSH_HOST SSH_USER SSH_PRIVATE_KEY SSH_KNOWN_HOSTS DEPLOY_PATH; do
+                      eval "val=\${$v:-}"; test -n "$val" || { echo "##vso[task.logissue type=error]$v is required to deploy"; exit 1; }
+                    done
+                    SSH_PORT="${SSH_PORT:-22}"
+                    case "$SSH_PORT" in *[!0-9]*) echo "##vso[task.logissue type=error]SSH_PORT must be numeric"; exit 1 ;; esac
+                    printf '%s\n' "$SSH_PRIVATE_KEY" > "$D/id_deploy"; chmod 600 "$D/id_deploy"
+                    printf '%s\n' "$SSH_KNOWN_HOSTS" > "$D/known_hosts"
+                    : > "$D/.env"
+                    line(){ printf '%s="%s"\n' "$1" "${2:-}" >> "$D/.env"; }
+                    line DOCKER_IMAGE "$REGISTRY_URL/$IMAGE_REPOSITORY"
+                    line TAG "$IMAGE_TAG"
+                    line BIND_ADDR "${BIND_ADDR:-0.0.0.0}"
+                    line APP_PORT "${APP_PORT:-8080}"
+                    SSH_OPTS=(-i "$D/id_deploy" -o IdentitiesOnly=yes -o "UserKnownHostsFile=$D/known_hosts" -o StrictHostKeyChecking=yes)
+                    ssh -p "$SSH_PORT" "${SSH_OPTS[@]}" "$SSH_USER@$SSH_HOST" "mkdir -p '$DEPLOY_PATH'"
+                    scp -P "$SSH_PORT" "${SSH_OPTS[@]}" compose.yml "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/compose.yml"
+                    scp -P "$SSH_PORT" "${SSH_OPTS[@]}" "$D/.env" "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/.env"
+                    printf '%s' "$REGISTRY_PASSWORD" | ssh -p "$SSH_PORT" "${SSH_OPTS[@]}" "$SSH_USER@$SSH_HOST" \
+                      "set -euo pipefail; cd '$DEPLOY_PATH'; docker login '$REGISTRY_URL' -u '$REGISTRY_USERNAME' --password-stdin; \
+                       docker compose --env-file .env pull; docker compose --env-file .env up -d --no-build --remove-orphans"
+                  displayName: Deploy with docker compose
+                  env:
+                    REGISTRY_URL: $(HARBOR_REGISTRY_URL)
+                    REGISTRY_USERNAME: $(HARBOR_REGISTRY_USERNAME)
+                    REGISTRY_PASSWORD: $(${{ parameters.secretPrefix }}harbor-registry-password)
+                    IMAGE_REPOSITORY: $(HARBOR_IMAGE_REPOSITORY)
+                    IMAGE_TAG: $(Build.SourceVersion)
+                    SSH_HOST: $(SSH_HOST)
+                    SSH_PORT: $(SSH_PORT)
+                    SSH_USER: $(SSH_USER)
+                    SSH_PRIVATE_KEY: $(${{ parameters.secretPrefix }}ssh-private-key)
+                    SSH_KNOWN_HOSTS: $(${{ parameters.secretPrefix }}ssh-known-hosts)
+                    DEPLOY_PATH: $(DEPLOY_PATH)
+                    BIND_ADDR: $(BIND_ADDR)
+                    APP_PORT: $(APP_PORT)
+                # The key, known_hosts and .env live only in the agent temp directory: remove them even on failure.
+                - bash: rm -rf "$AGENT_TEMPDIRECTORY/deploy"
+                  displayName: Remove deploy files
+                  condition: always()

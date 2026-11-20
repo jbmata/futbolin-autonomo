@@ -1,0 +1,105 @@
+# Starterkit catalog for greenfield scaffolding (factory-init step 5).
+# The primary options the setup asks about are `fastapi`, `opensaas`, `frappe` and `go-service`.
+# `source` is a git repo that is CLONED (pulled) into the new project by
+# scaffold-starterkit.sh. `subdir: auto` means: if template/app exists in the
+# clone, scaffold from there (Wasp/OpenSaaS layout); otherwise from the repo root.
+version: 1
+primary: [fastapi, opensaas, frappe, go-service]   # the choices presented at setup
+starterkits:
+  - id: fastapi
+    name: FastAPI (full-stack template)
+    stack: [python, fastapi, react, postgres]
+    description: Official full-stack FastAPI template — FastAPI + SQLModel + Postgres backend,
+      React/Vite frontend, Docker Compose, JWT auth. Same base as Repartix Herramientas.
+    health: "GET /api/v1/utils/health-check/"
+    source: "https://github.com/fastapi/full-stack-fastapi-template"
+    subdir: ""
+    default_port: 8000
+    note: "fastapi/fastapi is the framework; the project scaffold is full-stack-fastapi-template."
+    cicd:                           # used by factory-cicd to scaffold .github/workflows
+      template: fastapi             # factory/templates/cicd/fastapi/
+      images:
+        backend:  { dockerfile: backend/Dockerfile,  repo_var: HARBOR_BACKEND_IMAGE_REPOSITORY }
+        frontend: { dockerfile: frontend/Dockerfile, repo_var: HARBOR_FRONTEND_IMAGE_REPOSITORY }
+      compose: compose.no-domain.yml
+      deploy: ssh-compose
+    quality:                        # used by factory-quality + the sonar.yml template
+      sonar:
+        sources: "backend/app,frontend/src"
+        coverage: { python: backend/coverage.xml, js: frontend/coverage/lcov.info }
+      test_cmd:
+        backend:  "pytest --cov=app --cov-report=xml"
+        frontend: "npm run test --if-present -- --coverage"
+
+  - id: opensaas
+    name: Open SaaS (Wasp)
+    stack: [wasp, react, nodejs, prisma, postgres]
+    description: Open-source SaaS starter (Wasp) — auth, payments (Stripe/Lemon), admin dashboard,
+      email, blog. Runs with `wasp start`; ships its own Docker setup.
+    health: "GET /"
+    source: "https://github.com/wasp-lang/open-saas"
+    subdir: auto                  # uses template/app if present
+    default_port: 3000
+    note: "Runs via Wasp (`wasp start`), not the factory's default docker-compose gate."
+    cicd:
+      template: opensaas            # factory/templates/cicd/opensaas/
+      images:
+        backend:  { dockerfile: app/Dockerfile.server, repo_var: HARBOR_BACKEND_IMAGE_REPOSITORY }
+        frontend: { dockerfile: app/Dockerfile.client, repo_var: HARBOR_FRONTEND_IMAGE_REPOSITORY }
+      compose: docker-compose.yml
+      deploy: ssh-compose
+    quality:
+      sonar:
+        sources: "app/src"
+        coverage: { js: app/coverage/lcov.info }
+      test_cmd:
+        app: "npm run test --if-present -- --coverage"
+
+  - id: frappe
+    name: Frappe (low-code framework / ERPNext base)
+    stack: [python, frappe, mariadb, redis, nodejs]
+    description: Frappe — full-stack low-code web framework and the base of ERPNext. Python backend
+      with a built-in ORM, REST/RPC API, roles & permissions, background jobs (RQ) and a JS-driven
+      desk UI. Apps and sites are created with `bench`; ships an official docker-compose setup.
+    health: "GET /api/method/ping"
+    source: "https://github.com/frappe/frappe_docker"
+    subdir: ""
+    default_port: 8080
+    note: "frappe/frappe (https://github.com/frappe/frappe) is the framework; the project scaffold is the
+      official frappe_docker compose. After scaffolding, create the site with bench (bench new-site) or the
+      bundled pwd.yml, and add your app with `bench get-app`. No CI/CD or Sonar profile is bundled yet (add
+      factory/templates/cicd/frappe/ like fastapi/opensaas to wire factory-cicd/quality)."
+
+  - id: go-service
+    name: Go service (single binary with embedded SPA)
+    stack: [go, sqlite, typescript, vite]
+    description: Fastex template for Go services shipped as one binary — net/http API with GET /health,
+      SQLite without cgo (modernc.org/sqlite) and embedded migrations, and a TypeScript/Vite SPA compiled
+      to web/dist and embedded with go:embed. Multi-stage Dockerfile (distroless), compose.yml, Makefile.
+    health: "GET /health"
+    source: "https://github.com/Fastex-Soluciones-IT/starterkit-go-service"
+    subdir: ""
+    default_port: 8080
+    note: "Private repo of the Fastex org: cloning needs GitHub credentials with read access (gh auth login &&
+      gh auth setup-git). Needs Go 1.26+ and Node 22+ without Docker (make run); with Docker only Compose v2."
+    cicd:
+      template: go-service          # factory/templates/cicd/go-service/
+      images:
+        app: { dockerfile: Dockerfile, repo_var: HARBOR_IMAGE_REPOSITORY }
+      compose: compose.yml
+      deploy: ssh-compose
+    quality:
+      sonar:
+        sources: "cmd,internal,web/src"
+        coverage: { go: coverage.out, js: web/coverage/lcov.info }
+      test_cmd:                     # key = directory the command runs in; "." is the project root
+        .: "go test -coverprofile=coverage.out ./..."
+        web: "npm ci --no-audit --no-fund && npm run coverage"
+
+  - id: none
+    name: No starterkit (bring your own)
+    stack: []
+    description: Skip scaffolding; the factory works with whatever exists or is added manually.
+    source: builtin
+    subdir: ""
+    default_port: 8000

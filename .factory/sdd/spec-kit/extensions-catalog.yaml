@@ -1,0 +1,32 @@
+# Curated spec-kit extension catalog for factory-init (step 4, question 7).
+# When the SDD engine is spec-kit, factory-init ALWAYS asks which extensions to install and
+# presents the `primary:` entries below (name + description + note, verbatim). The user can also
+# provide any additional extension by git URL — the agent then discovers the package
+# (extension.yml may live in a subdirectory) and records it in `sdd.speckit.extensions[]`.
+# Install mechanics live in setup-sdd.sh (install_speckit) and factory/sdd/spec-kit/ADAPTER.md §6.
+version: 1
+# The choices presented at setup:
+primary: [brownfield, none]
+extensions:
+  - id: brownfield
+    name: Brownfield extensions for spec-kit (community)
+    description: Lets an EXISTING codebase adopt spec-kit's Specification-Driven Development
+      workflow (standard `specify init` targets greenfield projects). The
+      `/speckit.brownfield-bootstrap.init` command scans your tech stack, conventions and module
+      layout, then generates a project-tailored constitution and spec/plan/tasks templates.
+      Companion Claude Code skills give the agent senior-developer-level project knowledge
+      (`brownfield-skills`) and convert requirements into EARS format (`brownfield-ears`).
+      Afterwards you use the normal spec-kit flow.
+    source: "https://github.com/wcpaxx/spec-kit-brownfield-extensions"
+    subdir: "extension"
+    requires: "spec-kit ≥ 0.1.0"
+    skills_copy: [skills/brownfield-skills, skills/brownfield-ears]   # → .claude/skills/
+    note: "Community project (MIT, beta) — commands may change between releases; the companion
+      skills apply to Claude Code only."
+
+  - id: none
+    name: No extensions
+    description: Install plain spec-kit only; extensions can be added later with
+      `specify extension add` (see the adapter playbook §6).
+    source: builtin
+    subdir: ""

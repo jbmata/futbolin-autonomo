@@ -1,0 +1,234 @@
+# Software Factory — build → Harbor → deploy (OpenSaaS / Wasp starterkit).
+# Builds the Wasp server + client images, pushes them to YOUR Harbor registry, and deploys to YOUR
+# servers over SSH with docker compose. You own the registry and the servers — nothing on
+# uncontrolled third-party infra. Fill the GitHub Variables/Secrets (.env.cicd.example + set-github-secrets.sh).
+#
+# Per GitHub Environment (dev/prod) — Settings → Environments → {dev,prod}:
+#   Variables: HARBOR_REGISTRY_URL, HARBOR_REGISTRY_USERNAME, HARBOR_BACKEND_IMAGE_REPOSITORY,
+#              HARBOR_FRONTEND_IMAGE_REPOSITORY, SSH_HOST, SSH_PORT, SSH_USER, DEPLOY_PATH,
+#              WASP_SERVER_URL, WASP_WEB_CLIENT_URL, REACT_APP_API_URL, ADMIN_EMAILS,
+#              POSTGRES_DB, POSTGRES_USER, POSTGRES_HOST, POSTGRES_PORT, PROJECT_NAME
+#   Secrets:   HARBOR_REGISTRY_PASSWORD, SSH_PRIVATE_KEY, SSH_KNOWN_HOSTS, JWT_SECRET,
+#              POSTGRES_PASSWORD, SMTP_PASSWORD (+ las claves específicas de tu app)
+# NOTE: OpenSaaS apps suelen tener MUCHAS más variables (pagos, IA, storage…). Añade las que use tu
+#       app a la sección "App vars" de abajo y al .env.cicd.example, manteniendo la convención var/secret.
+name: docker-build-push
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "app/**"
+      - "docker-compose.yml"
+      - ".github/workflows/docker-build-push.yml"
+  workflow_dispatch:
+    inputs:
+      deploy_to:
+        description: "Deploy to environment"
+        required: true
+        default: "none"
+        type: choice
+        options: [none, dev, prod]
+
+jobs:
+  unit-tests:
+    name: unit-tests-app
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install & test
+        working-directory: app
+        run: |
+          npm ci || npm install
+          npm run test --if-present -- run || echo "::warning::tests fallaron o ausentes"
+
+  build-and-push:
+    name: Build and push Harbor images
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+    permissions:
+      contents: read
+    outputs:
+      image_tag: ${{ steps.resolve.outputs.image_tag }}
+    env:
+      REGISTRY_URL: ${{ vars.HARBOR_REGISTRY_URL }}
+      REGISTRY_USERNAME: ${{ vars.HARBOR_REGISTRY_USERNAME }}
+      REGISTRY_PASSWORD: ${{ secrets.HARBOR_REGISTRY_PASSWORD }}
+      BACKEND_IMAGE_REPOSITORY: ${{ vars.HARBOR_BACKEND_IMAGE_REPOSITORY }}
+      FRONTEND_IMAGE_REPOSITORY: ${{ vars.HARBOR_FRONTEND_IMAGE_REPOSITORY }}
+      REACT_APP_API_URL: ${{ vars.REACT_APP_API_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate required CI settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          for v in REGISTRY_URL REGISTRY_USERNAME REGISTRY_PASSWORD BACKEND_IMAGE_REPOSITORY FRONTEND_IMAGE_REPOSITORY; do
+            eval "val=\${$v:-}"; test -n "$val" || { echo "::error::$v no definido (¿HARBOR_* en vars/secrets?)"; exit 1; }
+          done
+
+      - name: Resolve image tag
+        id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEPLOY_ENV="dev"; [ "$GITHUB_REF" = "refs/heads/main" ] && DEPLOY_ENV="prod"
+          echo "DEPLOY_ENV=${DEPLOY_ENV}" >> "$GITHUB_ENV"
+          printf 'image_tag=%s\n' "${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Harbor
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY_URL }}
+          username: ${{ env.REGISTRY_USERNAME }}
+          password: ${{ env.REGISTRY_PASSWORD }}
+
+      - name: Build and push backend (server) image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: app/Dockerfile.server
+          push: true
+          tags: |
+            ${{ env.REGISTRY_URL }}/${{ env.BACKEND_IMAGE_REPOSITORY }}:${{ steps.resolve.outputs.image_tag }}
+            ${{ env.REGISTRY_URL }}/${{ env.BACKEND_IMAGE_REPOSITORY }}:${{ env.DEPLOY_ENV }}-latest
+          cache-from: type=gha,scope=${{ github.ref_name }}-server
+          cache-to: type=gha,scope=${{ github.ref_name }}-server,mode=max
+
+      - name: Build and push frontend (client) image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: app/Dockerfile.client
+          push: true
+          build-args: |
+            REACT_APP_API_URL=${{ env.REACT_APP_API_URL }}
+            CADDY_ENV=${{ env.DEPLOY_ENV }}
+          tags: |
+            ${{ env.REGISTRY_URL }}/${{ env.FRONTEND_IMAGE_REPOSITORY }}:${{ steps.resolve.outputs.image_tag }}
+            ${{ env.REGISTRY_URL }}/${{ env.FRONTEND_IMAGE_REPOSITORY }}:${{ env.DEPLOY_ENV }}-latest
+          cache-from: type=gha,scope=${{ github.ref_name }}-client
+          cache-to: type=gha,scope=${{ github.ref_name }}-client,mode=max
+
+  deploy:
+    name: Deploy over SSH (${{ (github.event_name == 'workflow_dispatch' && inputs.deploy_to) || (github.ref == 'refs/heads/main' && 'prod') || 'dev' }})
+    if: |
+      (github.event_name == 'push') ||
+      (github.event_name == 'workflow_dispatch' && inputs.deploy_to != 'none')
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: ${{ (github.event_name == 'workflow_dispatch' && inputs.deploy_to) || (github.ref == 'refs/heads/main' && 'prod') || 'dev' }}
+    permissions:
+      contents: read
+    env:
+      REGISTRY_URL: ${{ vars.HARBOR_REGISTRY_URL }}
+      REGISTRY_USERNAME: ${{ vars.HARBOR_REGISTRY_USERNAME }}
+      REGISTRY_PASSWORD: ${{ secrets.HARBOR_REGISTRY_PASSWORD }}
+      BACKEND_IMAGE_REPOSITORY: ${{ vars.HARBOR_BACKEND_IMAGE_REPOSITORY }}
+      FRONTEND_IMAGE_REPOSITORY: ${{ vars.HARBOR_FRONTEND_IMAGE_REPOSITORY }}
+      IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
+      SSH_HOST: ${{ vars.SSH_HOST }}
+      SSH_PORT: ${{ vars.SSH_PORT }}
+      SSH_USER: ${{ vars.SSH_USER }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+      # ── App vars (core) — amplía con las de tu app ──
+      WASP_SERVER_URL: ${{ vars.WASP_SERVER_URL }}
+      WASP_WEB_CLIENT_URL: ${{ vars.WASP_WEB_CLIENT_URL }}
+      REACT_APP_API_URL: ${{ vars.REACT_APP_API_URL }}
+      ADMIN_EMAILS: ${{ vars.ADMIN_EMAILS }}
+      PROJECT_NAME: ${{ vars.PROJECT_NAME }}
+      POSTGRES_DB: ${{ vars.POSTGRES_DB }}
+      POSTGRES_USER: ${{ vars.POSTGRES_USER }}
+      POSTGRES_HOST: ${{ vars.POSTGRES_HOST }}
+      POSTGRES_PORT: ${{ vars.POSTGRES_PORT }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate deploy settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          SSH_PORT_VALUE="${SSH_PORT:-22}"
+          case "$SSH_PORT_VALUE" in *[!0-9]*) echo "::error::SSH_PORT debe ser numérico"; exit 1 ;; esac
+          echo "SSH_PORT=${SSH_PORT_VALUE}" >> "$GITHUB_ENV"
+          for v in REGISTRY_URL REGISTRY_USERNAME REGISTRY_PASSWORD BACKEND_IMAGE_REPOSITORY \
+                   FRONTEND_IMAGE_REPOSITORY IMAGE_TAG SSH_HOST SSH_USER SSH_PRIVATE_KEY \
+                   SSH_KNOWN_HOSTS DEPLOY_PATH WASP_SERVER_URL WASP_WEB_CLIENT_URL \
+                   POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD JWT_SECRET; do
+            eval "val=\${$v:-}"; test -n "$val" || { echo "::error::$v es obligatorio para desplegar"; exit 1; }
+          done
+
+      - name: Build deployment env files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p deploy/app
+          SERVER_IMG="${REGISTRY_URL}/${BACKEND_IMAGE_REPOSITORY}:${IMAGE_TAG}"
+          CLIENT_IMG="${REGISTRY_URL}/${FRONTEND_IMAGE_REPOSITORY}:${IMAGE_TAG}"
+          PG_HOST="${POSTGRES_HOST:-db}"; PG_PORT="${POSTGRES_PORT:-5432}"
+          cat > deploy/.env.compose <<EOF
+          SERVER_IMAGE=${SERVER_IMG}
+          CLIENT_IMAGE=${CLIENT_IMG}
+          PROJECT_NAME=${PROJECT_NAME:-opensaas}
+          WASP_SERVER_URL=${WASP_SERVER_URL}
+          WASP_WEB_CLIENT_URL=${WASP_WEB_CLIENT_URL}
+          REACT_APP_API_URL=${REACT_APP_API_URL}
+          DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${PG_HOST}:${PG_PORT}/${POSTGRES_DB}
+          EOF
+          cat > deploy/app/.env.server <<EOF
+          DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${PG_HOST}:${PG_PORT}/${POSTGRES_DB}
+          JWT_SECRET=${JWT_SECRET}
+          WASP_SERVER_URL=${WASP_SERVER_URL}
+          WASP_WEB_CLIENT_URL=${WASP_WEB_CLIENT_URL}
+          ADMIN_EMAILS=${ADMIN_EMAILS}
+          SMTP_PASSWORD=${SMTP_PASSWORD}
+          EOF
+          cat > deploy/app/.env.client <<EOF
+          REACT_APP_API_URL=${REACT_APP_API_URL}
+          EOF
+          cp docker-compose.yml deploy/docker-compose.yml
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ env.SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH known_hosts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf "%s\n" "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 600 ~/.ssh/known_hosts
+
+      - name: Upload deploy bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "mkdir -p '$DEPLOY_PATH/app'"
+          scp -P "$SSH_PORT" deploy/docker-compose.yml "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/docker-compose.yml"
+          scp -P "$SSH_PORT" deploy/.env.compose "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/.env.compose"
+          scp -P "$SSH_PORT" deploy/app/.env.server "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/app/.env.server"
+          scp -P "$SSH_PORT" deploy/app/.env.client "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/app/.env.client"
+
+      - name: Deploy with Docker Compose
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$REGISTRY_PASSWORD" | ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
+            "set -euo pipefail; cd '$DEPLOY_PATH'; docker login '$REGISTRY_URL' -u '$REGISTRY_USERNAME' --password-stdin; \
+             docker compose --env-file .env.compose pull; docker compose --env-file .env.compose up -d --remove-orphans"

@@ -1,0 +1,3 @@
+# Never commit real credentials for this tracker.
+secrets.env
+*.secret

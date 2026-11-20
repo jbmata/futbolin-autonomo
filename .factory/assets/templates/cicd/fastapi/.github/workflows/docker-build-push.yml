@@ -1,0 +1,231 @@
+# Software Factory — build → Harbor → deploy (FastAPI starterkit).
+# Builds backend + frontend images, pushes them to your Harbor registry, and deploys to YOUR servers
+# over SSH with docker compose. Nothing runs on third-party/uncontrolled infra — you own the registry
+# and the servers. Fill the required GitHub Variables/Secrets (see .env.cicd.example + set-github-secrets.sh).
+#
+# Per GitHub Environment (dev/prod) — Settings → Environments → {dev,prod}:
+#   Variables: HARBOR_REGISTRY_URL, HARBOR_REGISTRY_USERNAME, HARBOR_BACKEND_IMAGE_REPOSITORY,
+#              HARBOR_FRONTEND_IMAGE_REPOSITORY, VITE_API_URL, SSH_HOST, SSH_PORT, SSH_USER,
+#              DEPLOY_PATH, PUBLIC_HOST, DOMAIN, ENVIRONMENT, PROJECT_NAME, STACK_NAME,
+#              BACKEND_CORS_ORIGINS, FIRST_SUPERUSER, SMTP_HOST, SMTP_USER, SMTP_PORT, SMTP_TLS,
+#              SMTP_SSL, EMAILS_FROM_EMAIL, POSTGRES_DB, POSTGRES_USER, POSTGRES_PORT,
+#              FRONTEND_PORT, BACKEND_PORT, ADMINER_PORT
+#   Secrets:   HARBOR_REGISTRY_PASSWORD, SSH_PRIVATE_KEY, SSH_KNOWN_HOSTS, SSH_CONFIG (opt),
+#              SECRET_KEY, FIRST_SUPERUSER_PASSWORD, POSTGRES_PASSWORD, SMTP_PASSWORD, SENTRY_DSN
+name: docker-build-push
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "compose.yml"
+      - "compose.no-domain.yml"
+      - ".github/workflows/docker-build-push.yml"
+  workflow_dispatch:
+    inputs:
+      deploy_to:
+        description: "Deploy to environment"
+        required: true
+        default: "none"
+        type: choice
+        options: [none, dev, prod]
+
+jobs:
+  build-and-push:
+    name: Build and push Harbor images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      image_tag: ${{ steps.resolve.outputs.image_tag }}
+    env:
+      REGISTRY_URL: ${{ vars.HARBOR_REGISTRY_URL }}
+      REGISTRY_USERNAME: ${{ vars.HARBOR_REGISTRY_USERNAME }}
+      REGISTRY_PASSWORD: ${{ secrets.HARBOR_REGISTRY_PASSWORD }}
+      BACKEND_IMAGE_REPOSITORY: ${{ vars.HARBOR_BACKEND_IMAGE_REPOSITORY }}
+      FRONTEND_IMAGE_REPOSITORY: ${{ vars.HARBOR_FRONTEND_IMAGE_REPOSITORY }}
+      VITE_API_URL: ${{ vars.VITE_API_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required CI settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$REGISTRY_URL"              || { echo "::error::HARBOR_REGISTRY_URL no definido"; exit 1; }
+          test -n "$REGISTRY_USERNAME"         || { echo "::error::HARBOR_REGISTRY_USERNAME no definido"; exit 1; }
+          test -n "$REGISTRY_PASSWORD"         || { echo "::error::HARBOR_REGISTRY_PASSWORD no definido"; exit 1; }
+          test -n "$BACKEND_IMAGE_REPOSITORY"  || { echo "::error::HARBOR_BACKEND_IMAGE_REPOSITORY no definido"; exit 1; }
+          test -n "$FRONTEND_IMAGE_REPOSITORY" || { echo "::error::HARBOR_FRONTEND_IMAGE_REPOSITORY no definido"; exit 1; }
+
+      - name: Resolve image tag
+        id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE_TAG="$(printf '%s' "${GITHUB_SHA}" | tr -d '\r\n')"
+          printf 'image_tag=%s\n' "$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Harbor
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY_URL }}
+          username: ${{ env.REGISTRY_USERNAME }}
+          password: ${{ env.REGISTRY_PASSWORD }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY_URL }}/${{ env.BACKEND_IMAGE_REPOSITORY }}:${{ steps.resolve.outputs.image_tag }}
+            ${{ env.REGISTRY_URL }}/${{ env.BACKEND_IMAGE_REPOSITORY }}:latest
+          cache-from: type=gha,scope=${{ github.ref_name }}-backend
+          cache-to: type=gha,scope=${{ github.ref_name }}-backend,mode=max
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: frontend/Dockerfile
+          push: true
+          build-args: |
+            VITE_API_URL=${{ env.VITE_API_URL }}
+          tags: |
+            ${{ env.REGISTRY_URL }}/${{ env.FRONTEND_IMAGE_REPOSITORY }}:${{ steps.resolve.outputs.image_tag }}
+            ${{ env.REGISTRY_URL }}/${{ env.FRONTEND_IMAGE_REPOSITORY }}:latest
+          cache-from: type=gha,scope=${{ github.ref_name }}-frontend
+          cache-to: type=gha,scope=${{ github.ref_name }}-frontend,mode=max
+
+  deploy:
+    name: Deploy over SSH (${{ (github.event_name == 'workflow_dispatch' && inputs.deploy_to) || 'prod' }})
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && inputs.deploy_to != 'none')
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: ${{ (github.event_name == 'workflow_dispatch' && inputs.deploy_to) || 'prod' }}
+    permissions:
+      contents: read
+    env:
+      REGISTRY_URL: ${{ vars.HARBOR_REGISTRY_URL }}
+      REGISTRY_USERNAME: ${{ vars.HARBOR_REGISTRY_USERNAME }}
+      REGISTRY_PASSWORD: ${{ secrets.HARBOR_REGISTRY_PASSWORD }}
+      BACKEND_IMAGE_REPOSITORY: ${{ vars.HARBOR_BACKEND_IMAGE_REPOSITORY }}
+      FRONTEND_IMAGE_REPOSITORY: ${{ vars.HARBOR_FRONTEND_IMAGE_REPOSITORY }}
+      IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
+      SSH_HOST: ${{ vars.SSH_HOST }}
+      SSH_PORT: ${{ vars.SSH_PORT }}
+      SSH_USER: ${{ vars.SSH_USER }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+      SSH_CONFIG: ${{ secrets.SSH_CONFIG }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+      PUBLIC_HOST: ${{ vars.PUBLIC_HOST }}
+      DOMAIN: ${{ vars.DOMAIN }}
+      ENVIRONMENT: ${{ vars.ENVIRONMENT }}
+      PROJECT_NAME: ${{ vars.PROJECT_NAME }}
+      STACK_NAME: ${{ vars.STACK_NAME }}
+      BACKEND_CORS_ORIGINS: ${{ vars.BACKEND_CORS_ORIGINS }}
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      FIRST_SUPERUSER: ${{ vars.FIRST_SUPERUSER }}
+      FIRST_SUPERUSER_PASSWORD: ${{ secrets.FIRST_SUPERUSER_PASSWORD }}
+      SMTP_HOST: ${{ vars.SMTP_HOST }}
+      SMTP_USER: ${{ vars.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      EMAILS_FROM_EMAIL: ${{ vars.EMAILS_FROM_EMAIL }}
+      SMTP_TLS: ${{ vars.SMTP_TLS }}
+      SMTP_SSL: ${{ vars.SMTP_SSL }}
+      SMTP_PORT: ${{ vars.SMTP_PORT }}
+      POSTGRES_PORT: ${{ vars.POSTGRES_PORT }}
+      POSTGRES_DB: ${{ vars.POSTGRES_DB }}
+      POSTGRES_USER: ${{ vars.POSTGRES_USER }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+      FRONTEND_PORT: ${{ vars.FRONTEND_PORT }}
+      BACKEND_PORT: ${{ vars.BACKEND_PORT }}
+      ADMINER_PORT: ${{ vars.ADMINER_PORT }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate deploy settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          SSH_PORT_VALUE="${SSH_PORT:-22}"
+          case "$SSH_PORT_VALUE" in *[!0-9]*) echo "::error::SSH_PORT debe ser numérico"; exit 1 ;; esac
+          echo "SSH_PORT=${SSH_PORT_VALUE}" >> "$GITHUB_ENV"
+          for v in REGISTRY_URL REGISTRY_USERNAME REGISTRY_PASSWORD BACKEND_IMAGE_REPOSITORY \
+                   FRONTEND_IMAGE_REPOSITORY IMAGE_TAG SSH_HOST SSH_USER SSH_PRIVATE_KEY \
+                   SSH_KNOWN_HOSTS DEPLOY_PATH ENVIRONMENT SECRET_KEY FIRST_SUPERUSER \
+                   FIRST_SUPERUSER_PASSWORD POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD; do
+            eval "val=\${$v:-}"; test -n "$val" || { echo "::error::$v es obligatorio para desplegar"; exit 1; }
+          done
+
+      - name: Build deployment .env
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p deploy; : > deploy/.env
+          line(){ printf '%s="%s"\n' "$1" "${2:-}" >> deploy/.env; }
+          PUBLIC_HOST_VALUE="${PUBLIC_HOST:-$SSH_HOST}"
+          DOMAIN_VALUE="${DOMAIN:-$PUBLIC_HOST_VALUE}"
+          line DOMAIN "$DOMAIN_VALUE"
+          line FRONTEND_HOST "http://${PUBLIC_HOST_VALUE}"
+          line ENVIRONMENT "$ENVIRONMENT"
+          line PROJECT_NAME "${PROJECT_NAME:-app}"
+          line STACK_NAME "${STACK_NAME:-app-${ENVIRONMENT}}"
+          line BACKEND_CORS_ORIGINS "${BACKEND_CORS_ORIGINS:-http://${PUBLIC_HOST_VALUE}}"
+          line SECRET_KEY "$SECRET_KEY"
+          line FIRST_SUPERUSER "$FIRST_SUPERUSER"
+          line FIRST_SUPERUSER_PASSWORD "$FIRST_SUPERUSER_PASSWORD"
+          line SMTP_HOST "$SMTP_HOST"; line SMTP_USER "$SMTP_USER"; line SMTP_PASSWORD "$SMTP_PASSWORD"
+          line EMAILS_FROM_EMAIL "${EMAILS_FROM_EMAIL:-info@example.com}"
+          line SMTP_TLS "${SMTP_TLS:-True}"; line SMTP_SSL "${SMTP_SSL:-False}"; line SMTP_PORT "${SMTP_PORT:-587}"
+          line POSTGRES_SERVER "db"; line POSTGRES_PORT "${POSTGRES_PORT:-5432}"
+          line POSTGRES_DB "$POSTGRES_DB"; line POSTGRES_USER "$POSTGRES_USER"; line POSTGRES_PASSWORD "$POSTGRES_PASSWORD"
+          line SENTRY_DSN "${SENTRY_DSN:-}"
+          line DOCKER_IMAGE_BACKEND "$REGISTRY_URL/$BACKEND_IMAGE_REPOSITORY"
+          line DOCKER_IMAGE_FRONTEND "$REGISTRY_URL/$FRONTEND_IMAGE_REPOSITORY"
+          line TAG "$IMAGE_TAG"
+          line FRONTEND_PORT "${FRONTEND_PORT:-80}"; line BACKEND_PORT "${BACKEND_PORT:-8000}"; line ADMINER_PORT "${ADMINER_PORT:-8080}"
+          COMPOSE_SOURCE="compose.no-domain.yml"; [ -f "$COMPOSE_SOURCE" ] || COMPOSE_SOURCE="compose.yml"
+          echo "COMPOSE_SOURCE=${COMPOSE_SOURCE}" >> "$GITHUB_ENV"
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ env.SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH known_hosts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf "%s\n" "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 600 ~/.ssh/known_hosts
+          if [ -n "${SSH_CONFIG:-}" ]; then printf "%s\n" "$SSH_CONFIG" > ~/.ssh/config && chmod 600 ~/.ssh/config; fi
+
+      - name: Upload deployment bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "mkdir -p '$DEPLOY_PATH'"
+          scp -P "$SSH_PORT" "$COMPOSE_SOURCE" "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/compose.yml"
+          scp -P "$SSH_PORT" deploy/.env "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/.env"
+
+      - name: Deploy with Docker Compose
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$REGISTRY_PASSWORD" | ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
+            "set -euo pipefail; cd '$DEPLOY_PATH'; docker login '$REGISTRY_URL' -u '$REGISTRY_USERNAME' --password-stdin; \
+             docker compose --env-file .env pull; docker compose --env-file .env up -d --no-build --remove-orphans"

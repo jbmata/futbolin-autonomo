@@ -1,0 +1,285 @@
+# Software Factory - Azure Pipelines (FastAPI starterkit): Quality -> Build -> Deploy.
+# Copy to the repo root as azure-pipelines.yml (the factory-cicd skill does it) and read
+# .azure-pipelines/service-connection.md and .azure-pipelines/pipeline-variables.example.md first.
+#
+# - Quality runs on pull requests and on main. It runs the SAME gate as factory-quality and local runs
+#   (bash .factory/assets/scripts/test-gate.sh run), so CI and local give one verdict, then SonarQube.
+#   It needs no secret: pull requests never read Key Vault.
+# - Build and Deploy run only on main. Secrets come from Azure Key Vault at run time through a service
+#   connection with workload identity federation (AzureKeyVault@2). Nothing secret lives in this file, in a
+#   variable group or in Azure DevOps variables: only Key Vault secret NAMES appear here.
+# - Rules for every script step: no `set -x`, no `echo` of a secret, a secret is mapped to an environment
+#   variable only in the step that uses it, and a derived secret is marked with issecret=true.
+
+parameters:
+  - name: selfHostedPool # leave empty for the Microsoft-hosted ubuntu-latest image
+    type: string
+    default: ""
+  - name: keyVaultServiceConnection # Azure Resource Manager, workload identity federation (manual)
+    type: string
+    default: factoria-keyvault
+  - name: sonarServiceConnection # SonarQube service connection (SonarQube extension)
+    type: string
+    default: sonarqube
+  - name: deployEnvironment # Azure DevOps Environment that holds the approvals
+    type: string
+    default: prod
+    values: [dev, prod]
+  - name: variableGroup # NON-secret variables of that environment (SSH_HOST, DEPLOY_PATH, ...)
+    type: string
+    default: factoria-prod
+  - name: secretPrefix # prefix of the Key Vault secret names, e.g. "myproject-prod-"; may be empty
+    type: string
+    default: ""
+
+trigger:
+  branches:
+    include: [main]
+  paths:
+    include: [backend, frontend, compose.yml, compose.no-domain.yml, azure-pipelines.yml, .azure-pipelines]
+pr:
+  branches:
+    include: [main]
+
+pool:
+  ${{ if eq(parameters.selfHostedPool, '') }}:
+    vmImage: ubuntu-latest
+  ${{ if ne(parameters.selfHostedPool, '') }}:
+    name: ${{ parameters.selfHostedPool }}
+
+stages:
+  - stage: Quality
+    displayName: Quality
+    jobs:
+      - job: quality
+        displayName: Tests, coverage and SonarQube
+        steps:
+          - checkout: self
+            fetchDepth: "0" # full history: Sonar blame and new-code analysis
+
+          - task: UsePythonVersion@0
+            displayName: Setup Python
+            inputs:
+              versionSpec: "3.12"
+          - task: NodeTool@0
+            displayName: Setup Node
+            inputs:
+              versionSpec: "20.x"
+
+          - task: SonarQubePrepare@7
+            displayName: Sonar prepare
+            inputs:
+              SonarQube: ${{ parameters.sonarServiceConnection }}
+              scannerMode: cli
+              configMode: manual
+              cliProjectKey: $(SONAR_PROJECT_KEY)
+              cliProjectName: $(SONAR_PROJECT_KEY)
+              cliSources: backend/app,frontend/src
+              extraProperties: |
+                sonar.python.coverage.reportPaths=backend/coverage.xml
+                sonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info
+                sonar.exclusions=**/node_modules/**,**/.venv/**,**/migrations/**,**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/tests/**,**/dist/**,**/build/**
+
+          # The gate installs nothing: it runs gates.tests.cmd or the starterkit test_cmd. Install the
+          # dependencies first (the same commands a person runs before the gate).
+          - bash: |
+              set -euo pipefail
+              python -m pip install --upgrade pip
+              if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; else pip install -e backend; fi
+              pip install pytest pytest-cov
+              if [ -f frontend/package.json ]; then (cd frontend && npm ci --no-audit --no-fund); fi
+            displayName: Install dependencies
+
+          # Exit 1 (failing tests or coverage below the minimum) and exit 3 (nothing to run) fail the job:
+          # the same blocking verdict as factory-quality. PYTEST_ADDOPTS makes pytest also write JUnit.
+          - bash: |
+              set -euo pipefail
+              bash .factory/assets/scripts/test-gate.sh run
+            displayName: Quality gate (test-gate.sh run)
+            env:
+              PYTEST_ADDOPTS: --junitxml=$(Build.SourcesDirectory)/test-results/pytest.xml
+
+          # JUnit: pytest writes it (above). For the frontend, configure the JUnit reporter of the project
+          # (e.g. vitest --reporter=junit --outputFile=test-results/junit.xml); a missing file is not an error.
+          - task: PublishTestResults@2
+            displayName: Publish test results
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: JUnit
+              testResultsFiles: "**/test-results/*.xml"
+              failTaskOnMissingResultsFile: false
+              testRunTitle: Quality
+
+          # PublishCodeCoverageResults@2 reads Cobertura, not lcov: pytest-cov already writes Cobertura
+          # (backend/coverage.xml); the frontend lcov.info is converted next to itself for Azure only.
+          # Sonar keeps reading the original lcov.info.
+          - bash: |
+              set -euo pipefail
+              if [ -f frontend/coverage/lcov.info ]; then
+                python -m pip install --quiet lcov_cobertura
+                lcov_cobertura frontend/coverage/lcov.info --output frontend/coverage/coverage-cobertura.xml
+              fi
+            displayName: Convert lcov coverage to Cobertura
+            condition: succeededOrFailed()
+          - task: PublishCodeCoverageResults@2
+            displayName: Publish code coverage
+            condition: succeededOrFailed()
+            inputs:
+              summaryFileLocation: $(Build.SourcesDirectory)/**/coverage*.xml
+              failIfCoverageEmpty: false
+
+          - task: SonarQubeAnalyze@7
+            displayName: Sonar analyze
+          - task: SonarQubePublish@7
+            displayName: Sonar quality gate
+            inputs:
+              pollingTimeoutSec: "300"
+
+  - stage: Build
+    displayName: Build and push to Harbor
+    dependsOn: Quality
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'), ne(variables['Build.Reason'], 'PullRequest'))
+    jobs:
+      - job: build
+        displayName: Build and push images
+        steps:
+          - checkout: self
+          - task: AzureKeyVault@2
+            displayName: Read secrets from Key Vault
+            inputs:
+              azureSubscription: ${{ parameters.keyVaultServiceConnection }}
+              KeyVaultName: $(KEY_VAULT_NAME)
+              SecretsFilter: ${{ parameters.secretPrefix }}harbor-registry-password
+              RunAsPreJob: false
+          - bash: |
+              set -euo pipefail
+              for v in REGISTRY_URL REGISTRY_USERNAME REGISTRY_PASSWORD BACKEND_IMAGE_REPOSITORY FRONTEND_IMAGE_REPOSITORY; do
+                eval "val=\${$v:-}"; test -n "$val" || { echo "##vso[task.logissue type=error]$v is not set"; exit 1; }
+              done
+              printf '%s' "$REGISTRY_PASSWORD" | docker login "$REGISTRY_URL" -u "$REGISTRY_USERNAME" --password-stdin
+              docker build -f backend/Dockerfile \
+                -t "$REGISTRY_URL/$BACKEND_IMAGE_REPOSITORY:$IMAGE_TAG" -t "$REGISTRY_URL/$BACKEND_IMAGE_REPOSITORY:latest" .
+              docker build -f frontend/Dockerfile --build-arg "VITE_API_URL=${VITE_API_URL:-}" \
+                -t "$REGISTRY_URL/$FRONTEND_IMAGE_REPOSITORY:$IMAGE_TAG" -t "$REGISTRY_URL/$FRONTEND_IMAGE_REPOSITORY:latest" .
+              docker push --all-tags "$REGISTRY_URL/$BACKEND_IMAGE_REPOSITORY"
+              docker push --all-tags "$REGISTRY_URL/$FRONTEND_IMAGE_REPOSITORY"
+            displayName: Build and push (docker login with the Key Vault token)
+            env:
+              REGISTRY_URL: $(HARBOR_REGISTRY_URL)
+              REGISTRY_USERNAME: $(HARBOR_REGISTRY_USERNAME)
+              REGISTRY_PASSWORD: $(${{ parameters.secretPrefix }}harbor-registry-password)
+              BACKEND_IMAGE_REPOSITORY: $(HARBOR_BACKEND_IMAGE_REPOSITORY)
+              FRONTEND_IMAGE_REPOSITORY: $(HARBOR_FRONTEND_IMAGE_REPOSITORY)
+              VITE_API_URL: $(VITE_API_URL)
+              IMAGE_TAG: $(Build.SourceVersion)
+          - bash: docker logout "$REGISTRY_URL" || true
+            displayName: Docker logout
+            condition: always()
+            env:
+              REGISTRY_URL: $(HARBOR_REGISTRY_URL)
+
+  - stage: Deploy
+    displayName: Deploy
+    dependsOn: Build
+    condition: succeeded()
+    variables:
+      - group: ${{ parameters.variableGroup }} # NON-secret values only
+    jobs:
+      - deployment: deploy
+        displayName: Deploy over SSH with docker compose
+        environment: ${{ parameters.deployEnvironment }} # approvals and checks are set on this Environment
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                - task: AzureKeyVault@2
+                  displayName: Read secrets from Key Vault
+                  inputs:
+                    azureSubscription: ${{ parameters.keyVaultServiceConnection }}
+                    KeyVaultName: $(KEY_VAULT_NAME)
+                    SecretsFilter: ${{ parameters.secretPrefix }}harbor-registry-password,${{ parameters.secretPrefix }}ssh-private-key,${{ parameters.secretPrefix }}ssh-known-hosts,${{ parameters.secretPrefix }}secret-key,${{ parameters.secretPrefix }}first-superuser-password,${{ parameters.secretPrefix }}postgres-password,${{ parameters.secretPrefix }}smtp-password
+                    RunAsPreJob: false
+                - bash: |
+                    set -euo pipefail
+                    umask 077
+                    D="$AGENT_TEMPDIRECTORY/deploy"; mkdir -p "$D"
+                    for v in REGISTRY_URL REGISTRY_USERNAME REGISTRY_PASSWORD BACKEND_IMAGE_REPOSITORY FRONTEND_IMAGE_REPOSITORY \
+                             SSH_HOST SSH_USER SSH_PRIVATE_KEY SSH_KNOWN_HOSTS DEPLOY_PATH ENVIRONMENT SECRET_KEY FIRST_SUPERUSER \
+                             FIRST_SUPERUSER_PASSWORD POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD; do
+                      eval "val=\${$v:-}"; test -n "$val" || { echo "##vso[task.logissue type=error]$v is required to deploy"; exit 1; }
+                    done
+                    SSH_PORT="${SSH_PORT:-22}"
+                    case "$SSH_PORT" in *[!0-9]*) echo "##vso[task.logissue type=error]SSH_PORT must be numeric"; exit 1 ;; esac
+                    printf '%s\n' "$SSH_PRIVATE_KEY" > "$D/id_deploy"; chmod 600 "$D/id_deploy"
+                    printf '%s\n' "$SSH_KNOWN_HOSTS" > "$D/known_hosts"
+                    : > "$D/.env"
+                    line(){ printf '%s="%s"\n' "$1" "${2:-}" >> "$D/.env"; }
+                    PUBLIC_HOST_VALUE="${PUBLIC_HOST:-$SSH_HOST}"
+                    line DOMAIN "${DOMAIN:-$PUBLIC_HOST_VALUE}"
+                    line FRONTEND_HOST "http://${PUBLIC_HOST_VALUE}"
+                    line ENVIRONMENT "$ENVIRONMENT"
+                    line PROJECT_NAME "${PROJECT_NAME:-app}"
+                    line STACK_NAME "${STACK_NAME:-app-${ENVIRONMENT}}"
+                    line BACKEND_CORS_ORIGINS "${BACKEND_CORS_ORIGINS:-http://${PUBLIC_HOST_VALUE}}"
+                    line SECRET_KEY "$SECRET_KEY"
+                    line FIRST_SUPERUSER "$FIRST_SUPERUSER"
+                    line FIRST_SUPERUSER_PASSWORD "$FIRST_SUPERUSER_PASSWORD"
+                    line SMTP_HOST "${SMTP_HOST:-}"; line SMTP_USER "${SMTP_USER:-}"; line SMTP_PASSWORD "${SMTP_PASSWORD:-}"
+                    line EMAILS_FROM_EMAIL "${EMAILS_FROM_EMAIL:-info@example.com}"
+                    line SMTP_TLS "${SMTP_TLS:-True}"; line SMTP_SSL "${SMTP_SSL:-False}"; line SMTP_PORT "${SMTP_PORT:-587}"
+                    line POSTGRES_SERVER "db"; line POSTGRES_PORT "${POSTGRES_PORT:-5432}"
+                    line POSTGRES_DB "$POSTGRES_DB"; line POSTGRES_USER "$POSTGRES_USER"; line POSTGRES_PASSWORD "$POSTGRES_PASSWORD"
+                    line DOCKER_IMAGE_BACKEND "$REGISTRY_URL/$BACKEND_IMAGE_REPOSITORY"
+                    line DOCKER_IMAGE_FRONTEND "$REGISTRY_URL/$FRONTEND_IMAGE_REPOSITORY"
+                    line TAG "$IMAGE_TAG"
+                    line FRONTEND_PORT "${FRONTEND_PORT:-80}"; line BACKEND_PORT "${BACKEND_PORT:-8000}"; line ADMINER_PORT "${ADMINER_PORT:-8080}"
+                    COMPOSE_SOURCE="compose.no-domain.yml"; [ -f "$COMPOSE_SOURCE" ] || COMPOSE_SOURCE="compose.yml"
+                    SSH_OPTS=(-i "$D/id_deploy" -o IdentitiesOnly=yes -o "UserKnownHostsFile=$D/known_hosts" -o StrictHostKeyChecking=yes)
+                    ssh -p "$SSH_PORT" "${SSH_OPTS[@]}" "$SSH_USER@$SSH_HOST" "mkdir -p '$DEPLOY_PATH'"
+                    scp -P "$SSH_PORT" "${SSH_OPTS[@]}" "$COMPOSE_SOURCE" "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/compose.yml"
+                    scp -P "$SSH_PORT" "${SSH_OPTS[@]}" "$D/.env" "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/.env"
+                    printf '%s' "$REGISTRY_PASSWORD" | ssh -p "$SSH_PORT" "${SSH_OPTS[@]}" "$SSH_USER@$SSH_HOST" \
+                      "set -euo pipefail; cd '$DEPLOY_PATH'; docker login '$REGISTRY_URL' -u '$REGISTRY_USERNAME' --password-stdin; \
+                       docker compose --env-file .env pull; docker compose --env-file .env up -d --no-build --remove-orphans"
+                  displayName: Deploy with docker compose
+                  env:
+                    REGISTRY_URL: $(HARBOR_REGISTRY_URL)
+                    REGISTRY_USERNAME: $(HARBOR_REGISTRY_USERNAME)
+                    REGISTRY_PASSWORD: $(${{ parameters.secretPrefix }}harbor-registry-password)
+                    BACKEND_IMAGE_REPOSITORY: $(HARBOR_BACKEND_IMAGE_REPOSITORY)
+                    FRONTEND_IMAGE_REPOSITORY: $(HARBOR_FRONTEND_IMAGE_REPOSITORY)
+                    IMAGE_TAG: $(Build.SourceVersion)
+                    SSH_HOST: $(SSH_HOST)
+                    SSH_PORT: $(SSH_PORT)
+                    SSH_USER: $(SSH_USER)
+                    SSH_PRIVATE_KEY: $(${{ parameters.secretPrefix }}ssh-private-key)
+                    SSH_KNOWN_HOSTS: $(${{ parameters.secretPrefix }}ssh-known-hosts)
+                    DEPLOY_PATH: $(DEPLOY_PATH)
+                    PUBLIC_HOST: $(PUBLIC_HOST)
+                    DOMAIN: $(DOMAIN)
+                    ENVIRONMENT: $(ENVIRONMENT)
+                    PROJECT_NAME: $(PROJECT_NAME)
+                    STACK_NAME: $(STACK_NAME)
+                    BACKEND_CORS_ORIGINS: $(BACKEND_CORS_ORIGINS)
+                    SECRET_KEY: $(${{ parameters.secretPrefix }}secret-key)
+                    FIRST_SUPERUSER: $(FIRST_SUPERUSER)
+                    FIRST_SUPERUSER_PASSWORD: $(${{ parameters.secretPrefix }}first-superuser-password)
+                    SMTP_HOST: $(SMTP_HOST)
+                    SMTP_USER: $(SMTP_USER)
+                    SMTP_PASSWORD: $(${{ parameters.secretPrefix }}smtp-password)
+                    EMAILS_FROM_EMAIL: $(EMAILS_FROM_EMAIL)
+                    SMTP_TLS: $(SMTP_TLS)
+                    SMTP_SSL: $(SMTP_SSL)
+                    SMTP_PORT: $(SMTP_PORT)
+                    POSTGRES_PORT: $(POSTGRES_PORT)
+                    POSTGRES_DB: $(POSTGRES_DB)
+                    POSTGRES_USER: $(POSTGRES_USER)
+                    POSTGRES_PASSWORD: $(${{ parameters.secretPrefix }}postgres-password)
+                    FRONTEND_PORT: $(FRONTEND_PORT)
+                    BACKEND_PORT: $(BACKEND_PORT)
+                    ADMINER_PORT: $(ADMINER_PORT)
+                # The key, known_hosts and .env live only in the agent temp directory: remove them even on failure.
+                - bash: rm -rf "$AGENT_TEMPDIRECTORY/deploy"
+                  displayName: Remove deploy files
+                  condition: always()

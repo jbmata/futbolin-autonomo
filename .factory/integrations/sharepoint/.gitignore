@@ -1,0 +1,3 @@
+# Never commit real SharePoint credentials.
+secrets.env
+*.secret

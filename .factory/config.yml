@@ -1,0 +1,16 @@
+mode: checkpoint
+runtime_targets: [claude]
+sdd:
+  engine: gsd
+  gsd:
+    version: "1.20.1"
+    source: ""
+tracker:
+  platform: github
+  github:
+    repo: "jbmata/futbolin-autonomo"
+house_skills:
+  caveman: ultra
+  ponytail: ultra
+  rtk: on
+  ccc: on

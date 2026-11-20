@@ -1,0 +1,16 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": [
+    "@dietrichgebert/ponytail"
+  ],
+  "mcp": {
+    "cocoindex-code": {
+      "type": "local",
+      "command": [
+        "ccc",
+        "mcp"
+      ],
+      "enabled": true
+    }
+  }
+}
