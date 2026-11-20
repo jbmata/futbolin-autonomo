@@ -1,0 +1,5 @@
+# Private credentials for SDD engine sources (tokens, keys, git PATs)
+secrets.env
+*.local
+# Cloned spec-kit extension repos (setup-sdd.sh installs them with `specify extension add --dev`)
+vendor/

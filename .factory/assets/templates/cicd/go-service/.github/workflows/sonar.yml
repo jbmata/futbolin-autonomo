@@ -1,0 +1,140 @@
+# Software Factory — tests + SonarQube quality analysis (go-service starterkit: Go + TypeScript SPA).
+# Runs on push to main (+ dev/develop) and PRs. A failing test fails the workflow: there is no best-effort
+# fallback, so a red suite never reaches Sonar as "analysed". Analyses against the SonarQube server in
+# vars.SONAR_HOST_URL with secrets.SONAR_TOKEN. Set these per GitHub Environment (dev/prod):
+#   Settings → Environments → {dev,prod} → Variables:  SONAR_HOST_URL, SONAR_PROJECT_KEY
+#                                          → Secrets:    SONAR_TOKEN
+# Optional self-hosted fallback runner: set vars.SELF_HOSTED_RUNNER_LABELS
+#   (comma-separated, e.g. "self-hosted,Linux,X64,my-runner"). Leave empty to disable.
+name: SonarQube Analysis
+
+on:
+  push:
+    branches: [main, dev, develop]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  sonar:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+    permissions:
+      contents: read
+    env:
+      SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY || secrets.SONAR_PROJECT_KEY }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL || secrets.SONAR_HOST_URL }}
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history → blame/new-code analysis
+
+      - name: Validar configuración de Sonar
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${SONAR_PROJECT_KEY:-}" || { echo "::error::SONAR_PROJECT_KEY no definido (vars/secrets del environment)."; exit 1; }
+          test -n "${SONAR_HOST_URL:-}"   || { echo "::error::SONAR_HOST_URL no definido (vars/secrets del environment)."; exit 1; }
+          test -n "${SONAR_TOKEN:-}"      || { echo "::error::SONAR_TOKEN no definido (secrets del environment)."; exit 1; }
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Tests Go con coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          # coverage.out en la raíz → lo lee Sonar (sonar.go.coverage.reportPaths)
+          go test -coverprofile=coverage.out ./...
+
+      - name: Tests web con coverage
+        shell: bash
+        working-directory: ./web
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          # web/coverage/lcov.info → lo lee Sonar (sonar.javascript.lcov.reportPaths)
+          npm run coverage
+
+      - name: Setup Java (requerido por Sonar scanner)
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Ejecutar análisis SonarQube
+        uses: SonarSource/sonarqube-scan-action@v2
+        with:
+          args: >
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
+            -Dsonar.sources=cmd,internal,web/src
+            -Dsonar.tests=cmd,internal,web/src
+            -Dsonar.test.inclusions=**/*_test.go,**/*.test.ts
+            -Dsonar.go.coverage.reportPaths=coverage.out
+            -Dsonar.javascript.lcov.reportPaths=web/coverage/lcov.info
+            -Dsonar.exclusions=**/*_test.go,**/*.test.ts,**/node_modules/**,web/dist/**,web/coverage/**
+
+  # ── Fallback en runner self-hosted si el runner de GitHub falla (p. ej. billing) ──
+  # Se activa solo si vars.SELF_HOSTED_RUNNER_LABELS está definido y el job 'sonar' falló. Repite los
+  # tests, así que unos tests rotos también lo hacen fallar.
+  sonar-fallback:
+    needs: sonar
+    if: ${{ always() && needs.sonar.result == 'failure' && vars.SELF_HOSTED_RUNNER_LABELS != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
+    runs-on: ${{ fromJSON(format('[{0}]', vars.SELF_HOSTED_RUNNER_LABELS)) }}
+    environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+    permissions:
+      contents: read
+    env:
+      SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY || secrets.SONAR_PROJECT_KEY }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL || secrets.SONAR_HOST_URL }}
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Tests Go con coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test -coverprofile=coverage.out ./...
+      - name: Tests web con coverage
+        shell: bash
+        working-directory: ./web
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          npm run coverage
+      - name: Setup Java (requerido por Sonar scanner)
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+      - name: Ejecutar análisis SonarQube
+        uses: SonarSource/sonarqube-scan-action@v2
+        with:
+          args: >
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
+            -Dsonar.sources=cmd,internal,web/src
+            -Dsonar.tests=cmd,internal,web/src
+            -Dsonar.test.inclusions=**/*_test.go,**/*.test.ts
+            -Dsonar.go.coverage.reportPaths=coverage.out
+            -Dsonar.javascript.lcov.reportPaths=web/coverage/lcov.info
+            -Dsonar.exclusions=**/*_test.go,**/*.test.ts,**/node_modules/**,web/dist/**,web/coverage/**

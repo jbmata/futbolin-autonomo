@@ -1,0 +1,135 @@
+# Software Factory — SonarQube quality analysis (FastAPI / Python + React starterkit).
+# Runs on push to main (+ dev/develop) and PRs. Analyses against the SonarQube server in
+# vars.SONAR_HOST_URL with secrets.SONAR_TOKEN. Set these per GitHub Environment (dev/prod):
+#   Settings → Environments → {dev,prod} → Variables:  SONAR_HOST_URL, SONAR_PROJECT_KEY
+#                                          → Secrets:    SONAR_TOKEN
+# Optional self-hosted fallback runner: set vars.SELF_HOSTED_RUNNER_LABELS
+#   (comma-separated, e.g. "self-hosted,Linux,X64,my-runner"). Leave empty to disable.
+name: SonarQube Analysis
+
+on:
+  push:
+    branches: [main, dev, develop]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  sonar:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+    permissions:
+      contents: read
+    env:
+      SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY || secrets.SONAR_PROJECT_KEY }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL || secrets.SONAR_HOST_URL }}
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history → blame/new-code analysis
+
+      - name: Validar configuración de Sonar
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${SONAR_PROJECT_KEY:-}" || { echo "::error::SONAR_PROJECT_KEY no definido (vars/secrets del environment)."; exit 1; }
+          test -n "${SONAR_HOST_URL:-}"   || { echo "::error::SONAR_HOST_URL no definido (vars/secrets del environment)."; exit 1; }
+          test -n "${SONAR_TOKEN:-}"      || { echo "::error::SONAR_TOKEN no definido (secrets del environment)."; exit 1; }
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Tests backend con coverage (best-effort)
+        shell: bash
+        working-directory: ./backend
+        run: |
+          set -euo pipefail
+          if [ -f pyproject.toml ] || [ -f requirements.txt ]; then
+            python -m pip install --upgrade pip
+            [ -f requirements.txt ] && pip install -r requirements.txt || pip install -e . || true
+            pip install pytest pytest-cov
+            # coverage.xml en backend/ → lo lee Sonar (sonar.python.coverage.reportPaths)
+            pytest --cov=app --cov-report=xml --cov-report=term --maxfail=1 || echo "::warning::tests fallaron o ausentes; Sonar sigue con la cobertura disponible"
+          else
+            echo "::notice::backend sin pyproject/requirements — se omiten tests"
+          fi
+
+      - name: Tests frontend con coverage (best-effort)
+        shell: bash
+        working-directory: ./frontend
+        run: |
+          set -euo pipefail
+          if [ -f package.json ]; then
+            npm ci || npm install
+            npm run test --if-present -- --coverage || echo "::warning::tests frontend fallaron o ausentes"
+          else
+            echo "::notice::frontend sin package.json — se omiten tests"
+          fi
+
+      - name: Setup Java (requerido por Sonar scanner)
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Ejecutar análisis SonarQube
+        uses: SonarSource/sonarqube-scan-action@v2
+        with:
+          args: >
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
+            -Dsonar.sources=backend/app,frontend/src
+            -Dsonar.python.coverage.reportPaths=backend/coverage.xml
+            -Dsonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info
+            -Dsonar.exclusions=**/node_modules/**,**/.venv/**,**/migrations/**,**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/tests/**,**/dist/**,**/build/**
+
+  # ── Fallback en runner self-hosted si el runner de GitHub falla (p. ej. billing) ──
+  # Se activa solo si vars.SELF_HOSTED_RUNNER_LABELS está definido y el job 'sonar' falló.
+  sonar-fallback:
+    needs: sonar
+    if: ${{ always() && needs.sonar.result == 'failure' && vars.SELF_HOSTED_RUNNER_LABELS != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
+    runs-on: ${{ fromJSON(format('[{0}]', vars.SELF_HOSTED_RUNNER_LABELS)) }}
+    environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+    permissions:
+      contents: read
+    env:
+      SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY || secrets.SONAR_PROJECT_KEY }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL || secrets.SONAR_HOST_URL }}
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Tests backend con coverage (best-effort)
+        shell: bash
+        working-directory: ./backend
+        run: |
+          set -euo pipefail
+          if [ -f pyproject.toml ] || [ -f requirements.txt ]; then
+            python -m pip install --upgrade pip
+            [ -f requirements.txt ] && pip install -r requirements.txt || pip install -e . || true
+            pip install pytest pytest-cov
+            pytest --cov=app --cov-report=xml --cov-report=term --maxfail=1 || echo "::warning::tests fallaron o ausentes"
+          fi
+      - name: Setup Java (requerido por Sonar scanner)
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+      - name: Ejecutar análisis SonarQube
+        uses: SonarSource/sonarqube-scan-action@v2
+        with:
+          args: >
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
+            -Dsonar.sources=backend/app,frontend/src
+            -Dsonar.python.coverage.reportPaths=backend/coverage.xml
+            -Dsonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info
+            -Dsonar.exclusions=**/node_modules/**,**/.venv/**,**/migrations/**,**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/tests/**,**/dist/**,**/build/**

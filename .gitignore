@@ -1,0 +1,9 @@
+.env
+.env.*
+!.env.example
+.factory/integrations/**/secrets.env
+**/secrets.env
+.agents/
+skills-lock.json
+/.cocoindex_code/
+/.factory/state/

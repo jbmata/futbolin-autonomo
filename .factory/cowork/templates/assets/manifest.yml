@@ -1,0 +1,34 @@
+# manifest.yml — inventario de assets de diseño subidos al cowork
+#
+# Lista cada fichero de diseño subido durante la sesión con Aura. La factoría lo lee para
+# localizar y referenciar los assets desde .factory/intake/assets/ (holding area).
+#
+# Rellena un bloque por fichero. Copia el bloque y añade tantos como necesites.
+# One block per file. Duplicate as needed.
+#
+# NUNCA incluyas rutas absolutas de tu máquina local — usa solo el nombre de fichero.
+# NEVER include absolute local paths — use the filename only.
+
+assets:
+  # ── Ejemplo / Example ────────────────────────────────────────────────────────
+  - file: "login-actual.png"               # Nombre del fichero / Filename (in assets/ folder)
+    type: screenshot                       # wireframe | mockup | screenshot | pdf | brandkit | other
+    description: "Pantalla de login actual del sistema legado"
+                                           # Descripción en lenguaje llano / Plain-language description
+    screen: "Login"                        # Nombre de pantalla o flujo al que pertenece
+                                           # Screen or flow name this asset belongs to
+    kind: existe                           # existe (ya está construido) | deseado (lo que queremos)
+                                           # "existe" = brownfield signal; "deseado" = greenfield target
+
+  - file: "dashboard-ventas-mockup.png"
+    type: mockup
+    description: "Mockup del dashboard de ventas — lo que nos gustaría tener"
+    screen: "Dashboard de ventas"
+    kind: deseado
+
+  # ── Añade tus assets aquí / Add your assets here ─────────────────────────────
+  # - file: ""
+  #   type: wireframe
+  #   description: ""
+  #   screen: ""
+  #   kind: deseado

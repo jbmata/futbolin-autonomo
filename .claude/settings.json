@@ -1,0 +1,62 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.factory/assets/scripts/house-skills.sh\" hook SessionStart 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.factory/assets/scripts/house-skills.sh\" hook SubagentStart 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.factory/assets/scripts/house-skills.sh\" hook UserPromptSubmit 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  },
+  "extraKnownMarketplaces": {
+    "ponytail": {
+      "source": {
+        "source": "github",
+        "repo": "DietrichGebert/ponytail"
+      }
+    },
+    "caveman": {
+      "source": {
+        "source": "github",
+        "repo": "JuliusBrussee/caveman"
+      }
+    },
+    "fastex-factory": {
+      "source": {
+        "source": "github",
+        "repo": "Fastex-Soluciones-IT/factoria-software"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "software-factory@fastex-factory": true,
+    "ponytail@ponytail": true,
+    "caveman@caveman": true
+  },
+  "env": {
+    "PONYTAIL_DEFAULT_MODE": "ultra"
+  }
+}

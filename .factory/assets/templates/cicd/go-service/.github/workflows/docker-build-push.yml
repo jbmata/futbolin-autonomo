@@ -1,0 +1,169 @@
+# Software Factory — build → Harbor → deploy (go-service starterkit).
+# Builds the single image (Go binary with the SPA embedded), pushes it to your Harbor registry, and deploys
+# it to YOUR servers over SSH with docker compose. Nothing runs on third-party/uncontrolled infra — you own
+# the registry and the servers. Fill the required GitHub Variables/Secrets (see .env.cicd.example +
+# set-github-secrets.sh).
+#
+# Per GitHub Environment (dev/prod) — Settings → Environments → {dev,prod}:
+#   Variables: HARBOR_REGISTRY_URL, HARBOR_REGISTRY_USERNAME, HARBOR_IMAGE_REPOSITORY, SSH_HOST, SSH_PORT,
+#              SSH_USER, DEPLOY_PATH, BIND_ADDR, APP_PORT
+#   Secrets:   HARBOR_REGISTRY_PASSWORD, SSH_PRIVATE_KEY, SSH_KNOWN_HOSTS, SSH_CONFIG (opt)
+name: docker-build-push
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "cmd/**"
+      - "internal/**"
+      - "web/**"
+      - "go.mod"
+      - "go.sum"
+      - "Dockerfile"
+      - "compose.yml"
+      - ".github/workflows/docker-build-push.yml"
+  workflow_dispatch:
+    inputs:
+      deploy_to:
+        description: "Deploy to environment"
+        required: true
+        default: "none"
+        type: choice
+        options: [none, dev, prod]
+
+jobs:
+  build-and-push:
+    name: Build and push Harbor image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      image_tag: ${{ steps.resolve.outputs.image_tag }}
+    env:
+      REGISTRY_URL: ${{ vars.HARBOR_REGISTRY_URL }}
+      REGISTRY_USERNAME: ${{ vars.HARBOR_REGISTRY_USERNAME }}
+      REGISTRY_PASSWORD: ${{ secrets.HARBOR_REGISTRY_PASSWORD }}
+      IMAGE_REPOSITORY: ${{ vars.HARBOR_IMAGE_REPOSITORY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required CI settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$REGISTRY_URL"      || { echo "::error::HARBOR_REGISTRY_URL no definido"; exit 1; }
+          test -n "$REGISTRY_USERNAME" || { echo "::error::HARBOR_REGISTRY_USERNAME no definido"; exit 1; }
+          test -n "$REGISTRY_PASSWORD" || { echo "::error::HARBOR_REGISTRY_PASSWORD no definido"; exit 1; }
+          test -n "$IMAGE_REPOSITORY"  || { echo "::error::HARBOR_IMAGE_REPOSITORY no definido"; exit 1; }
+
+      - name: Resolve image tag
+        id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE_TAG="$(printf '%s' "${GITHUB_SHA}" | tr -d '\r\n')"
+          printf 'image_tag=%s\n' "$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Harbor
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY_URL }}
+          username: ${{ env.REGISTRY_USERNAME }}
+          password: ${{ env.REGISTRY_PASSWORD }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY_URL }}/${{ env.IMAGE_REPOSITORY }}:${{ steps.resolve.outputs.image_tag }}
+            ${{ env.REGISTRY_URL }}/${{ env.IMAGE_REPOSITORY }}:latest
+          cache-from: type=gha,scope=${{ github.ref_name }}-app
+          cache-to: type=gha,scope=${{ github.ref_name }}-app,mode=max
+
+  deploy:
+    name: Deploy over SSH (${{ (github.event_name == 'workflow_dispatch' && inputs.deploy_to) || 'prod' }})
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && inputs.deploy_to != 'none')
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: ${{ (github.event_name == 'workflow_dispatch' && inputs.deploy_to) || 'prod' }}
+    permissions:
+      contents: read
+    env:
+      REGISTRY_URL: ${{ vars.HARBOR_REGISTRY_URL }}
+      REGISTRY_USERNAME: ${{ vars.HARBOR_REGISTRY_USERNAME }}
+      REGISTRY_PASSWORD: ${{ secrets.HARBOR_REGISTRY_PASSWORD }}
+      IMAGE_REPOSITORY: ${{ vars.HARBOR_IMAGE_REPOSITORY }}
+      IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
+      SSH_HOST: ${{ vars.SSH_HOST }}
+      SSH_PORT: ${{ vars.SSH_PORT }}
+      SSH_USER: ${{ vars.SSH_USER }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+      SSH_CONFIG: ${{ secrets.SSH_CONFIG }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+      BIND_ADDR: ${{ vars.BIND_ADDR }}
+      APP_PORT: ${{ vars.APP_PORT }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate deploy settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          SSH_PORT_VALUE="${SSH_PORT:-22}"
+          case "$SSH_PORT_VALUE" in *[!0-9]*) echo "::error::SSH_PORT debe ser numérico"; exit 1 ;; esac
+          echo "SSH_PORT=${SSH_PORT_VALUE}" >> "$GITHUB_ENV"
+          for v in REGISTRY_URL REGISTRY_USERNAME REGISTRY_PASSWORD IMAGE_REPOSITORY IMAGE_TAG \
+                   SSH_HOST SSH_USER SSH_PRIVATE_KEY SSH_KNOWN_HOSTS DEPLOY_PATH; do
+            eval "val=\${$v:-}"; test -n "$val" || { echo "::error::$v es obligatorio para desplegar"; exit 1; }
+          done
+
+      - name: Build deployment .env
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p deploy; : > deploy/.env
+          line(){ printf '%s="%s"\n' "$1" "${2:-}" >> deploy/.env; }
+          line DOCKER_IMAGE "$REGISTRY_URL/$IMAGE_REPOSITORY"
+          line TAG "$IMAGE_TAG"
+          line BIND_ADDR "${BIND_ADDR:-0.0.0.0}"
+          line APP_PORT "${APP_PORT:-8080}"
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ env.SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH known_hosts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf "%s\n" "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 600 ~/.ssh/known_hosts
+          if [ -n "${SSH_CONFIG:-}" ]; then printf "%s\n" "$SSH_CONFIG" > ~/.ssh/config && chmod 600 ~/.ssh/config; fi
+
+      - name: Upload deployment bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "mkdir -p '$DEPLOY_PATH'"
+          scp -P "$SSH_PORT" compose.yml "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/compose.yml"
+          scp -P "$SSH_PORT" deploy/.env "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/.env"
+
+      - name: Deploy with Docker Compose
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$REGISTRY_PASSWORD" | ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
+            "set -euo pipefail; cd '$DEPLOY_PATH'; docker login '$REGISTRY_URL' -u '$REGISTRY_USERNAME' --password-stdin; \
+             docker compose --env-file .env pull; docker compose --env-file .env up -d --no-build --remove-orphans"

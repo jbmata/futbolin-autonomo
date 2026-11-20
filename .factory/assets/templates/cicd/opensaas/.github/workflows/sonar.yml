@@ -1,0 +1,106 @@
+# Software Factory — SonarQube quality analysis (OpenSaaS / Wasp + React starterkit).
+# Runs on push to main (+ dev/develop) and PRs. Analyses against vars.SONAR_HOST_URL with
+# secrets.SONAR_TOKEN. Set per GitHub Environment (dev/prod):
+#   Variables: SONAR_HOST_URL, SONAR_PROJECT_KEY   ·   Secrets: SONAR_TOKEN
+# Optional self-hosted fallback: vars.SELF_HOSTED_RUNNER_LABELS (e.g. "self-hosted,Linux,X64,my-runner").
+name: SonarQube Analysis
+
+on:
+  push:
+    branches: [main, dev, develop]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  sonar:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+    permissions:
+      contents: read
+    env:
+      SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY || secrets.SONAR_PROJECT_KEY }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL || secrets.SONAR_HOST_URL }}
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validar configuración de Sonar
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${SONAR_PROJECT_KEY:-}" || { echo "::error::SONAR_PROJECT_KEY no definido (vars/secrets del environment)."; exit 1; }
+          test -n "${SONAR_HOST_URL:-}"   || { echo "::error::SONAR_HOST_URL no definido (vars/secrets del environment)."; exit 1; }
+          test -n "${SONAR_TOKEN:-}"      || { echo "::error::SONAR_TOKEN no definido (secrets del environment)."; exit 1; }
+
+      - name: Usar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Instalar dependencias
+        working-directory: ./app
+        run: npm ci || npm install
+
+      - name: Ejecutar tests con coverage (best-effort)
+        working-directory: ./app
+        run: npm run test --if-present -- --coverage || echo "::warning::tests fallaron o ausentes; Sonar sigue con la cobertura disponible"
+
+      - name: Setup Java (requerido por Sonar scanner)
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Ejecutar análisis SonarQube
+        uses: SonarSource/sonarqube-scan-action@v2
+        with:
+          args: >
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
+            -Dsonar.sources=app/src
+            -Dsonar.javascript.lcov.reportPaths=app/coverage/lcov.info
+            -Dsonar.exclusions=**/node_modules/**,**/.wasp/**,**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/dist/**,**/build/**,**/migrations/**
+
+  # ── Fallback en runner self-hosted si el de GitHub falla (p. ej. billing) ──
+  sonar-fallback:
+    needs: sonar
+    if: ${{ always() && needs.sonar.result == 'failure' && vars.SELF_HOSTED_RUNNER_LABELS != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
+    runs-on: ${{ fromJSON(format('[{0}]', vars.SELF_HOSTED_RUNNER_LABELS)) }}
+    environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+    permissions:
+      contents: read
+    env:
+      SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY || secrets.SONAR_PROJECT_KEY }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL || secrets.SONAR_HOST_URL }}
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Usar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Instalar dependencias
+        working-directory: ./app
+        run: npm ci || npm install
+      - name: Ejecutar tests con coverage (best-effort)
+        working-directory: ./app
+        run: npm run test --if-present -- --coverage || echo "::warning::tests fallaron o ausentes"
+      - name: Setup Java (requerido por Sonar scanner)
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+      - name: Ejecutar análisis SonarQube
+        uses: SonarSource/sonarqube-scan-action@v2
+        with:
+          args: >
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
+            -Dsonar.sources=app/src
+            -Dsonar.javascript.lcov.reportPaths=app/coverage/lcov.info
+            -Dsonar.exclusions=**/node_modules/**,**/.wasp/**,**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/dist/**,**/build/**,**/migrations/**
