@@ -14,9 +14,8 @@ Uso:
 import argparse
 import numpy as np
 
-from env import FoosballEnv
-from physics import PhysicsEngine
-from world import get_team_bar_indices, LINEAR_RANGE
+from env import FoosballEnv, HeuristicOpponent
+from world import get_team_bar_indices, team_direction
 
 
 # ---------------------------------------------------------------------------
@@ -25,43 +24,28 @@ from world import get_team_bar_indices, LINEAR_RANGE
 
 class HeuristicAgent:
     """
-    Agente heurístico que controla las 4 barras del equipo A.
-    Cada barra intenta alinearse con la predicción de posición de la bola.
-    La barra más cercana activa el golpeo (angular = -1).
+    Agente heurístico para el equipo controlado por el entorno (A por defecto).
+    Reutiliza HeuristicOpponent y devuelve la acción en el marco del equipo,
+    igual que la produciría una política RL.
     """
 
-    def __init__(self, env: FoosballEnv):
+    def __init__(self, env: FoosballEnv, skill: float = 1.0, seed: int = None,
+                 reaction_delay: float = None, params=None):
         self.env      = env
-        self.bar_idxs = get_team_bar_indices('A')
+        self.team     = env.controlled_team
+        self.bar_idxs = get_team_bar_indices(self.team)
+        self._policy  = HeuristicOpponent(skill=skill, rng=np.random.default_rng(seed),
+                                          reaction_delay=reaction_delay, dt=env.dt, params=params)
 
     def predict(self) -> np.ndarray:
-        state = self.env.state
-        ball  = state.ball
-        field = state.field
-
+        if self.env._step_count == 0:
+            self._policy.reset()          # nuevo episodio
+        cmds = self._policy.get_commands(self.env.state, team=self.team)
+        s = team_direction(self.team)
         action = np.zeros(8, dtype=np.float32)
-
-        # Encontrar la barra del equipo A más cercana a la bola en X
-        closest_idx = min(
-            self.bar_idxs,
-            key=lambda i: abs(state.bars[i].bar_x - ball.x)
-        )
-
         for k, bar_idx in enumerate(self.bar_idxs):
-            bar = state.bars[bar_idx]
-
-            # Predecir Y cuando la bola llegue a esta barra
-            pred_y     = PhysicsEngine.predict_ball_y(ball, bar.bar_x, field)
-            linear_cmd = float(np.clip(pred_y / LINEAR_RANGE, -1.0, 1.0))
-
-            # Golpear si esta es la barra más cercana y la bola se acerca
-            approaching = (ball.vx * (bar.bar_x - ball.x)) > 0
-            kick        = (bar_idx == closest_idx) and approaching
-            angular_cmd = -1.0 if kick else 0.0
-
-            action[2 * k]     = linear_cmd
-            action[2 * k + 1] = angular_cmd
-
+            lc, ac = cmds[bar_idx]
+            action[2 * k], action[2 * k + 1] = s * lc, s * ac
         return action
 
 

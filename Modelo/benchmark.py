@@ -1,47 +1,60 @@
 """
 benchmark.py
 ------------
-Compara agentes con las mismas semillas y reporta metricas que SI discriminan
-cuando la mayoria de partidas acaban 0-0.
+Compara agentes contra el mismo rival y con las mismas semillas.
+
+Formato de partido real: el juego sigue tras cada gol (saca el portero que lo
+ha recibido) durante `--seconds` segundos. Se informa de goles por minuto y de
+la diferencia de goles por minuto con su intervalo de confianza del 95 %: si
+los intervalos de dos agentes se solapan mucho, no hay una diferencia clara.
 
 Uso:
-    python benchmark.py                                   # solo baseline heuristico
-    python benchmark.py models/ppo_v2/foosball_ppo_final  # + uno o varios modelos PPO
-    python benchmark.py --episodes 200 models/best/best_model
-
-Metricas: goles marcados/recibidos por episodio, diferencia de goles,
-% de partidas con algun gol y toques propios por episodio.
+    python benchmark.py                                     # solo el heurístico
+    python benchmark.py models/ppo_v4/best/best_model       # + uno o varios modelos
+    python benchmark.py --matches 100 --seconds 60 --skill 0.7 modelo1 modelo2
 """
 
 import argparse
+import math
 import numpy as np
 
 from env import FoosballEnv
 from example import HeuristicAgent
 
 
-def play(policy, n_episodes: int, seed: int, opponent="heuristic") -> dict:
-    """Juega n episodios con las mismas semillas. policy(env, obs) -> accion."""
-    env = FoosballEnv(dt=0.02, max_steps=750, opponent=opponent)
-    scored, conceded, touches = [], [], []
-    for ep in range(n_episodes):
-        obs, _ = env.reset(seed=seed + ep)
-        done, ep_touch = False, 0
+def play(policy, n_matches: int, seed: int, seconds: float = 60.0, opponent="heuristic",
+         obs_version: int = None, opponent_skill=0.7, dt: float = 0.02) -> dict:
+    """Juega n partidos con las mismas semillas. policy(env, obs) -> acción."""
+    steps = int(round(seconds / dt))
+    env = FoosballEnv(dt=dt, max_steps=steps, opponent=opponent,
+                      obs_version=obs_version, opponent_skill=opponent_skill)
+    scored, conceded, touches, shots, lost = [], [], [], [], []
+    for m in range(n_matches):
+        obs, _ = env.reset(seed=seed + m)
+        done, ep_touch, ep_shots = False, 0, 0
         while not done:
             obs, _, terminated, truncated, info = env.step(policy(env, obs))
             done = terminated or truncated
-            ep_touch += sum(b in env._team_bar_idxs
-                            for b, _ in info["events"].get("touches", []))
+            ev = info["events"]
+            ep_touch += sum(b in env._team_bar_idxs for b, _ in ev.get("touches", []))
+            ep_shots += ev.get("shot_on_target") == env.controlled_team
         scored.append(info["score"]["A"])
         conceded.append(info["score"]["B"])
         touches.append(ep_touch)
-    scored, conceded = np.array(scored), np.array(conceded)
+        shots.append(ep_shots)
+        lost.append(info.get("lost_steps", 0))
+    minutes = steps * dt / 60.0
+    scored, conceded = np.array(scored) / minutes, np.array(conceded) / minutes
+    diff = scored - conceded
+    half = 1.96 * diff.std(ddof=1) / math.sqrt(len(diff)) if len(diff) > 1 else float("nan")
     return {
-        "scored": scored.mean(),
-        "conceded": conceded.mean(),
-        "goal_diff": (scored - conceded).mean(),
-        "any_goal": float(np.mean((scored + conceded) > 0)),
-        "touches": float(np.mean(touches)),
+        "scored": scored.mean(), "conceded": conceded.mean(),
+        "diff": diff.mean(), "diff_ci": half,
+        "win": float(np.mean(diff > 0)), "loss": float(np.mean(diff < 0)),
+        "shots": float(np.mean(shots)) / minutes,
+        "conversion": float(np.sum(scored) / max(np.sum(shots) / minutes, 1e-9)),
+        "touches": float(np.mean(touches)) / minutes,
+        "lost_steps": float(np.mean(lost)) / minutes,
     }
 
 
@@ -50,33 +63,46 @@ def heuristic_policy():
 
     def policy(env, obs):
         if agent.get("env") is not env:
-            agent["env"], agent["a"] = env, HeuristicAgent(env)
+            agent["env"], agent["a"] = env, HeuristicAgent(env, seed=0)
         return agent["a"].predict()
     return policy
 
 
 def ppo_policy(path: str):
+    """Devuelve (policy, obs_version) para un modelo PPO guardado."""
     from stable_baselines3 import PPO
-    model = PPO.load(path)
-    return lambda env, obs: model.predict(obs, deterministic=True)[0]
+    from train import obs_version_of
+    model = PPO.load(path, device="cpu")
+    return (lambda env, obs: model.predict(obs, deterministic=True)[0]), obs_version_of(model)
 
 
 def main():
     ap = argparse.ArgumentParser(description="Benchmark de agentes del futbolin")
     ap.add_argument("models", nargs="*", help="Rutas a modelos PPO (.zip sin extension)")
-    ap.add_argument("--episodes", type=int, default=100)
+    ap.add_argument("--matches", "--episodes", type=int, default=60, dest="matches")
+    ap.add_argument("--seconds", type=float, default=60.0, help="Duración de cada partido")
     ap.add_argument("--seed", type=int, default=10_042)
+    ap.add_argument("--skill", type=float, default=0.7, help="Nivel del heurístico rival (0..1)")
+    ap.add_argument("--no-heuristic", action="store_true", help="No incluir al heurístico")
     args = ap.parse_args()
 
-    rows = [("heuristico A vs heuristico B", play(heuristic_policy(), args.episodes, args.seed))]
+    rows = []
+    if not args.no_heuristic:
+        rows.append(("heuristico", play(heuristic_policy(), args.matches, args.seed,
+                                        args.seconds, opponent_skill=args.skill)))
     for path in args.models:
-        rows.append((path, play(ppo_policy(path), args.episodes, args.seed)))
+        policy, version = ppo_policy(path)
+        rows.append((path, play(policy, args.matches, args.seed, args.seconds,
+                                obs_version=version, opponent_skill=args.skill)))
 
-    print(f"\n{args.episodes} episodios, semillas {args.seed}..{args.seed + args.episodes - 1}")
-    print(f"{'agente':44s} {'marca':>6s} {'recibe':>7s} {'dif':>6s} {'%gol':>6s} {'toques':>7s}")
+    print(f"\n{args.matches} partidos de {args.seconds:.0f} s, semillas {args.seed}.."
+          f"{args.seed + args.matches - 1}, rival heuristico nivel {args.skill}. Valores por minuto.")
+    print(f"{'agente':40s} {'marca':>6s} {'recibe':>7s} {'diferencia (IC 95%)':>21s} "
+          f"{'gana':>5s} {'pierde':>6s} {'tiros':>6s} {'conv':>5s} {'pasos perd':>10s}")
     for name, r in rows:
-        print(f"{name[-44:]:44s} {r['scored']:6.2f} {r['conceded']:7.2f} "
-              f"{r['goal_diff']:+6.2f} {r['any_goal']:6.0%} {r['touches']:7.1f}")
+        print(f"{name[-40:]:40s} {r['scored']:6.2f} {r['conceded']:7.2f} "
+              f"{r['diff']:+9.2f} ± {r['diff_ci']:4.2f}      {r['win']:5.0%} {r['loss']:6.0%} "
+              f"{r['shots']:6.2f} {r['conversion']:5.0%} {r['lost_steps']:10.0f}")
 
 
 if __name__ == "__main__":

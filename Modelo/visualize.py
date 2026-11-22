@@ -71,21 +71,24 @@ class FoosballVisualizer:
         self.save_path    = save_path
         self.use_heuristic = use_heuristic
 
-        # Entorno
-        self.env = FoosballEnv(dt=0.02, max_steps=750, noise=True)
-        self.field = self.env.state.field
-
         # Modelo RL o heurístico
         self.model = None
+        obs_version = None          # la del entorno realista (v3)
         if not use_heuristic and model_path:
             try:
                 from stable_baselines3 import PPO
-                self.model = PPO.load(model_path)
-                print(f"Modelo cargado: {model_path}")
+                from train import obs_version_of
+                self.model = PPO.load(model_path, device="cpu")
+                obs_version = obs_version_of(self.model)
+                print(f"Modelo cargado: {model_path} (observación v{obs_version})")
             except Exception as e:
                 print(f"No se pudo cargar el modelo: {e}")
                 print("Usando agente heurístico.")
                 self.use_heuristic = True
+
+        # Entorno
+        self.env = FoosballEnv(dt=0.02, max_steps=750, noise=True, obs_version=obs_version)
+        self.field = self.env.state.field
 
         if self.use_heuristic or self.model is None:
             from example import HeuristicAgent
@@ -200,8 +203,9 @@ class FoosballVisualizer:
                                color=color, zorder=5, ec="white", lw=0.8)
                 ax.add_patch(c)
                 circles.append(c)
-                # Línea que indica la dirección del pie
-                ln, = ax.plot([], [], color="white", lw=1.5, zorder=6, alpha=0.8)
+                # Taco del pie proyectado en planta (cambia con el ángulo)
+                ln, = ax.plot([], [], color="white", lw=4.0, zorder=6, alpha=0.8,
+                              solid_capstyle="butt")
                 foot_lines.append(ln)
             self._player_circles[i] = circles
             self._player_foot_lines[i] = foot_lines
@@ -373,18 +377,14 @@ class FoosballVisualizer:
         # Jugadores
         for i, bar in enumerate(self.env.state.bars):
             base_color = COLOR_TEAM_A if bar.team == 'A' else COLOR_TEAM_B
-            foot_len = 0.030  # longitud visual del pie [m]
+            x0, x1 = bar.foot_footprint_x()
             for j, (circle, foot_line, player_y) in enumerate(
                 zip(self._player_circles[i], self._player_foot_lines[i], bar.get_player_abs_y())
             ):
                 circle.center = (bar.bar_x, player_y)
 
-                # Pie: línea desde centro del jugador en dirección del ángulo
-                # El pie se proyecta en X según sin(angle), en Y según cos(angle)
-                kick_dir = 1 if bar.team == 'A' else -1
-                fx = bar.bar_x + kick_dir * foot_len * np.cos(bar.angle)
-                fy = player_y  + foot_len * np.sin(bar.angle)
-                foot_line.set_data([bar.bar_x, fx], [player_y, fy])
+                # Taco: su huella en X según el ángulo (amarillo si alcanza la bola)
+                foot_line.set_data([x0, x1], [player_y, player_y])
                 in_kick = bar.is_in_kick_zone()
                 foot_line.set_color("yellow" if in_kick else "#666666")
 

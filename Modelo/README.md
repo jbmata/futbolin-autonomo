@@ -2,7 +2,7 @@
 
 Simulador de futbolín tipo **Madrid** (estilo español tradicional) diseñado para entrenar agentes de **Reinforcement Learning** y transferirlos a hardware real.
 
-El enfoque es **control e inteligencia**, no gráficos. Solo Python + NumPy.
+Simula el sistema real: un robot con motores paso a paso contra una persona, visto por una cámara.
 
 ![Simulador en acción](docs/screenshot.png)
 
@@ -16,23 +16,33 @@ El futbolín es un entorno de control con características interesantes para RL:
 - Recompensas escasas (gol) complementadas con señales densas
 - Sim-to-real: el simulador está diseñado para sustituirse por hardware real sin cambiar el agente
 
+
+> Documentación técnica completa (valores, fuentes, resultados, lecciones y referencias): [`docs/REFERENCIA.md`](docs/REFERENCIA.md).
+
 ---
 
 ## Estructura del proyecto
 
 ```
-futbolin-autonomo/
-├── world.py       — Estado del sistema (bola, barras, campo)
-├── physics.py     — Motor de física 2D
-├── actuators.py   — Modelo de actuadores (motores reales)
-├── reward.py      — Función de recompensa
-├── env.py         — Entorno tipo Gymnasium
-├── train.py       — Entrenamiento PPO con currículo
-├── test_training.py — Pruebas de simulación y entrenamiento
-├── example.py     — Agente heurístico de referencia
-├── visualize.py   — Visualización del agente y repeticiones
-├── models/        — Modelos entrenados (.zip)
-└── logs/          — Logs TensorBoard
+Modelo/
+├── world.py        — Estado (bola, barras, campo), geometría de las figuras y masas
+├── hardware.py     — Especificación del sistema real: motores, mecánica, rival humano, cámara
+├── physics.py      — Física: contactos 3D con masas reales, bola con giro, rebotes, gol
+├── actuators.py    — Motores paso a paso (robot) y manos (rival)
+├── vision.py       — Cámara cenital: latencia, ruido, oclusión, filtro α-β
+├── observation.py  — Observación realista v3 (actor) + estado privilegiado (crítico)
+├── policies.py     — Política actor-crítico asimétrica y exportación del actor
+├── reward.py       — Recompensa con shaping de potencial
+├── env.py          — Entorno Gymnasium, rivales heurístico / ausente / política
+├── optimize_teacher.py — Optimiza el heurístico del robot con CMA-ES (el profesor)
+├── dagger.py       — Imitación con DAgger del profesor (el alumno ve solo cámara y firmware)
+├── imitation.py    — Funciones de imitación simple (preentrenamiento del actor y el crítico)
+├── train.py        — PPO con currículo y self-play
+├── benchmark.py    — Partidos de 60 s con intervalo de confianza
+├── dashboard.py    — Panel web local para seguir el entrenamiento
+├── example.py      — Agente heurístico
+├── visualize.py    — Visualización
+└── test_training.py
 ```
 
 ---
@@ -41,14 +51,14 @@ futbolin-autonomo/
 
 Campo interior de referencia: **Don Futbolín Madrid**, de
 [116 × 70 cm según su ficha](https://www.donfutbolin.com/product/futbolin-modelo-don-futbolin).
+El campo es plano.
 
 | Parámetro | Valor |
 |---|---|
-| Largo | 116 cm |
-| Ancho | 70 cm |
-| Bola (diámetro) | 35 mm (estimado) |
-| Ancho de portería | 20 cm (estimado) |
-| Barras totales | 8 (4 por equipo) |
+| Largo × ancho | 116 × 70 cm |
+| Bola | 35 mm, ~24 g (estimado) |
+| Portería | 20 cm (estimado) |
+| Barras | 8 (4 por equipo) |
 
 ### Distribución de barras
 
@@ -61,222 +71,256 @@ Campo interior de referencia: **Don Futbolín Madrid**, de
   -0.50  -0.36   -0.20   -0.05   +0.05   +0.20   +0.36   +0.50
 ```
 
-Cada barra tiene **dos grados de libertad**:
-- **Lineal**: desplazamiento lateral ±7 cm (eje Y)
-- **Angular**: rotación completa ±180° (golpeo)
+Cada barra tiene **dos grados de libertad**: desplazamiento lateral ±7 cm y giro ±180°.
 
-Las posiciones de las barras, separaciones de figuras, recorridos y dimensiones
-de los jugadores siguen siendo aproximaciones pendientes de medir en la mesa real.
-La física todavía simplifica el giro y la altura de los pies; cambiar el tamaño
-del campo no completa esa calibración. Los modelos guardados se pueden cargar,
-pero necesitan nueva evaluación y entrenamiento con esta geometría.
+### Figuras madrileñas con pie de taco
+
+Cada figura es una unión de rectángulos redondeados en la vista lateral (x‑z)
+que gira con la barra: cabeza y torso, pierna y un **taco** macizo de suela
+plana. En Y mide 30 mm.
+
+| Medida | Valor | Fuente |
+|---|---|---|
+| Centro de la barra → pies | 71 mm | fichas de jugadores madrileños ([Billares Balsalobre](https://www.billaresbalsalobre.com/tienda/futbolin/jugador-futbolin/billaresbalsalobre-jugador-futbolin-madrileno-madera-natural/), [Billares y Juegos](https://www.billaresyjuegos.com/jugadores-munecos-futbolines-jugador-muneco-futbolin-madera-pasador-rojiblanco-estandar-medidas-p-318.html)) |
+| Centro de la barra → cabeza | 48 mm | ídem |
+| Anchura máxima | 30 mm | ídem |
+| Taco: largo (X) × alto | 30 × 20 mm | estimado, medir |
+| Holgura suela‑campo | 3 mm (barra a 74 mm) | estimado |
+| Masa de una figura | 40 g | estimado, pesar |
+
+Consecuencias físicas: con el jugador levantado más de ~71° la bola pasa por
+debajo, y con la barra cerca de 180° la **cabeza** baja hasta 26 mm del campo y
+toca la bola. Por eso el golpe se arma a unos −110°, no a −180°.
 
 ---
 
-## Arquitectura de módulos
+## Qué simula (sistema real: robot contra persona, visto por cámara)
 
-### `world.py` — Estado del sistema
+### Robot — `actuators.py`, `hardware.py`
 
-Define todos los estados del mundo como dataclasses:
+Cada barra del robot tiene dos motores paso a paso (NEMA17 + TMC2209, como en
+`Hardware/MCU-RT`): uno gira la barra en directo y otro la desplaza con una
+correa GT2 de 30 dientes.
 
-```python
-BallState      # x, y, vx, vy
-BarState       # linear_pos, angle, linear_vel, angular_vel
-FieldConfig    # dimensiones del campo
-WorldState     # bola + 8 barras + campo + marcador
-```
+- **Motor**: par como muelle sinusoidal hacia la posición comandada,
+  `T = −T(ω)·sin(50·(q − q_cmd)) − c·(ω − ω_cmd)`, con curva par‑velocidad y la
+  inercia real de cada barra (varilla + figuras).
+- **Firmware**: perfil trapezoidal con la aceleración limitada al 50 % del par
+  disponible a cada velocidad. La orden llega con 10 ms de latencia.
+- **Lazo abierto**: si una carga (golpe de la bola, taco que pisa la bola, motor
+  más débil de lo previsto) separa el rotor más de 2 pasos, el motor salta y
+  **pierde pasos**. El firmware sigue creyendo que está donde mandó. Con
+  `RobotSpec(encoders=True)` se corrige.
 
-El vector de observación tiene **36 dimensiones** normalizadas ≈ [-1, 1]:
+Capacidades con los valores por defecto (`python hardware.py`):
 
-```
-[ball_x, ball_y, ball_vx, ball_vy,  bar0×4, bar1×4, ..., bar7×4]
-```
+| Barra | Figuras | Aceleración de giro | Vel. de giro | Vel. de la punta | Vel. lateral |
+|---|---|---|---|---|---|
+| GK | 1 | ~1.600 rad/s² | 47 rad/s | 3,3 m/s | 0,45 m/s |
+| DEF | 2 | ~950 rad/s² | 47 rad/s | 3,3 m/s | 0,45 m/s |
+| MID | 5 | ~440 rad/s² | 47 rad/s | 3,3 m/s | 0,45 m/s |
+| ATK | 3 | ~680 rad/s² | 47 rad/s | 3,3 m/s | 0,45 m/s |
 
-### `physics.py` — Motor de física
+Un golpe armado saca la bola a unos 2,5 m/s.
+
+### Rival humano
+
+Perfil de mano y muñeca (1,5 m/s lateral, 45 rad/s de giro) escalado por su
+nivel, con la inercia de la mano añadida a la barra. El heurístico decide con un
+retardo de 60–200 ms según el nivel, y el nivel se sortea en cada partida.
+
+### Física — `physics.py`
 
 | Fenómeno | Modelo |
 |---|---|
-| Movimiento bola | Integración de Euler, dt=0.02 s |
-| Fricción rodante | Decaimiento por paso 1 − 0.05 × dt |
-| Rebote en pared | Laterales y fondos fuera de portería; restitución 0.65 + ruido angular |
-| Impacto jugador | Impulso = ω × L × cos(θ) + transferencia vel. lineal |
-| Zona de contacto | \|ángulo\| < 60° (pie en posición de golpeo) |
-| Detección de gol | La bola cabe entre los postes en el instante de cruzar el fondo |
-| Zona sin jugador | La bola pasa libremente (la varilla no bloquea) |
+| Integración | 6 subpasos de física y ~18 del motor por paso de control de 20 ms |
+| Contacto bola‑figura | punto más cercano de cabeza, pierna o taco (3D); impulso con restitución 0,70 y fricción de Coulomb 0,30 |
+| Masas | la bola y la barra intercambian impulso: una barra ligera retrocede al recibir un tiro y golpea con menos fuerza |
+| Bola con giro | tras un golpe desliza (μ = 0,25) hasta rodar y pierde ~2/7 de su velocidad; en las bandas el rozamiento frena parte del giro |
+| Rodadura | resistencia constante 0,15 m/s² + viscosa 0,05/s |
+| Pisar la bola | la suela presiona la bola desde arriba: la frena y el motor se bloquea |
+| Bola atrapada | entre dos figuras: se detiene y los motores se bloquean |
+| Bandas, fondos, gol | restitución 0,65; gol si la bola cabe entre los postes al cruzar la línea |
+| Rampas de esquina | junto a los fondos, fuera de la boca de gol, la bola vuelve hacia el centro |
+| Aleatorización | por partida: rozamientos, restituciones, masa de la bola, par, inercia y rozamiento de los motores, latencia de la cámara |
 
-El ruido en rebotes e impactos es configurable y reduce el **sim-to-real gap**.
+### Cámara — `vision.py`
 
-### `actuators.py` — Modelo de motores
+Por defecto una **Logitech Brio** en 720p a 90 fps. Simula:
+- Latencia: 70 ms, con una variación del ×0,8–1,3 en cada partida. Es una
+  estimación; hay que medirla.
+- Ruido de 1,5 mm, más el emborronado de la bola rápida (4 ms de exposición).
+- Fallos de detección.
+- **Oclusión**: desde arriba, la bola no se ve bajo una figura.
+- Velocidad estimada con un filtro α‑β (no la real).
 
-Simula la dinámica real de servomotores con **perfil trapezoidal de velocidad**:
+Las barras rivales y las propias también se miden con la cámara.
 
-| Parámetro | Lineal | Angular |
+### Observación — `observation.py`
+
+| Parte | Dims | Contenido |
 |---|---|---|
-| Recorrido | ±7 cm | ±180° |
-| Vel. máxima | 0.8 m/s | ~3 giros/s |
-| Aceleración máx. | 6 m/s² | 60 rad/s² |
-| Ruido posición | ±2 mm | ±1.1° |
-| Slippage | 0.5% prob./step | 0.5% prob./step |
+| Actor | 186 = 62 × 3 fotogramas | bola según la cámara (+ visible, tiempo sin verla), barras propias según el firmware y según la cámara, barras rivales según la cámara, bola relativa a cada barra, acción anterior |
+| Crítico (solo entrenamiento) | +54 | bola real con su giro, las 8 barras reales, error de la estimación propia |
 
-El movimiento **no es instantáneo**: el agente debe aprender a anticipar la inercia.
+La política del robot **solo usa la parte del actor**. `obs_version=2` (44
+dims) y `1` (36) siguen disponibles con estado perfecto para los modelos antiguos.
 
-### `reward.py` — Función de recompensa
+### Recompensa — `reward.py`
 
-La configuración final y el entrenamiento directo premian los goles. Las ayudas
-para aprender a tocar la bola se reducen durante el currículo:
+| Componente | Valor |
+|---|---|
+| Gol marcado / recibido | +10 / −10 |
+| Tiro a puerta propio / del rival | +0,5 / −0,25 |
+| Shaping de potencial: posición y velocidad de la bola hacia la portería rival | pesos 1,0 y 0,5 |
+| Shaping de potencial: proximidad jugador‑bola (fases 0 y 1) | 0,5 / 0,2 |
+| Cambio brusco de acción | −0,001 × \|Δacción\| |
 
-| Componente | Fase 0 | Fase 1 | Fase 2 / directo |
-|---|---|---|---|
-| Gol marcado | +5 | +10 | +10 |
-| Gol recibido | -1 | -5 | -10 |
-| Toque propio | +0.2 | +0.05 | 0 |
-| Bono por golpe hacia delante | ≤ +0.3 | ≤ +0.1 | 0 |
-| Dirección de la bola, escala por paso | 0.03 | 0.01 | 0 |
-| Proximidad, máximo por paso | +0.03 | +0.003 | 0 |
-| Bola en zona de ataque, por paso | +0.005 | 0 | 0 |
-| Posición en el campo, por paso | 0 | 0 | 0 |
-| Penalización por acción, escala | 0 | 0.002 | 0.005 |
-| Penalización por cambio de acción, escala | 0.002 | 0.002 | 0.002 |
+El shaping es de **potencial** (Ng et al. 1999): no cambia la política óptima y
+el agente no puede "farmearlo".
 
-La proximidad se calcula sobre **todas las barras del equipo** (GK, DEF, MID, ATK),
-durante las fases iniciales. En la fase final, mantener la bola cerca o acumular
-toques no genera recompensa. Se conservan penalizaciones pequeñas por acción y
-cambios bruscos; su coste total máximo en 750 pasos es menor que el premio por gol.
-
-### `env.py` — Entorno Gymnasium
+### Entorno — `env.py`
 
 ```python
 env = FoosballEnv(
-    dt=0.02,              # 50 Hz
-    max_steps=750,        # 15 s por episodio
-    controlled_team='A',  # equipo controlado por el agente
-    opponent='heuristic', # oponente: None | 'heuristic' | objeto propio
-    noise=True,           # incertidumbre física activada
+    controlled_team='A',        # el equipo del robot (la observación se gira para el B)
+    opponent='heuristic',       # 'heuristic' | 'absent' | None | PolicyOpponent(modelo)
+    opponent_skill=(0.4, 1.0),  # nivel fijo o rango sorteado en cada partida
+    noise=True,                 # ruido + aleatorización
+    realistic=True,             # False: actuadores ideales y física simplificada
+    spec=SimSpec(),             # hardware.py: motores, mecánica, rival y cámara
+    continue_after_goal=True,   # el partido sigue tras un gol (saca el portero que lo recibió)
 )
-
-obs, info   = env.reset()
-obs, r, terminated, truncated, info = env.step(action)
 ```
 
-**Espacio de acción (8 dimensiones, [-1, 1]):**
-```
-[lin_GK, ang_GK,  lin_DEF, ang_DEF,  lin_MID, ang_MID,  lin_ATK, ang_ATK]
-```
-Cada par controla la posición lineal y el ángulo de una barra del equipo A.
+**Formato de partido**: como en la mesa real, el juego continúa tras cada gol y
+**saca el portero del equipo que lo ha recibido**: la bola queda parada a 45–60 mm
+delante de él. Un episodio es un partido de `max_steps` pasos (1.500 = 30 s en
+entrenamiento, 3.000 = 60 s en evaluación). El shaping de potencial trata cada gol
+como el final de un tramo (Φ = 0) para no premiar el salto de la bola al saque. El
+formato antiguo (el episodio termina en el primer gol) sigue disponible con
+`continue_after_goal=False`.
+
+Acción (8 dims, [−1, 1]): `[lin, ang] × (GK, DEF, MID, ATK)` del robot, como
+posiciones objetivo. `ang > 0` lleva el pie hacia delante.
 
 ### Para conectar hardware real
 
-Sobreescribir estos dos métodos en una subclase de `FoosballEnv`:
-
-```python
-class HardwareFoosballEnv(FoosballEnv):
-
-    def _apply_agent_commands(self, action):
-        # Escribir aquí el comando al driver del motor (serial, CAN, etc.)
-        for k, bar_idx in enumerate(self._team_bar_idxs):
-            linear_cmd  = float(action[2 * k])
-            angular_cmd = float(action[2 * k + 1])
-            my_motor_driver.send(bar_idx, linear_cmd, angular_cmd)
-
-    def _get_obs(self):
-        # Leer aquí los sensores reales (encoders, cámara, etc.)
-        return my_sensor_driver.read_normalized()
-```
+1. Medir y poner en `hardware.py` el par del motor, la polea, las masas de las
+   figuras y la latencia de la cámara, y volver a entrenar.
+2. En el PC: detectar la bola y las barras con la cámara y construir la parte
+   del actor de la observación como en `observation.py`.
+3. Ejecutar el actor con `policies.actor_weights()` y `actor_forward()`, que
+   solo necesitan NumPy (~100k pesos, < 1 ms). La red también cabe en el
+   STM32H733.
+4. Enviar a la placa las 8 posiciones objetivo a 50 Hz. El firmware genera el
+   perfil trapezoidal limitado por par.
 
 ---
 
-## Entrenamiento RL
+## Entrenamiento
 
 ### Algoritmo
 
-**PPO** (Proximal Policy Optimization) con red neuronal MLP [256, 256].
+**PPO** con un **actor‑crítico asimétrico**:
+- **Actor**: MLP 186 → 256 → 256 → 8. Solo ve lo que tendrá el robot.
+- **Crítico**: MLP 240 → 256 → 256 → 1. Ve además el estado real, y solo existe
+  durante el entrenamiento.
 
-El actor (acciones) y el crítico (valor del estado) conservan sus dos capas de
-256 neuronas. La exploración usa **gSDE**, con ruido dependiente del estado que
-se renueva cada 4 pasos, y una salida `tanh` que respeta los límites de las barras.
-La tasa de aprendizaje baja de `3e-4` hacia `3e-5` a lo largo del entrenamiento,
-sin reiniciarse al cambiar de fase; `target_kl=0.02`
-detiene las épocas de una actualización cuando la política cambia demasiado.
-Estos ajustes siguen las opciones de [PPO en Stable Baselines3](https://stable-baselines3.readthedocs.io/en/master/modules/ppo.html).
+Con información ruidosa y tardía, un crítico que conoce el estado real estima
+mucho mejor el valor de cada situación. Es la técnica habitual para transferir
+de simulación a robot (Pinto et al., 2018). La memoria corta va en los 3
+fotogramas apilados, que sirven para la fase del golpe, las aceleraciones y la
+latencia.
 
-Cada entorno tiene su propio generador aleatorio: `--seed` controla también el
-ruido de física, actuadores y relanzamientos. Las métricas cuentan los toques
-del equipo A por separado para cada entorno y se guardan en CSV y TensorBoard.
-Los modelos anteriores siguen siendo compatibles con evaluación y visualización.
-Las recompensas y resultados históricos corresponden a la física y configuración
-anteriores y no se comparan directamente con los nuevos.
+**Profesor optimizado** (`optimize_teacher.py`): el heurístico tiene 14 parámetros
+(`env.HeuristicParams`: ángulos de armado y de golpe, ventanas de distancia, pose
+levantada, desplazamiento lateral...). CMA‑ES los optimiza jugando partidos de
+30 s en el simulador contra rivales de nivel 0,4, 0,7 y 1,0, con las mismas
+semillas para todos los candidatos de una generación (reduce mucho el ruido), y
+valida el resultado con partidos nuevos y su intervalo de confianza.
 
-`best/best_model.zip` se elige por estos criterios, en orden: puntos por partida
-(victoria = 1, empate = 0.5, derrota = 0), diferencia media de goles, goles marcados
-y recompensa media. Así, más recompensa auxiliar no desplaza un modelo con mejores
-resultados. Cada checkpoint se valida con las mismas semillas: un entorno por
-episodio, 15 episodios en la fase final y 10 en las anteriores. Conviene reservar
-otras semillas para la comparación final entre entrenamientos.
+**Imitación con DAgger** (`dagger.py`): el profesor decide con el estado real y sin
+retardo; el alumno solo ve cámara y firmware. En cada ronda el alumno juega
+(mezclado con el profesor con probabilidad β = 1, 0,5, 0,25, 0, 0), el profesor
+etiqueta lo que haría en esos mismos estados y se reentrena con todo lo
+acumulado. Así el alumno aprende a recuperarse de sus propios errores. Sin este
+arranque, PPO desde cero no descubría la secuencia armar‑golpear.
 
-TensorBoard registra `eval/win_rate`, `eval/draw_rate`, `eval/loss_rate`,
-`eval/points`, `eval/goals_scored`, `eval/goals_conceded` y `eval/goal_difference`.
-Junto a `evaluations.npz` se guarda `evaluations_goals.npz`, con los goles A/B de
-cada episodio, los pasos de entrenamiento y la semilla base de evaluación.
+| Ajuste | Valor |
+|---|---|
+| Entornos | 8 (`SubprocVecEnv`) |
+| Pasos por actualización | 1024 × 8 |
+| Lote / épocas | 512 / 10 |
+| γ / λ | 0,99 / 0,95 |
+| Tasa de aprendizaje | 1e‑4 → 3e‑5 con arranque por imitación (3e‑4 sin él) |
+| Exploración | gaussiana, std inicial 0,3 tras la imitación |
+| Normalización | solo de la recompensa |
 
-### Currículo de 3 fases
+`best/best_model.zip` se elige por diferencia de goles contra el heurístico de
+nivel 0,7, siempre con las mismas semillas.
 
-El entrenamiento progresa en dificultad para acelerar el aprendizaje:
+### Currículo
 
-| Fase | Configuración | Objetivo |
+Los partidos duran 30 s y continúan tras cada gol. Si se parte de un alumno
+DAgger (`--init-model`) se omite la fase 0, porque ya sabe jugar.
+
+| Fase | Rival | Pasos |
 |---|---|---|
-| 0 | Sin oponente, sin ruido, 300 pasos | Aprender a tocar la bola |
-| 1 | Oponente heurístico, con ruido, 500 pasos | Adaptarse al juego real |
-| 2 | Configuración completa, 750 pasos, ayudas desactivadas | Marcar y evitar goles |
+| 0 (solo sin `--init-model`) | ausente (jugadores levantados), sin ruido | 10 % |
+| 1 | heurístico, nivel sorteado 0,2–0,6 | 15–20 % |
+| 2 | heurístico, nivel 0,4–1,0 | 40–85 % |
+| 3 (`--self-play`) | 50 % heurístico 0,5–1,0, 50 % copias congeladas de la política | 35–45 % |
 
 ### Uso
 
+Ejecuta estos comandos desde el directorio `Modelo/`:
+
 ```bash
-# Instalar dependencias
-pip install stable-baselines3[extra] gymnasium torch
+pip install -r requirements.txt
 
-# Entrenar con currículo (recomendado)
-python train.py --timesteps 300000 --curriculum
+python hardware.py                                   # capacidades del robot con la especificación actual
 
-# Entrenar la nueva configuración sin sobrescribir los modelos existentes
-python train.py --timesteps 1000000 --curriculum --seed 42 --save-dir models/ppo_v3 --log-dir logs/ppo_v3
+# 1. Profesor: optimizar el heurístico (~40 min)
+python optimize_teacher.py --minutes 40
+# 2. Alumno: imitación con DAgger (el alumno solo ve cámara y firmware)
+python dagger.py --teacher models/teacher/heuristic_optimized.json --out models/dagger/student
+# 3. PPO partiendo del alumno
+python train.py --timesteps 2000000 --curriculum --self-play \
+    --init-model models/dagger/student --save-dir models/ppo_v5 --log-dir logs/ppo_v5
 
-# Entrenar directo sin currículo
-python train.py --timesteps 500000
-
-# Más entornos paralelos (más rápido si tienes CPU)
-python train.py --timesteps 500000 --n-envs 8 --curriculum
-
-# Evaluar un modelo guardado
-python train.py --eval-only models/foosball_ppo_final
-
-# Comparar ambos modelos en los mismos episodios (semillas 10042 a 10061)
-python train.py --eval-only models/foosball_ppo_final --seed 42
-python train.py --eval-only models/ppo_v3/best/best_model --seed 42
-
-# Ver curvas de aprendizaje
-tensorboard --logdir logs
-
-# Pruebas de simulación, métricas y entrenamiento corto (directo y curricular)
+# Evaluar: partidos de 60 s con intervalo de confianza al 95 %
+python benchmark.py --matches 100 --skill 0.7 models/dagger/student models/ppo_v5/best/best_model
+python visualize.py --model models/ppo_v5/best/best_model
 python -m unittest -v test_training
 ```
 
-PPO completa bloques de `n_steps × n_envs`; el número real de pasos puede superar
-el solicitado, especialmente en ejecuciones cortas. La evaluación muestra recompensa,
-goles, toques propios, victorias, empates, derrotas y puntos por partida. Los cambios de configuración necesitan
-un entrenamiento nuevo; las pruebas cortas verifican el funcionamiento, pero la mejora
-de juego debe comprobarse con varias semillas y el mismo presupuesto de entrenamiento.
+Los modelos anteriores (v1, v2) se pueden cargar y evaluar en el simulador
+realista con su observación perfecta. Se entrenaron con otra física, así que sus
+resultados no son comparables.
 
-### Resultados históricos (configuración anterior; 1M pasos, ~24 min en GitHub Actions)
+### Seguir el entrenamiento
 
-Entrenamiento en la nube mediante el workflow `train.yml` (Ubuntu, CPU).
-Cada run guarda el modelo automáticamente en el repositorio.
+Desde el directorio `Modelo/`, el panel lee los eventos de TensorBoard del
+entrenamiento indicado:
 
-| Métrica | Valor |
-|---|---|
-| Timesteps | 1.000.000 |
-| Currículo | 3 fases (sin oponente → heurístico → completo) |
-| Duración (GitHub Actions) | ~24 min |
-| Modelo guardado en | `models/foosball_ppo_final.zip` |
+```bash
+python dashboard.py --log-dir logs/ppo_v5 --total 2000000
+```
+
+### Entrenar variantes en GitHub Actions
+
+`.github/workflows/train.yml` (solo se lanza a mano) entrena en paralelo 5
+variantes —3 semillas con red de 256 neuronas y redes de 128 y 512— con DAgger y
+PPO, y publica los resultados como artefactos **sin escribir nada en el
+repositorio**. Necesita `models/teacher/heuristic_optimized.json` en el repositorio.
+Cada variante usa 4 vCPU y tarda ~1,5–2 h con 2M pasos.
+
+El entrenamiento también se puede seguir con TensorBoard:
+
+```bash
+tensorboard --logdir logs/ppo_v5
+```
 
 ---
 
@@ -334,12 +378,12 @@ pip install -r requirements.txt
 
 ---
 
-## Próximos pasos sugeridos
+## Alcance actual
 
-- **Self-play**: que el equipo B también sea un agente RL que mejora junto al A
-- **Observación con cámara**: sustituir la obs. perfecta por detección de bola con visión
-- **Múltiples agentes**: un agente por barra en lugar de uno para todo el equipo
-- **Hardware real**: implementar `HardwareFoosballEnv` con los drivers del sistema
+La cámara, los actuadores y la mecánica están modelados en el simulador, pero
+siguen siendo aproximaciones y no hay una conexión de control con la placa. Para
+la transferencia a hardware hay que medir y validar esos parámetros, implementar
+el firmware y conectar la percepción y el actor al sistema real.
 
 ---
 

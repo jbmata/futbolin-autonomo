@@ -3,79 +3,122 @@ reward.py
 ---------
 Función de recompensa para el futbolín tipo Madrid.
 
-Diseño por capas:
-  1. Recompensas de evento (escasas): gol, toque de bola.
-  2. Recompensas densas:  bola avanzando, proximidad barra-bola.
-  3. Penalizaciones:      gol en contra, movimientos excesivos.
+Diseño:
+  1. Eventos: gol a favor / en contra, tiro a puerta propio (y del rival).
+  2. Shaping basado en potencial  F = γ·Φ(s') − Φ(s)  (Ng et al., 1999).
+     No cambia la política óptima, así que puede mantenerse durante todo el
+     entrenamiento sin que el agente aprenda a "farmear" la ayuda:
+       Φ = w_x · (posición de la bola hacia la portería rival, en [−1, 1])
+         + w_v · (velocidad de la bola hacia la portería rival, normalizada)
+         + w_p · (proximidad del jugador propio más cercano a la bola)
+     Al terminar el episodio Φ(terminal) = 0.
+  3. Penalización pequeña por cambios bruscos de acción (suavidad para el
+     hardware). Ya no se penaliza |acción|: la acción es una posición objetivo
+     y esa penalización empujaba las barras al centro.
 
-La separación en capas permite activar/desactivar componentes
-y ajustar el balance sparse/dense para distintas fases del entrenamiento.
+Componentes antiguos (proximity_scale, ball_direction_scale, ball_in_atk_zone,
+ball_progress_scale, forward_kick_reward, action_penalty_scale) se conservan
+por compatibilidad, pero valen 0 por defecto: no son de potencial y el agente
+puede explotarlos.
 """
 
+import math
 import numpy as np
 from dataclasses import dataclass
-from world import WorldState, MAX_BALL_SPEED, get_team_bar_indices
+from world import WorldState, MAX_BALL_SPEED, get_team_bar_indices, team_direction
 
 
 @dataclass
 class RewardConfig:
     # --- Eventos discretos ---
-    goal_reward:       float = 10.0   # gol marcado a favor
-    goal_penalty:      float = -10.0  # gol recibido
-    touch_reward:      float =  0.0   # ayuda inicial; se activa en el currículo
+    goal_reward:        float = 10.0   # gol marcado a favor
+    goal_penalty:       float = -10.0  # gol recibido
+    shot_reward:        float = 0.5    # toque propio que deja la bola directa a puerta
+    shot_conceded:      float = -0.25  # toque rival que deja la bola directa a nuestra puerta
+    touch_reward:       float = 0.0    # por toque propio (solo para arrancar)
 
-    # --- Recompensas densas (por paso) ---
-    ball_direction_scale: float = 0.0   # bola moviéndose hacia portería rival
-    proximity_scale:      float = 0.0   # barra más cercana a la bola
-    proximity_sigma:      float = 0.12  # anchura gaussiana [m]
-    ball_in_atk_zone:     float = 0.0   # bola en zona de ataque
-    ball_progress_scale:  float = 0.0   # posición de la bola en el campo
-    forward_kick_reward:  float = 0.0   # bono por toque propio hacia portería rival
+    # --- Shaping basado en potencial ---
+    potential_x:        float = 1.0    # peso de la posición de la bola
+    potential_v:        float = 0.5    # peso de la velocidad de la bola
+    potential_prox:     float = 0.0    # peso de la proximidad jugador-bola
+    proximity_sigma:    float = 0.08   # anchura gaussiana [m]
+    gamma:              float = 0.99   # debe coincidir con el γ del algoritmo
 
-    # --- Penalizaciones ---
-    action_penalty_scale: float = 0.005 # penalización por |acción| (eficiencia energética)
-    jerk_penalty_scale:   float = 0.002 # penalización por cambio brusco de acción
+    # --- Suavidad ---
+    jerk_penalty_scale: float = 0.001  # cambio brusco de acción
+
+    # --- Componentes heredados (no de potencial; 0 por defecto) ---
+    ball_direction_scale: float = 0.0
+    proximity_scale:      float = 0.0
+    ball_in_atk_zone:     float = 0.0
+    ball_progress_scale:  float = 0.0
+    forward_kick_reward:  float = 0.0
+    action_penalty_scale: float = 0.0
 
     # --- Modo ---
-    sparse_only: bool = False   # si True, solo usa recompensas de evento
+    sparse_only: bool = False   # si True, solo recompensas de evento
+
+
+def _proximity(state: WorldState, team: str, sigma: float) -> float:
+    """Proximidad (0..1) del jugador propio más cercano a la bola."""
+    ball = state.ball
+    best = 0.0
+    inv = 1.0 / (2.0 * sigma * sigma)
+    for bar in state.bars:
+        if bar.team != team:
+            continue
+        dx = ball.x - bar.foot_tip_x()
+        if abs(dx) > 4 * sigma:
+            continue
+        for py in bar.get_player_abs_y():
+            dy = ball.y - py
+            best = max(best, math.exp(-(dx * dx + dy * dy) * inv))
+    return best
+
+
+def potential(state: WorldState, team: str, config: RewardConfig = None) -> float:
+    """Potencial Φ(s) del estado para `team`."""
+    cfg = config or RewardConfig()
+    if cfg.sparse_only:
+        return 0.0
+    d = team_direction(team)
+    ball = state.ball
+    phi = 0.0
+    if cfg.potential_x:
+        phi += cfg.potential_x * d * ball.x / (state.field.length / 2.0)
+    if cfg.potential_v:
+        phi += cfg.potential_v * math.tanh(d * ball.vx / MAX_BALL_SPEED * 2.0)
+    if cfg.potential_prox:
+        phi += cfg.potential_prox * _proximity(state, team, cfg.proximity_sigma)
+    return phi
 
 
 def compute_reward(
-    state:      WorldState,
-    team:       str,
-    events:     dict,
-    actions:    np.ndarray,
+    state:        WorldState,
+    team:         str,
+    events:       dict,
+    actions:      np.ndarray,
     prev_actions: np.ndarray = None,
-    config:     RewardConfig = None,
+    config:       RewardConfig = None,
+    phi_prev:     float = None,
+    phi_next:     float = None,
 ) -> tuple:
     """
-    Calcula la recompensa total para el equipo controlado.
+    Recompensa del paso para el equipo controlado.
 
-    Parámetros
-    ----------
-    state      : WorldState — estado post-step
-    team       : str        — equipo controlado ('A' o 'B')
-    events     : dict       — eventos del paso (de PhysicsEngine)
-    actions    : ndarray    — acciones aplicadas, shape (n_bars_team, 2)
-    prev_actions: ndarray   — acciones del paso anterior (para jerk)
-    config     : RewardConfig
+    phi_prev / phi_next: potencial antes y después del paso (el entorno los
+    calcula; phi_next = 0 en estados terminales). Si faltan, no hay shaping.
 
-    Devuelve
-    --------
-    total_reward : float
-    breakdown    : dict   — desglose de componentes
+    Devuelve (total_reward, breakdown).
     """
     cfg = config or RewardConfig()
-    bd  = {}          # breakdown
+    bd  = {}
     r   = 0.0
-
     opponent  = 'B' if team == 'A' else 'A'
     ball      = state.ball
-    direction = 1.0 if team == 'A' else -1.0
+    direction = team_direction(team)
 
-    # ------------------------------------------------------------------
-    # 1. Eventos discretos
-    # ------------------------------------------------------------------
+    # 1. Goles
     goal_event = events.get("goal")
     if goal_event == team:
         r += cfg.goal_reward
@@ -84,83 +127,60 @@ def compute_reward(
         r += cfg.goal_penalty
         bd["goal_conceded"] = cfg.goal_penalty
 
-    # Toques de bola propios
+    # 2. Toques y tiros
     team_bar_idxs = set(get_team_bar_indices(team))
-    own_touches   = [(bi, pi) for bi, pi in events.get("touches", []) if bi in team_bar_idxs]
-    if own_touches:
-        touch_r  = cfg.touch_reward * len(own_touches)
-        r       += touch_r
-        bd["touch"] = touch_r
-
-        # Bono por golpear la bola hacia adelante (toque propio + vx en dirección correcta)
-        ball = state.ball
-        direction = 1.0 if team == 'A' else -1.0
-        fwd_speed = direction * ball.vx  # positivo = bola va hacia portería rival
-        if fwd_speed > 0.3:              # solo si hay velocidad significativa
-            fwd_r = cfg.forward_kick_reward * np.tanh(fwd_speed / MAX_BALL_SPEED * 3.0)
-            r    += fwd_r
-            bd["forward_kick"] = fwd_r
+    touches = events.get("touches", [])
+    own_touches = [t for t in touches if t[0] in team_bar_idxs]
+    if own_touches and cfg.touch_reward:
+        bd["touch"] = cfg.touch_reward * len(own_touches)
+        r += bd["touch"]
+    shot = events.get("shot_on_target")
+    if shot == team and cfg.shot_reward:
+        r += cfg.shot_reward
+        bd["shot"] = cfg.shot_reward
+    elif shot == opponent and cfg.shot_conceded:
+        r += cfg.shot_conceded
+        bd["shot_conceded"] = cfg.shot_conceded
+    if own_touches and cfg.forward_kick_reward:
+        fwd_speed = direction * ball.vx
+        if fwd_speed > 0.3:
+            bd["forward_kick"] = cfg.forward_kick_reward * math.tanh(fwd_speed / MAX_BALL_SPEED * 3.0)
+            r += bd["forward_kick"]
 
     if cfg.sparse_only:
+        bd["total"] = float(r)
         return float(r), bd
 
-    # ------------------------------------------------------------------
-    # 2. Recompensa densa: dirección de la bola
-    # ------------------------------------------------------------------
-    ball_dir_r = cfg.ball_direction_scale * np.tanh(direction * ball.vx / MAX_BALL_SPEED * 3.0)
-    r += ball_dir_r
-    bd["ball_direction"] = ball_dir_r
+    # 3. Shaping de potencial
+    if phi_prev is not None and phi_next is not None:
+        shaping = cfg.gamma * phi_next - phi_prev
+        r += shaping
+        bd["shaping"] = shaping
 
-    # ------------------------------------------------------------------
-    # 3. Recompensa densa: proximidad — barra más cercana en X a la bola
-    # ------------------------------------------------------------------
-    # Usamos TODAS las barras del equipo: cada barra tiene incentivo de
-    # tocar la bola cuando está en su zona. Solo puntuamos la mejor.
-    own_bars = [b for b in state.bars if b.team == team]
-    if own_bars and cfg.proximity_scale:
-        prox_rewards = []
-        for bar in own_bars:
-            for player_y in bar.get_player_abs_y():
-                dist_y = abs(ball.y - player_y)
-                dist_x = abs(ball.x - bar.bar_x)
-                dist   = np.hypot(dist_x, dist_y)
-                prox   = cfg.proximity_scale * np.exp(-0.5 * (dist / cfg.proximity_sigma) ** 2)
-                prox_rewards.append(prox)
-        if prox_rewards:
-            best_prox = max(prox_rewards)
-            r        += best_prox
-            bd["proximity"] = best_prox
+    # 4. Componentes heredados (0 por defecto)
+    if cfg.ball_direction_scale:
+        bd["ball_direction"] = cfg.ball_direction_scale * math.tanh(direction * ball.vx / MAX_BALL_SPEED * 3.0)
+        r += bd["ball_direction"]
+    if cfg.proximity_scale:
+        bd["proximity"] = cfg.proximity_scale * _proximity(state, team, 0.12)
+        r += bd["proximity"]
+    if cfg.ball_in_atk_zone and ball.x * direction > 0:
+        bd["zone"] = cfg.ball_in_atk_zone
+        r += bd["zone"]
+    if cfg.ball_progress_scale:
+        bd["ball_progress"] = cfg.ball_progress_scale * (ball.x * direction) / (state.field.length / 2.0)
+        r += bd["ball_progress"]
 
-    # ------------------------------------------------------------------
-    # 4. Bola en zona de ataque + progreso por el campo
-    # ------------------------------------------------------------------
-    in_zone  = (ball.x * direction) > 0   # bola en la mitad del campo rival
-    zone_r   = cfg.ball_in_atk_zone if in_zone else 0.0
-    r       += zone_r
-    bd["zone"] = zone_r
-
-    # Shaping: recompensa proporcional a cuánto ha avanzado la bola
-    # hacia la portería rival (normalizado a [-1, 1])
-    progress_r = cfg.ball_progress_scale * (ball.x * direction) / (state.field.length / 2.0)
-    r         += progress_r
-    bd["ball_progress"] = progress_r
-
-    # ------------------------------------------------------------------
-    # 5. Penalización por acción (eficiencia energética)
-    # ------------------------------------------------------------------
+    # 5. Suavidad de acción
     if actions is not None and len(actions) > 0:
         action_arr = np.asarray(actions)
-        act_pen    = -cfg.action_penalty_scale * float(np.mean(np.abs(action_arr)))
-        r         += act_pen
-        bd["action_penalty"] = act_pen
-
-        # Penalización por jerk (cambio brusco)
-        if prev_actions is not None:
-            prev_arr   = np.asarray(prev_actions)
-            jerk       = float(np.mean(np.abs(action_arr - prev_arr)))
-            jerk_pen   = -cfg.jerk_penalty_scale * jerk
-            r         += jerk_pen
-            bd["jerk_penalty"] = jerk_pen
+        if cfg.action_penalty_scale:
+            bd["action_penalty"] = -cfg.action_penalty_scale * float(np.mean(np.abs(action_arr)))
+            r += bd["action_penalty"]
+        if prev_actions is not None and cfg.jerk_penalty_scale:
+            jerk = float(np.mean(np.abs(action_arr - np.asarray(prev_actions))))
+            bd["jerk_penalty"] = -cfg.jerk_penalty_scale * jerk
+            r += bd["jerk_penalty"]
 
     bd["total"] = float(r)
     return float(r), bd

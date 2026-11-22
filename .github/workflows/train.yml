@@ -1,0 +1,76 @@
+name: Entrenamiento de variantes
+
+# Solo se lanza a mano (Actions -> Entrenamiento de variantes -> Run workflow).
+# Cada variante es un trabajo independiente que corre en paralelo y NO escribe
+# nada en el repositorio: modelos, logs y resultados se descargan como artefactos.
+on:
+  workflow_dispatch:
+    inputs:
+      timesteps:
+        description: "Pasos de entrenamiento PPO por variante"
+        default: "2000000"
+        required: true
+
+jobs:
+  train:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: red256_semilla1, net: 256, seed: 1 }
+          - { name: red256_semilla2, net: 256, seed: 2 }
+          - { name: red256_semilla3, net: 256, seed: 3 }
+          - { name: red128_semilla1, net: 128, seed: 1 }
+          - { name: red512_semilla1, net: 512, seed: 1 }
+    defaults:
+      run:
+        working-directory: Modelo
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: Modelo/requirements.txt
+
+      - name: Instalar dependencias (PyTorch para CPU)
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+
+      - name: Imitación con DAgger del profesor optimizado
+        run: |
+          python dagger.py --teacher models/teacher/heuristic_optimized.json \
+            --out models/${{ matrix.name }}/student --workers 4 \
+            --net-size ${{ matrix.net }} --seed ${{ matrix.seed }}
+
+      - name: Entrenamiento PPO
+        run: |
+          python train.py --timesteps ${{ inputs.timesteps }} --n-envs 4 --curriculum --self-play \
+            --init-model models/${{ matrix.name }}/student --net-size ${{ matrix.net }} \
+            --seed ${{ matrix.seed }} --save-dir models/${{ matrix.name }}/ppo \
+            --log-dir logs/${{ matrix.name }} --eval-episodes 20
+
+      - name: Evaluación final (100 partidos de 60 s, mismas semillas para todos)
+        run: |
+          python benchmark.py --matches 100 --seconds 60 --seed 20000 --skill 0.7 \
+            models/${{ matrix.name }}/student \
+            models/${{ matrix.name }}/ppo/best/best_model \
+            models/${{ matrix.name }}/ppo/foosball_ppo_final | tee resultados_${{ matrix.name }}.txt
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat resultados_${{ matrix.name }}.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ matrix.name }}
+          retention-days: 14
+          path: |
+            Modelo/resultados_${{ matrix.name }}.txt
+            Modelo/models/${{ matrix.name }}
+            Modelo/logs/${{ matrix.name }}
