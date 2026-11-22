@@ -9,6 +9,10 @@ escucha en 127.0.0.1.
 Uso:
     python dashboard.py --log-dir logs/ppo_v4 --total 4000000
     # y abrir http://127.0.0.1:8765
+
+    # Instantánea en un solo fichero HTML (sin servidor): para guardarla, compartirla
+    # o descargarla de un entrenamiento en GitHub Actions
+    python dashboard.py --log-dir logs/ppo_v4 --total 4000000 --export panel.html
 """
 
 import argparse
@@ -50,10 +54,50 @@ SCALARS = {
 }
 
 
+GEN_RE = re.compile(r"^gen\s+(\d+)\s+mejor\s+([+-]?\d+\.\d+)\s+media\s+([+-]?\d+\.\d+)"
+                    r"\s+sigma\s+([\d.]+)\s+([\d.]+)\s+min")
+VAL_RE = re.compile(r"^(por_defecto|optimizado|mejor_candidato)\s+([\d.]+)\s+([\d.]+)\s+([+-][\d.]+)"
+                    r"\D+?([\d.]+)\s+([\d.]+)\s*$")
+
+
+def read_teacher(path):
+    """Lee el log de optimize_teacher.py: generaciones y tabla de validación."""
+    if not path or not os.path.isfile(path):
+        return None
+    gens, val = [], []
+    with open(path, "rb") as f:
+        text = f.read().replace(b"\x00", b"").decode("utf-8", errors="replace")
+    for line in text.splitlines():
+        m = GEN_RE.match(line.strip())
+        if m:
+            g, best, mean, sigma, minutes = m.groups()
+            gens.append([int(g), float(best), float(mean), float(sigma), float(minutes)])
+            continue
+        m = VAL_RE.match(line.strip())
+        if m:
+            n, sc, co, df, ci, sh = m.groups()
+            val.append({"nombre": n, "marca": float(sc), "recibe": float(co),
+                        "dif": float(df), "ci": float(ci), "tiros": float(sh)})
+    return {"gens": gens, "validacion": val, "actualizado": os.path.getmtime(path)}
+
+
+def read_plan(path):
+    """Estado de las etapas del plan, escrito a mano en un JSON."""
+    if not path or not os.path.isfile(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
 class Reader:
     """Mantiene un EventAccumulator por fase y lee solo lo nuevo."""
 
-    def __init__(self, log_dir: str):
+    def __init__(self, log_dir: str, teacher_log: str = None, plan: str = None):
+        self.teacher_log = teacher_log
+        self.plan = plan
         self.log_dir = log_dir
         self.acc = {}
         self.lock = threading.Lock()
@@ -112,6 +156,10 @@ class Reader:
             t0, s0 = old[0]
             if t1 - t0 > 30:
                 rate = (s1 - s0) / (t1 - t0)
+        teacher = read_teacher(self.teacher_log)
+        if teacher:
+            series["t_best"] = [(g[0], g[1]) for g in teacher["gens"]]
+            series["t_mean"] = [(g[0], g[2]) for g in teacher["gens"]]
         started = timeline[0][0] if timeline else None
         eta = (total - step) / rate if rate and rate > 0 else None
         return {
@@ -122,6 +170,7 @@ class Reader:
                        for p, a, b in phases],
             "rate": rate, "eta": eta, "started": started, "last_event": last_t or None,
             "elapsed": (last_t - started) if started else None,
+            "teacher": teacher, "plan": read_plan(self.plan),
             "series": series,
         }
 
@@ -161,9 +210,18 @@ canvas{width:100%;height:210px;display:block}
 font-size:12px;display:none;white-space:nowrap;z-index:9}
 .note{color:var(--mute);font-size:12px;margin-top:14px}
 .err{color:var(--bad)}
+.et{display:flex;gap:10px;align-items:baseline;padding:5px 0;border-top:1px solid var(--line)}
+.et:first-child{border-top:0}
+.et b{min-width:92px;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
+.et .d{color:var(--mute);font-size:12px}
+.s-hecho b{color:var(--ok)}.s-curso b{color:var(--c4)}.s-pendiente b{color:var(--mute)}.s-error b{color:var(--bad)}
+table.v{border-collapse:collapse;margin-top:6px;font-variant-numeric:tabular-nums}
+table.v td,table.v th{padding:3px 12px 3px 0;text-align:right;font-size:12px}
+table.v th:first-child,table.v td:first-child{text-align:left}
 </style></head><body><main>
 <h1>Entrenamiento del futbolín</h1>
 <div class="sub" id="sub">Cargando…</div>
+<div class="card" id="plan" style="display:none;margin-bottom:12px"><div class="k" id="plan_t">Plan</div><div id="plan_l"></div></div>
 <div class="top">
   <div class="card"><div class="k">Estado</div><div class="v" id="state">—</div><div class="sub" id="phase" style="margin:2px 0 0"></div></div>
   <div class="card"><div class="k">Pasos</div><div class="v" id="steps">—</div><div class="bar"><i id="pbar" style="width:0"></i></div></div>
@@ -176,6 +234,8 @@ font-size:12px;display:none;white-space:nowrap;z-index:9}
 </main><div id="tip"></div>
 <script>
 const CH=[
+ {id:"teacher",gen:true,t:"Profesor: optimización de parámetros (CMA-ES)",p:"Goles de diferencia por minuto (más una parte por tiros) por generación. Mucho ruido: cada candidato juega pocos partidos.",
+  s:[["t_best","Mejor candidato","--c3"],["t_mean","Media de la población","--c1"]],zero:true},
  {id:"goals",t:"Goles por partida (entrenamiento)",p:"Media de las últimas 100 partidas. Si lo marcado supera a lo recibido, va ganando.",
   s:[["scored","Marcados","--c1"],["conc","Recibidos","--c2"]],min:0},
  {id:"evd",t:"Evaluación: diferencia de goles",p:"Contra el heurístico de nivel 0,7, siempre las mismas partidas. Por encima de 0 es mejor que él.",
@@ -190,6 +250,7 @@ const CH=[
   s:[["expvar","Explained variance","--c3"],["std","std de las acciones","--c5"]],min:0}
 ];
 const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const hasPPO=()=>DATA&&DATA.series.ep_rew.length>0;
 const box=document.getElementById("charts");
 CH.forEach(c=>{const d=document.createElement("div");d.className="card";
  d.innerHTML=`<h2>${c.t}</h2><p>${c.p}</p><canvas id="cv_${c.id}"></canvas><div class="legend">`+
@@ -203,7 +264,8 @@ function nice(lo,hi){if(lo===hi){lo-=1;hi+=1}const r=hi-lo,p=Math.pow(10,Math.fl
 function draw(c){
  const cv=document.getElementById("cv_"+c.id),dpr=devicePixelRatio||1,W=cv.clientWidth,H=cv.clientHeight;
  cv.width=W*dpr;cv.height=H*dpr;const g=cv.getContext("2d");g.scale(dpr,dpr);
- const L=44,R=10,T=8,B=22,total=DATA.total;
+ const L=44,R=10,T=8,B=22;
+ const total=c.gen?Math.max(1,...DATA.series.t_best.map(p=>p[0]),16):DATA.total;
  let lo=c.min??Infinity,hi=c.max??-Infinity;
  c.s.forEach(([k])=>DATA.series[k].forEach(([,v])=>{if(c.min==null)lo=Math.min(lo,v);if(c.max==null)hi=Math.max(hi,v)}));
  if(c.zero){lo=Math.min(lo,0);hi=Math.max(hi,0)}
@@ -213,8 +275,8 @@ function draw(c){
  g.font="11px system-ui";g.textBaseline="middle";g.fillStyle=css("--mute");g.strokeStyle=css("--grid");g.lineWidth=1;
  const n=nice(lo,hi);for(let v=Math.ceil(lo/n[2])*n[2];v<=hi+1e-9;v+=n[2]){const y=Y(v);
   g.beginPath();g.moveTo(L,y);g.lineTo(W-R,y);g.stroke();g.textAlign="right";g.fillText(+v.toFixed(3),L-6,y)}
- g.textAlign="center";[0,.25,.5,.75,1].forEach(f=>g.fillText(fmt.n(total*f/1e6,2)+"M",X(total*f),H-9));
- DATA.phases.forEach((p,i)=>{if(i){g.strokeStyle=css("--line");g.setLineDash([3,3]);g.beginPath();
+ g.textAlign="center";[0,.25,.5,.75,1].forEach(f=>g.fillText(c.gen?String(Math.round(total*f)):fmt.n(total*f/1e6,2)+"M",X(total*f),H-9));
+ (c.gen?[]:DATA.phases).forEach((p,i)=>{if(i){g.strokeStyle=css("--line");g.setLineDash([3,3]);g.beginPath();
   g.moveTo(X(p.from),T);g.lineTo(X(p.from),H-B);g.stroke();g.setLineDash([])}
   g.fillStyle=css("--mute");g.textAlign="left";g.fillText("F"+p.phase,X(p.from)+4,T+7)});
  if(c.zero||lo<0&&hi>0){g.strokeStyle=css("--mute");g.globalAlpha=.5;g.beginPath();g.moveTo(L,Y(0));g.lineTo(W-R,Y(0));g.stroke();g.globalAlpha=1}
@@ -231,16 +293,16 @@ function tip(e,c){const cv=e.target,m=cv._m,r=cv.getBoundingClientRect(),x=e.cli
  const rows=c.s.map(([k,n,col])=>{const pts=DATA.series[k];if(!pts.length)return"";
   let b=pts[0];for(const p of pts)if(Math.abs(p[0]-step)<Math.abs(b[0]-step))b=p;
   return `<div><span style="color:var(${col})">●</span> ${n}: <b>${fmt.n(b[1],3)}</b></div>`}).join("");
- const t=document.getElementById("tip");t.innerHTML=`<div>${fmt.n(step/1e3,0)}k pasos</div>`+rows;
+ const t=document.getElementById("tip");t.innerHTML=`<div>${c.gen?"generación "+Math.round(step):fmt.n(step/1e3,0)+"k pasos"}</div>`+rows;
  t.style.display="block";t.style.left=Math.min(e.clientX+14,innerWidth-190)+"px";t.style.top=e.clientY+14+"px";render()}
 CH.forEach(c=>{const cv=document.getElementById("cv_"+c.id);cv.onmousemove=e=>tip(e,c);
  cv.onmouseleave=()=>{HOVER=null;document.getElementById("tip").style.display="none";render()}});
 addEventListener("resize",render);
 const last=k=>{const p=DATA.series[k];return p.length?p[p.length-1][1]:null};
 async function tick(){
- try{const r=await fetch("/api/state");DATA=await r.json();
+ try{DATA=window.__STATE__||await (await fetch("/api/state")).json();
   const d=DATA,pct=d.step/d.total*100;
-  document.getElementById("sub").textContent="Actualizado "+new Date(d.now*1000).toLocaleTimeString("es-ES")+" · se refresca cada 10 s";
+  document.getElementById("sub").textContent=window.__STATE__?"Instantánea tomada el "+new Date(d.now*1000).toLocaleString("es-ES"):"Actualizado "+new Date(d.now*1000).toLocaleTimeString("es-ES")+" · se refresca cada 10 s";
   document.getElementById("state").innerHTML=`<span class="dot ${d.running?"on":""}"></span>${d.running?"Entrenando":(d.step?"Parado":"Sin datos")}`;
   document.getElementById("phase").textContent=d.phase_name;
   document.getElementById("steps").innerHTML=`${fmt.n(d.step/1e6,2)} M <small>de ${fmt.n(d.total/1e6,1)} M · ${fmt.n(pct,1)} %</small>`;
@@ -255,10 +317,30 @@ async function tick(){
    (ed!=null?`Última evaluación: diferencia <b>${fmt.n(ed,2)}</b>, ganadas ${fmt.n(last("ev_win")*100)} %, empatadas ${fmt.n(last("ev_draw")*100)} %, perdidas ${fmt.n(last("ev_loss")*100)} %. `:"")+
    `<br>Las curvas de evaluación usan pocas partidas y oscilan mucho; fíate de la tendencia de varias evaluaciones, no de un punto. `+
    `La estimación de tiempo se calcula con el ritmo de los últimos 10 min y suele subir en las fases con rival más complejo.`;
+  const pl=d.plan,pe=document.getElementById("plan");
+  if(pl&&pl.etapas){pe.style.display="block";document.getElementById("plan_t").textContent=pl.titulo||"Plan";
+   const nm={hecho:"Hecho",curso:"En curso",pendiente:"Pendiente",error:"Problema"};
+   document.getElementById("plan_l").innerHTML=pl.etapas.map(e=>`<div class="et s-${e.estado}"><b>${nm[e.estado]||e.estado}</b><span>${e.nombre}<br><span class="d">${e.detalle||""}</span></span></div>`).join("")}
+  const vt=d.teacher&&d.teacher.validacion&&d.teacher.validacion.length?
+   `<br><b>Validación del profesor</b> (partidos nuevos, goles por minuto):<table class="v"><tr><th></th><th>marca</th><th>recibe</th><th>diferencia</th><th>± IC 95 %</th><th>tiros</th></tr>`+
+   d.teacher.validacion.map(v=>`<tr><td>${v.nombre.replace("_"," ")}</td><td>${v.marca.toFixed(2)}</td><td>${v.recibe.toFixed(2)}</td><td>${(v.dif>0?"+":"")+v.dif.toFixed(2)}</td><td>${v.ci.toFixed(2)}</td><td>${v.tiros.toFixed(1)}</td></tr>`).join("")+`</table>`:"";
+  if(vt)document.getElementById("note").insertAdjacentHTML("beforeend",vt);
   render()}catch(e){document.getElementById("sub").innerHTML='<span class="err">Sin conexión con el panel</span>'}
 }
 tick();setInterval(tick,10000);
 </script></body></html>"""
+
+
+def export_html(log_dir: str, total: int, path: str, teacher_log: str = None, plan: str = None):
+    """Escribe el panel con los datos incrustados: un único fichero que no necesita servidor."""
+    state = Reader(log_dir, teacher_log, plan).state(total)
+    data = json.dumps(state).replace("</", "<\\/")      # evita cerrar el <script> por error
+    marker = "<script>\nconst CH="
+    assert HTML.count(marker) == 1
+    html = HTML.replace(marker, "<script>window.__STATE__=" + data + ";</script>\n" + marker, 1)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(html)
+    return state
 
 
 def make_handler(reader: Reader, total: int):
@@ -294,10 +376,25 @@ def main():
     ap.add_argument("--total", type=int, default=4_000_000, help="Pasos totales del entrenamiento")
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--no-open", action="store_true", help="No abrir el navegador")
+    ap.add_argument("--teacher-log", default=None,
+                    help="Log de optimize_teacher.py para dibujar la optimización del profesor")
+    ap.add_argument("--plan", default=None,
+                    help="JSON con las etapas del plan (titulo y etapas: nombre, estado, detalle)")
+    ap.add_argument("--wait", action="store_true",
+                    help="Si el directorio de logs aún no existe, crearlo y esperar a que el entrenamiento escriba")
+    ap.add_argument("--export", metavar="FICHERO.html",
+                    help="Escribir una instantánea del panel en un fichero y salir")
     args = ap.parse_args()
+    if args.wait:
+        os.makedirs(args.log_dir, exist_ok=True)
     if not os.path.isdir(args.log_dir):
         raise SystemExit(f"No existe {args.log_dir}")
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(Reader(args.log_dir), args.total))
+    if args.export:
+        st = export_html(args.log_dir, args.total, args.export, args.teacher_log, args.plan)
+        print(f"Instantánea guardada en {args.export} (paso {st['step']:,} de {args.total:,})")
+        return
+    server = ThreadingHTTPServer(("127.0.0.1", args.port),
+                                make_handler(Reader(args.log_dir, args.teacher_log, args.plan), args.total))
     url = f"http://127.0.0.1:{args.port}"
     print(f"Panel en {url}  (Ctrl+C para cerrar)")
     if not args.no_open:

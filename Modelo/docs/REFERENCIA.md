@@ -297,6 +297,34 @@ exploración funcionaron (no hay colapso ni inestabilidad). La hipótesis más
 probable es que el profesor es un techo bajo (apenas gana +0,04 a un rival de
 nivel 0,7) y que marcar es tan raro que la recompensa por gol da muy poca señal.
 
+**Cambio de planteamiento tras esos resultados (22 de noviembre)**
+
+Con partidos que acababan en el primer gol (~0,1 goles por partida) no se podía
+distinguir una mejora real del azar: el margen de error de 120 partidos era de
+±0,09 goles, del mismo tamaño que las diferencias que se buscaban. Se cambió a:
+
+- **Partido continuo**: el juego sigue tras cada gol y saca el portero que lo ha
+  recibido. Un partido de 30 s tiene decenas de situaciones de gol. `benchmark.py`
+  informa de goles por minuto con intervalo de confianza del 95 %.
+- **Profesor optimizado con CMA‑ES** (`optimize_teacher.py`): 14 parámetros del
+  heurístico del robot, 19 generaciones en 40 min, partidos de 30 s contra rivales
+  de nivel 0,4 / 0,7 / 1,0. Validación con partidos nuevos (240 por conjunto, goles
+  por minuto):
+
+| Parámetros del heurístico | Marca | Recibe | Diferencia (IC 95 %) | Tiros a puerta |
+|---|---|---|---|---|
+| Por defecto | 0,24 | 0,48 | −0,24 ± 0,17 | 6,8 |
+| **Optimizado** | 0,39 | 0,20 | **+0,19 ± 0,16** | **12,6** |
+
+La mejora (+0,43 goles/min) es significativa. Con la validación pequeña de 72
+partidos no lo era (+0,36 ± 0,41), y el «mejor candidato» de la búsqueda salió
+peor que el de partida (−0,56): con 12 partidos por candidato, el mejor de 14 es
+sobre todo el más afortunado. Los parámetros son `models/teacher/heuristic_optimized.json`.
+
+- **Imitación con DAgger** (`dagger.py`) y PPO a partir de ese alumno, con las
+  variantes entrenadas en paralelo en GitHub Actions (rama `train`). Los
+  resultados de ese entrenamiento se añadirán aquí cuando existan.
+
 ---
 
 ## 7. Lecciones aprendidas

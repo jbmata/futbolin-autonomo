@@ -16,6 +16,7 @@ Uso:
 
 import argparse
 import math
+import os
 import numpy as np
 
 from env import FoosballEnv
@@ -58,12 +59,14 @@ def play(policy, n_matches: int, seed: int, seconds: float = 60.0, opponent="heu
     }
 
 
-def heuristic_policy():
+def heuristic_policy(params=None, reaction_delay=None):
+    """Heurístico del robot. Con `params` y retardo 0 es el profesor optimizado (ve el estado real)."""
     agent = {}
 
     def policy(env, obs):
         if agent.get("env") is not env:
-            agent["env"], agent["a"] = env, HeuristicAgent(env, seed=0)
+            agent["env"], agent["a"] = env, HeuristicAgent(env, seed=0, params=params,
+                                                           reaction_delay=reaction_delay)
         return agent["a"].predict()
     return policy
 
@@ -84,12 +87,20 @@ def main():
     ap.add_argument("--seed", type=int, default=10_042)
     ap.add_argument("--skill", type=float, default=0.7, help="Nivel del heurístico rival (0..1)")
     ap.add_argument("--no-heuristic", action="store_true", help="No incluir al heurístico")
+    ap.add_argument("--teacher", default="models/teacher/heuristic_optimized.json",
+                    help="Parámetros del profesor optimizado (se omite si el fichero no existe)")
     args = ap.parse_args()
 
     rows = []
     if not args.no_heuristic:
-        rows.append(("heuristico", play(heuristic_policy(), args.matches, args.seed,
-                                        args.seconds, opponent_skill=args.skill)))
+        rows.append(("heuristico (por defecto)", play(heuristic_policy(), args.matches, args.seed,
+                                                    args.seconds, opponent_skill=args.skill)))
+        if os.path.isfile(args.teacher):
+            from env import HeuristicParams
+            teacher = heuristic_policy(HeuristicParams.load(args.teacher), reaction_delay=0.0)
+            rows.append(("profesor optimizado (estado real)",
+                         play(teacher, args.matches, args.seed, args.seconds,
+                              opponent_skill=args.skill)))
     for path in args.models:
         policy, version = ppo_policy(path)
         rows.append((path, play(policy, args.matches, args.seed, args.seconds,

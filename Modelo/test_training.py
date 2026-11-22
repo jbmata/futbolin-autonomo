@@ -657,11 +657,20 @@ class TrainingTests(unittest.TestCase):
             kwargs["save_freq"] = 1024
             return CheckpointCallback(*args, **kwargs)
 
+        import train as train_module
+        original_make = train_module.make_env_curriculum
+
+        def short_matches(phase, final_shaping=1.0, **kwargs):
+            # Partidos de 6 s: con los de 30 s ningún episodio termina en una prueba tan corta
+            kwargs["max_steps"] = 300
+            return original_make(phase, final_shaping, **kwargs)
+
         for curriculum, timesteps in ((False, 4096), (True, 6144)):
             with self.subTest(curriculum=curriculum), tempfile.TemporaryDirectory() as directory:
                 save_dir, log_dir = Path(directory) / "models", Path(directory) / "logs"
                 with (contextlib.redirect_stdout(io.StringIO()),
                       patch("train.FoosballEvalCallback", side_effect=short_eval),
+                      patch("train.make_env_curriculum", side_effect=short_matches),
                       patch("train.CheckpointCallback", side_effect=short_checkpoint)):
                     model = train_ppo(timesteps, n_envs=2, curriculum=curriculum,
                                       save_dir=str(save_dir), log_dir=str(log_dir), seed=7,

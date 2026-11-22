@@ -1,6 +1,10 @@
 name: Entrenamiento de variantes
 
-# Solo se lanza a mano (Actions -> Entrenamiento de variantes -> Run workflow).
+# Se lanza de dos formas, nunca por un push cualquiera:
+#  - A mano (Actions -> Entrenamiento de variantes -> Run workflow), una vez que este
+#    fichero esté en la rama principal.
+#  - Subiendo un cambio a `.github/lanzar-entrenamiento.txt` en la rama
+#    `train`; su primera línea son los pasos de PPO por variante.
 # Cada variante es un trabajo independiente que corre en paralelo y NO escribe
 # nada en el repositorio: modelos, logs y resultados se descargan como artefactos.
 on:
@@ -10,6 +14,9 @@ on:
         description: "Pasos de entrenamiento PPO por variante"
         default: "2000000"
         required: true
+  push:
+    branches: [train]
+    paths: [".github/lanzar-entrenamiento.txt"]
 
 jobs:
   train:
@@ -31,6 +38,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Fijar los pasos de entrenamiento
+        working-directory: .
+        run: |
+          STEPS="${{ inputs.timesteps }}"
+          if [ -z "$STEPS" ] && [ -f .github/lanzar-entrenamiento.txt ]; then
+            STEPS="$(head -n 1 .github/lanzar-entrenamiento.txt | tr -dc '0-9')"
+          fi
+          echo "TIMESTEPS=${STEPS:-2000000}" >> "$GITHUB_ENV"
+          echo "Pasos de PPO por variante: ${STEPS:-2000000}"
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -42,6 +59,28 @@ jobs:
           pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install -r requirements.txt
 
+      - name: Panel en directo (dirección pública temporal, solo lectura)
+        continue-on-error: true
+        run: |
+          mkdir -p logs/${{ matrix.name }}
+          nohup python dashboard.py --log-dir logs/${{ matrix.name }} --total "$TIMESTEPS"             --wait --no-open > panel.log 2>&1 &
+          curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64             -o cloudflared
+          chmod +x cloudflared
+          nohup ./cloudflared tunnel --no-autoupdate --url http://127.0.0.1:8765 > tunel.log 2>&1 &
+          URL=""
+          for i in $(seq 1 30); do
+            URL=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' tunel.log | head -1 || true)
+            [ -n "$URL" ] && break
+            sleep 2
+          done
+          echo "Panel en directo de ${{ matrix.name }}: ${URL:-no disponible}"
+          {
+            echo "### Panel en directo: ${{ matrix.name }}"
+            echo "${URL:-no disponible}"
+            echo
+            echo "Dirección temporal que solo existe mientras corre este trabajo. La primera media hora (DAgger) no habrá curvas: aparecen cuando empieza PPO."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Imitación con DAgger del profesor optimizado
         run: |
           python dagger.py --teacher models/teacher/heuristic_optimized.json \
@@ -50,7 +89,7 @@ jobs:
 
       - name: Entrenamiento PPO
         run: |
-          python train.py --timesteps ${{ inputs.timesteps }} --n-envs 4 --curriculum --self-play \
+          python train.py --timesteps "$TIMESTEPS" --n-envs 4 --curriculum --self-play \
             --init-model models/${{ matrix.name }}/student --net-size ${{ matrix.net }} \
             --seed ${{ matrix.seed }} --save-dir models/${{ matrix.name }}/ppo \
             --log-dir logs/${{ matrix.name }} --eval-episodes 20
@@ -65,12 +104,19 @@ jobs:
           cat resultados_${{ matrix.name }}.txt >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Instantánea del panel de seguimiento (HTML)
+        if: always()
+        run: |
+          python dashboard.py --log-dir logs/${{ matrix.name }} --total "$TIMESTEPS" \
+            --export panel_${{ matrix.name }}.html || true
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: ${{ matrix.name }}
           retention-days: 14
           path: |
+            Modelo/panel_${{ matrix.name }}.html
             Modelo/resultados_${{ matrix.name }}.txt
             Modelo/models/${{ matrix.name }}
             Modelo/logs/${{ matrix.name }}
