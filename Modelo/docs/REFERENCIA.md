@@ -452,6 +452,70 @@ estimados) y el entrenamiento se repite.
 - Descartado por ahora: entrenar con vídeos de internet. Habría que reconstruir
   el estado desde cámaras laterales y las personas no se mueven como los motores.
 
+### 9.1 Futuro: profesor por refuerzo (no implementado)
+
+**Estado**: idea acordada el 22 de noviembre de 2026; se hará **después** de ver los resultados
+de la cadena que corre esa noche en GitHub (rama `train`, workflow `pipeline.yml`). No hay
+código ni se ha probado nada.
+
+**Por qué**: hoy el profesor es un programa escrito a mano con 14 parámetros por rol
+(`env.HeuristicParams`) y está en una meseta de +0,2 a +0,4 goles/min: ajustar sus
+parámetros con CMA‑ES ya no la rompe. Como el alumno lo imita, su techo es el del profesor.
+Un profesor que aprende por refuerzo podría jugar cosas que su estructura no contempla:
+pases entre barras, cerrar ángulos, esperar el momento del tiro.
+
+**Cómo**
+1. **Información privilegiada**: el profesor ve el estado real de la mesa (sin cámara, sin
+   retardo, sin oclusión), así que le es mucho más fácil aprender que al alumno. Después el
+   alumno lo copia con DAgger viendo solo cámara y firmware (el esquema habitual de
+   «profesor‑alumno» de la robótica con patas).
+2. **Partir del heurístico**: primero se imita al heurístico actual con ese estado real y
+   luego se afina con PPO. Hereda así las reglas de buen juego sin describirlas.
+3. **Anclarlo al heurístico** mientras afina (pérdida de imitación auxiliar o límite de
+   cambio de la política). La prueba de PPO sobre el alumno empeoró en las 5 variantes; la
+   hipótesis (no demostrada) es que olvida lo copiado, y la otra posible causa es un ruido de
+   exploración demasiado alto (0,3 en unidades de acción son ~54° en el ángulo de la barra).
+4. **Rivales variados**: heurísticos de distinto nivel y copias de sí mismo, para no explotar
+   las manías de un único rival.
+
+**Reglas**
+- *Físicas del robot* (giro de ±90°, portero de −10° a +90°, topes, motor a 12 V, lazo
+  cerrado del giro, saque del portero): las impone el entorno solas.
+- *De buen juego* (levantar a −90°, ángulo positivo solo al golpear, buscar huecos): el
+  entorno no las impone. Se heredan del heurístico (punto 2), se vigilan con el anclaje
+  (punto 3) y, para lo más grave, con una penalización medible: que una figura propia pare la
+  bola de su propio equipo.
+- Recompensas de **defensa** por rol (parada: toque propio que desvía un tiro a puerta rival;
+  despeje: sacar la bola de la zona de peligro). El shaping nuevo debe ser de potencial para
+  no cambiar la política óptima.
+
+**Qué NO resolvería**
+- La diferencia alumno‑profesor por la cámara (en la ronda anterior, 0,2–0,4 goles/min por
+  debajo del profesor). Tiene su propio arreglo: retardo y memoria del alumno, y la variante
+  con sensores ideales de la cadena de esta noche dirá cuánto de esa diferencia es la cámara.
+- Los límites físicos: con 0,45 m/s de movimiento lateral y 0,28 N·m parado, ningún
+  aprendizaje defiende como una persona rápida.
+
+**Riesgos**: puede aprender a ganar a nuestro rival heurístico y no a una persona; puede
+empeorar como PPO sobre el alumno; y cada comparación necesita muchos partidos (el margen de
+error de 240 partidos es de ±0,16 goles/min).
+
+**Prueba barata antes de comprometerse** (unas 2–3 h, una vez terminada la cadena actual):
+imitar al heurístico con el estado real, afinar con PPO anclado durante ~500 k pasos y medirlo
+con 240 partidos de 30 s contra el profesor actual (rivales de nivel 0,4, 0,7 y 1,0). Si no lo
+supera con el margen de error claramente por encima de 0, se abandona.
+
+**Efecto secundario útil**: entrenarlo con distintas especificaciones (12 V frente a 24 V,
+otra polea, figuras de otro peso) dice cuántos goles por minuto cuesta cada decisión de
+hardware antes de comprar nada.
+
+**Demostraciones de personas** (vídeos, o partidas en tu mesa con encoders y la Brio): no
+como profesor único, sino como punto de partida y freno del aprendizaje. Las partidas en tu
+mesa real dan estado y acciones exactos; los vídeos exigen reconstruir el estado y casi todos
+son de otras mesas. Una persona mueve las barras a ~1,5 m/s y el motor a 0,45 m/s: sirve
+copiar la colocación, no las velocidades. Herramienta intermedia posible: jugar contra el
+simulador con el ratón, una barra cada vez y las demás en automático.
+
 ---
 
 ## 10. Referencias

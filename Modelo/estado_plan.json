@@ -1,0 +1,50 @@
+{
+  "titulo": "Plan: profesor, imitación y entrenamiento en GitHub (22 nov)",
+  "etapas": [
+    {
+      "nombre": "Simulador realista y partido continuo con saque del portero",
+      "estado": "hecho",
+      "detalle": "Subido a la rama train. Con el nuevo formato, los goles por partida se multiplican y la evaluación lleva intervalo de confianza."
+    },
+    {
+      "nombre": "Optimización del profesor (CMA-ES, 14 parámetros)",
+      "estado": "hecho",
+      "detalle": "19 generaciones en 40 min. La población no mejora de forma clara a lo largo de las generaciones (mucho ruido); lo que cuenta es la validación."
+    },
+    {
+      "nombre": "Validación del profesor con 240 partidos por conjunto",
+      "estado": "hecho",
+      "detalle": "CONFIRMADO: optimizado +0,19 ± 0,16 frente a por defecto −0,24 ± 0,17 goles/min (diferencia +0,43, significativa); tiros 12,6 frente a 6,8 por minuto."
+    },
+    {
+      "nombre": "Pruebas locales del código nuevo",
+      "estado": "hecho",
+      "detalle": "42 pruebas pasan. Corrida corta de DAgger, PPO por fases con self-play, evaluación y panel: sin errores."
+    },
+    {
+      "nombre": "Commit del profesor y disparo del entrenamiento en GitHub (rama train)",
+      "estado": "hecho",
+      "detalle": "Lanzado en la rama train (ejecución 45023586272). 4 de 5 variantes terminadas; red512 sigue entrenando."
+    },
+    {
+      "nombre": "Entrenamiento DAgger + PPO y evaluación final con intervalo de confianza",
+      "estado": "curso",
+      "detalle": "Alumno DAgger: -0,05 a -0,32 goles/min (el profesor: +0,16). PPO EMPEORA al alumno en las 4 variantes (-0,63 a -1,51). Tamaño 128 y 256: sin diferencia clara. Falta red512."
+    },
+    {
+      "nombre": "Optimización del profesor por roles (4 trabajos en GitHub)",
+      "estado": "hecho",
+      "detalle": "Solo los delanteros mejoran. Juntos: +0,37 ± 0,16 frente a +0,33 ± 0,16 del anterior: sin diferencia significativa."
+    },
+    {
+      "nombre": "Arreglar PPO (anclar al alumno) y cerrar la diferencia alumno-profesor",
+      "estado": "pendiente",
+      "detalle": "PPO empeora al alumno en las 5 variantes. Siguiente paso propuesto."
+    },
+    {
+      "nombre": "Futuro: profesor por refuerzo (estado real + anclaje al heurístico)",
+      "estado": "pendiente",
+      "detalle": "Documentado en REFERENCIA §9.1. Se decide tras los resultados de la cadena de esta noche; antes, prueba barata de 2-3 h."
+    }
+  ]
+}
