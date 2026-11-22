@@ -24,11 +24,11 @@ from example import HeuristicAgent
 
 
 def play(policy, n_matches: int, seed: int, seconds: float = 60.0, opponent="heuristic",
-         obs_version: int = None, opponent_skill=0.7, dt: float = 0.02) -> dict:
+         obs_version: int = None, opponent_skill=0.7, dt: float = 0.02, spec=None) -> dict:
     """Juega n partidos con las mismas semillas. policy(env, obs) -> acción."""
     steps = int(round(seconds / dt))
     env = FoosballEnv(dt=dt, max_steps=steps, opponent=opponent,
-                      obs_version=obs_version, opponent_skill=opponent_skill)
+                      obs_version=obs_version, opponent_skill=opponent_skill, spec=spec)
     scored, conceded, touches, shots, lost = [], [], [], [], []
     for m in range(n_matches):
         obs, _ = env.reset(seed=seed + m)
@@ -87,6 +87,8 @@ def main():
     ap.add_argument("--seed", type=int, default=10_042)
     ap.add_argument("--skill", type=float, default=0.7, help="Nivel del heurístico rival (0..1)")
     ap.add_argument("--no-heuristic", action="store_true", help="No incluir al heurístico")
+    ap.add_argument("--ideal-sensors", action="store_true",
+                    help="Diagnóstico: evaluar los modelos con cámara perfecta y encoders")
     ap.add_argument("--teacher", default="models/teacher/heuristic_optimized.json",
                     help="Parámetros del profesor optimizado (se omite si el fichero no existe)")
     args = ap.parse_args()
@@ -101,10 +103,12 @@ def main():
             rows.append(("profesor optimizado (estado real)",
                          play(teacher, args.matches, args.seed, args.seconds,
                               opponent_skill=args.skill)))
+    from hardware import ideal_sensors_spec
+    spec = ideal_sensors_spec() if args.ideal_sensors else None
     for path in args.models:
         policy, version = ppo_policy(path)
         rows.append((path, play(policy, args.matches, args.seed, args.seconds,
-                                obs_version=version, opponent_skill=args.skill)))
+                                obs_version=version, opponent_skill=args.skill, spec=spec)))
 
     print(f"\n{args.matches} partidos de {args.seconds:.0f} s, semillas {args.seed}.."
           f"{args.seed + args.matches - 1}, rival heuristico nivel {args.skill}. Valores por minuto.")

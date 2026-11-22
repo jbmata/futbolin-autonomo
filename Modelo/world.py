@@ -40,6 +40,26 @@ GOAL_WIDTH    = 0.20    # m  (abertura de portería, centrada en Y=0)
 # shortcut: recorrido uniforme estimado de ±7 cm, medir los topes de cada barra.
 LINEAR_RANGE  = 0.07    # m
 
+# Giro de las barras: 0 = jugador vertical (pie abajo). Los motores van de -90° a +90°.
+ANGULAR_RANGE = math.pi / 2     # rad, orden ±1 → ±90°
+
+# Rango de giro de cada rol, en el marco del equipo (positivo = pie hacia delante). El portero
+# gira de -10° a +90°: casi no puede echar el pie atrás. Es un tope mecánico de la mesa.
+ANGLE_LIMITS_DEG = {"GK": (-10.0, 90.0)}
+
+
+def angle_limits(role: str, team: str = 'A') -> tuple:
+    """(mínimo, máximo) en radianes en el marco del MUNDO; el equipo B está girado 180°."""
+    lo, hi = ANGLE_LIMITS_DEG.get(role, (-90.0, 90.0))
+    lo, hi = math.radians(lo), math.radians(hi)
+    return (lo, hi) if team == 'A' else (-hi, -lo)
+
+
+def team_angle_limits(role: str) -> tuple:
+    """(mínimo, máximo) en radianes en el marco del EQUIPO."""
+    return angle_limits(role, 'A')
+
+
 # Límites de actuador (usados también en physics y reward)
 LINEAR_VMAX       = 0.8         # m/s
 LINEAR_AMAX       = 6.0         # m/s²

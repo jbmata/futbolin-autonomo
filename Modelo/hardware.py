@@ -26,21 +26,41 @@ from world import FOOT_LENGTH, bar_inertia, bar_mass
 
 @dataclass
 class StepperSpec:
-    # shortcut: NEMA17 tipo 17HS4401 a 24 V con TMC2209 ~1.5 A RMS. Medir la curva real.
-    holding_torque: float = 0.40     # N·m
-    corner_speed:   float = 19.0     # rad/s (≈3 rev/s): a partir de aquí el par cae ~1/ω
-    max_speed:      float = 94.0     # rad/s (≈15 rev/s): par nulo
-    rotor_inertia:  float = 5.7e-6   # kg·m²
+    """
+    NEMA17 17HS4401 con TMC2209. Ficha: 1,7 A, 1,5 Ω, 40 N·cm (datasheetcafe, 17HS4401);
+    2,8 mH y 54 g·cm² (variante 17HS4401S). El par a cada velocidad se calcula con el
+    modelo eléctrico del motor (límite de corriente y de tensión), no de una curva medida.
+    """
+    # shortcut: corriente del driver y factor dinámico estimados; medir el par real a 12 V.
+    rated_torque:   float = 0.40     # N·m con las dos fases a rated_current
+    rated_current:  float = 1.7      # A por fase
+    resistance:     float = 1.5      # Ω por fase
+    driver_res:     float = 0.35     # Ω del driver (dos transistores por fase)
+    inductance:     float = 2.8e-3   # H por fase
+    supply:         float = 12.0     # V (EPS de la placa base)
+    current_rms:    float = 1.2      # A RMS configurados en el TMC2209 (pico 1,7 A)
+    dynamic_factor: float = 0.75     # pérdidas en marcha frente al modelo eléctrico ideal
+    max_speed:      float = 94.0     # rad/s (≈15 rev/s), límite de pasos del firmware
+    rotor_inertia:  float = 5.4e-6   # kg·m²
     teeth:          int   = 50       # dientes del rotor (motor de 1.8°)
     damping_ratio:  float = 0.25     # amortiguamiento eléctrico del driver
+
+    def __post_init__(self):
+        # Constante de par (= constante de f.e.m.) por fase y par a motor parado
+        self.kt = self.rated_torque / (self.rated_current * math.sqrt(2.0))
+        self.holding_torque = self.kt * self.current_rms * math.sqrt(2.0)
 
     def torque(self, speed: float) -> float:
         """Par disponible [N·m] a la velocidad `speed` [rad/s] del eje del motor."""
         w = abs(speed)
         if w >= self.max_speed:
             return 0.0
-        t = self.holding_torque if w <= self.corner_speed else self.holding_torque * self.corner_speed / w
-        return t * (1.0 - w / self.max_speed)
+        r = self.resistance + self.driver_res
+        x = w * self.teeth * self.inductance
+        z2 = r * r + x * x
+        # Par máximo de un motor síncrono de imanes limitado por la tensión
+        limit = self.kt * self.supply / math.sqrt(z2) - self.kt * self.kt * w * r / z2
+        return max(min(self.holding_torque, self.dynamic_factor * limit), 0.0)
 
 
 @dataclass
@@ -56,7 +76,10 @@ class RobotSpec:
     firmware_safety:  float = 0.5       # fracción del par que el firmware usa para planificar
     firmware_vmax:    float = 0.5       # fracción de max_speed como velocidad de crucero
     command_latency:  float = 0.010     # s  PC → placa → driver
-    encoders:         bool  = False     # sin encoder la posición es la estimada (lazo abierto)
+    encoders:         bool  = True      # giro en lazo cerrado (encoder): corrige los pasos perdidos.
+                                        # El lateral va en lazo abierto
+    home_switch:      bool  = False     # alternativa sin encoder: final de carrera a -90° en el giro: cada vez que el
+                                        # jugador se levanta, el motor recupera la referencia
 
 
 @dataclass
@@ -85,6 +108,7 @@ class CameraSpec:
     miss_prob:      float = 0.01    # detecciones fallidas aleatorias
     bar_lin_noise:  float = 0.002   # m, posición de las barras rivales
     bar_ang_noise:  float = 0.08    # rad, ángulo de las barras rivales (difícil desde arriba)
+    occlusion:      bool  = True    # la bola no se ve bajo una figura
     tracker_alpha:  float = 0.6     # filtro α-β de la bola
     tracker_beta:   float = 0.25
 
@@ -97,6 +121,18 @@ class SimSpec:
 
 
 DEFAULT_SPEC = SimSpec()
+
+
+def ideal_sensors_spec() -> SimSpec:
+    """
+    Mismo robot, pero viendo el estado real: cámara sin latencia, ruido ni oclusión
+    y encoders. Solo para diagnóstico: separa lo que se pierde por la percepción de lo
+    que se pierde por la imitación.
+    """
+    return SimSpec(robot=RobotSpec(encoders=True),
+                   camera=CameraSpec(fps=300.0, latency=0.0, exposure=0.0, ball_noise=0.0,
+                                     miss_prob=0.0, bar_lin_noise=0.0, bar_ang_noise=0.0,
+                                     occlusion=False, tracker_alpha=1.0, tracker_beta=1.0))
 
 
 # ---------------------------------------------------------------------------

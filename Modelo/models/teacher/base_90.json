@@ -1,0 +1,73 @@
+{
+  "angle_unit": 90,
+  "roles": {
+    "GK": {
+      "windup_cmd": -1.0,
+      "strike_cmd": 0.5106297823764523,
+      "armed_theta": -1.45,
+      "strike_end_theta": 1.016283699695962,
+      "windup_front_min": 0.015711060124695975,
+      "windup_front_max": 0.09321949513357934,
+      "strike_trigger": 0.05956553062624291,
+      "reach_max": 0.0904107168000794,
+      "approach_vmin": -0.79788114170494,
+      "mode_timeout": 21.065453385129516,
+      "rest_cmd": -0.2082954663435172,
+      "aim_on": 1.0,
+      "gap_wait": 12.0,
+      "lane_margin": 0.005,
+      "y_gain": 1.0
+    },
+    "DEF": {
+      "windup_cmd": -1.0,
+      "strike_cmd": 0.5106297823764523,
+      "armed_theta": -1.45,
+      "strike_end_theta": 1.016283699695962,
+      "windup_front_min": 0.015711060124695975,
+      "windup_front_max": 0.09321949513357934,
+      "strike_trigger": 0.05956553062624291,
+      "reach_max": 0.0904107168000794,
+      "approach_vmin": -0.79788114170494,
+      "mode_timeout": 21.065453385129516,
+      "rest_cmd": -0.2082954663435172,
+      "aim_on": 1.0,
+      "gap_wait": 12.0,
+      "lane_margin": 0.005,
+      "y_gain": 1.0
+    },
+    "MID": {
+      "windup_cmd": -1.0,
+      "strike_cmd": 0.5106297823764523,
+      "armed_theta": -1.45,
+      "strike_end_theta": 1.016283699695962,
+      "windup_front_min": 0.015711060124695975,
+      "windup_front_max": 0.09321949513357934,
+      "strike_trigger": 0.05956553062624291,
+      "reach_max": 0.0904107168000794,
+      "approach_vmin": -0.79788114170494,
+      "mode_timeout": 21.065453385129516,
+      "rest_cmd": -0.2082954663435172,
+      "aim_on": 1.0,
+      "gap_wait": 12.0,
+      "lane_margin": 0.005,
+      "y_gain": 1.0
+    },
+    "ATK": {
+      "windup_cmd": -1.0,
+      "strike_cmd": 0.5106297823764523,
+      "armed_theta": -1.45,
+      "strike_end_theta": 1.016283699695962,
+      "windup_front_min": 0.015711060124695975,
+      "windup_front_max": 0.09321949513357934,
+      "strike_trigger": 0.05956553062624291,
+      "reach_max": 0.0904107168000794,
+      "approach_vmin": -0.79788114170494,
+      "mode_timeout": 21.065453385129516,
+      "rest_cmd": -0.2082954663435172,
+      "aim_on": 1.0,
+      "gap_wait": 12.0,
+      "lane_margin": 0.005,
+      "y_gain": 1.0
+    }
+  }
+}

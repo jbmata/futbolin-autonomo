@@ -41,7 +41,7 @@ Modelo/
 ├── benchmark.py    — Partidos de 60 s con intervalo de confianza
 ├── dashboard.py    — Panel web local para seguir el entrenamiento
 ├── example.py      — Agente heurístico
-├── visualize.py    — Visualización
+├── visualize.py    — Graba un partido y lo reproduce en el navegador (planta y alzado)
 └── test_training.py
 ```
 
@@ -291,7 +291,8 @@ python train.py --timesteps 2000000 --curriculum --self-play \
 
 # Evaluar: partidos de 60 s con intervalo de confianza al 95 %
 python benchmark.py --matches 100 --skill 0.7 models/dagger/student models/ppo_v5/best/best_model
-python visualize.py --model models/ppo_v5/best/best_model
+python visualize.py --teacher                       # graba un partido y lo abre en el navegador
+python visualize.py --model models/dagger/student --seconds 60 --seed 3
 python -m unittest -v test_training
 ```
 

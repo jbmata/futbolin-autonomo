@@ -31,7 +31,7 @@ import numpy as np
 from world import (
     WorldState, BallState, create_standard_world, get_team_bar_indices,
     LINEAR_RANGE, BALL_RADIUS, PLAYER_HALF_WIDTH, OBS_DIM_V1, OBS_DIM_V2,
-    BAR_DEFINITIONS, team_direction, other_team,
+    BAR_DEFINITIONS, team_direction, other_team, angle_limits, team_angle_limits,
 )
 from physics import PhysicsEngine, PhysicsParams
 from actuators import ActuatorBank
@@ -79,10 +79,10 @@ class HeuristicParams:
     Parámetros del heurístico. Los valores por defecto son los de un jugador
     razonable ajustado a mano; `optimize_teacher.py` los optimiza automáticamente.
     Los ángulos y órdenes están en el marco del equipo: orden > 0 lleva el pie
-    hacia delante.
+    hacia delante, y ±1 equivale a ±90° (0 = vertical).
     """
-    windup_cmd:          float = -0.6    # orden de ángulo al armar (pie atrás)
-    strike_cmd:          float = 0.5     # orden de ángulo al golpear
+    windup_cmd:          float = -1.0    # orden de ángulo al armar (pie atrás)
+    strike_cmd:          float = 1.0     # orden de ángulo al golpear
     armed_theta:         float = -1.2    # rad; con el pie más atrás que esto, ya está armado
     strike_end_theta:    float = 1.0     # rad; golpe terminado al pasar de este ángulo
     windup_front_min:    float = 0.035   # m; distancia mínima delante de la barra para armar
@@ -91,9 +91,10 @@ class HeuristicParams:
     reach_max:           float = 0.10    # m; alcance máximo del golpe
     approach_vmin:       float = -0.15   # m/s; velocidad mínima de la bola hacia el pie para armar
     mode_timeout:        float = 15.0    # pasos; abortar si se bloquea
-    lift_cmd:            float = -0.5    # pose levantada si la bola está detrás de la barra
     rest_cmd:            float = 0.0     # pose de defensa (pie abajo)
-    aim_offset:          float = 0.0     # m; desplazamiento lateral hacia el centro de la portería rival
+    aim_on:              float = 0.0     # > 0.5: busca huecos hacia la portería y apunta (recto o en diagonal)
+    gap_wait:            float = 0.0     # pasos que espera armado a que se abra un hueco
+    lane_margin:         float = 0.005   # m; holgura mínima de la bola con los rivales para dar un hueco por bueno
     y_gain:              float = 1.0     # factor sobre la posición lateral prevista de la bola (<1 centra la barra)
 
     def to_array(self) -> np.ndarray:
@@ -109,30 +110,51 @@ class HeuristicParams:
     def save(self, path: str):
         import json
         with open(path, "w", encoding="utf-8") as f:
-            json.dump(dataclasses.asdict(self), f, indent=2)
+            json.dump({"angle_unit": 90, **dataclasses.asdict(self)}, f, indent=2)
 
     @classmethod
     def load(cls, path: str) -> "HeuristicParams":
         import json
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
-        return cls(**{k: v for k, v in data.items() if k in PARAM_BOUNDS})
+        return cls(**(_clean_params(data) if data.get("angle_unit") == 90 else _convert_legacy(data)))
+
+
+LIFT_CMD = -1.0     # levantar es siempre a -90° (pie atrás): la bola pasa por debajo
+
+
+def _clean_params(data: dict) -> dict:
+    """
+    Claves válidas de un juego de parámetros. Los ficheros anteriores a la limitación de
+    ±90° (sin "angle_unit": 90) tenían órdenes de ±180°: se convierten y se recortan.
+    """
+    out = {k: float(v) for k, v in data.items() if k in PARAM_BOUNDS}
+    return out
+
+
+def _convert_legacy(data: dict) -> dict:
+    out = _clean_params(data)
+    for k in ("windup_cmd", "strike_cmd", "rest_cmd"):
+        if k in out:
+            out[k] *= 2.0
+    return {k: min(max(v, PARAM_BOUNDS[k][0]), PARAM_BOUNDS[k][1]) for k, v in out.items()}
 
 
 PARAM_BOUNDS = {
-    "windup_cmd":       (-1.0, -0.25),
-    "strike_cmd":       (0.2, 1.0),
-    "armed_theta":      (-2.4, -0.6),
-    "strike_end_theta": (0.4, 1.6),
+    "windup_cmd":       (-1.0, -0.4),
+    "strike_cmd":       (0.3, 1.0),
+    "armed_theta":      (-1.45, -0.5),
+    "strike_end_theta": (0.3, 1.45),
     "windup_front_min": (0.015, 0.06),
     "windup_front_max": (0.06, 0.14),
     "strike_trigger":   (0.015, 0.06),
     "reach_max":        (0.07, 0.16),
     "approach_vmin":    (-0.8, 0.2),
     "mode_timeout":     (8.0, 30.0),
-    "lift_cmd":         (-0.9, 0.9),
-    "rest_cmd":         (-0.2, 0.3),
-    "aim_offset":       (-0.03, 0.03),
+    "rest_cmd":         (-0.4, 0.0),      # el ángulo positivo se reserva para golpear
+    "aim_on":           (0.0, 1.0),
+    "gap_wait":         (0.0, 40.0),
+    "lane_margin":      (-0.01, 0.03),
     "y_gain":           (0.4, 1.3),
 }
 
@@ -158,14 +180,14 @@ class RoleParams:
         return cls({r: HeuristicParams.from_array(x[i * n:(i + 1) * n]) for i, r in enumerate(ROLES)})
 
     def to_dict(self) -> dict:
-        return {"roles": {r: dataclasses.asdict(p) for r, p in self.roles.items()}}
+        return {"angle_unit": 90, "roles": {r: dataclasses.asdict(p) for r, p in self.roles.items()}}
 
     @classmethod
     def from_dict(cls, data: dict) -> "RoleParams":
+        conv = _clean_params if data.get("angle_unit") == 90 else _convert_legacy
         if "roles" in data:
-            return cls({r: HeuristicParams(**{k: v for k, v in data["roles"][r].items() if k in PARAM_BOUNDS})
-                        for r in ROLES})
-        return cls.shared(HeuristicParams(**{k: v for k, v in data.items() if k in PARAM_BOUNDS}))
+            return cls({r: HeuristicParams(**conv(data["roles"][r])) for r in ROLES})
+        return cls.shared(HeuristicParams(**conv(data)))
 
     def save(self, path: str):
         import json
@@ -188,6 +210,46 @@ def as_role_params(p) -> "RoleParams":
     return RoleParams.shared(p)
 
 
+# Apuntar: descentrando la figura respecto a la bola (colocar) y desplazando la barra al
+# golpear (barrer), la bola sale en diagonal. Ajustes más repetibles por rol, medidos en el
+# simulador, en el bucle de control completo y con el golpe a fondo: (ángulo de salida [°], colocar [m], barrer [m]).
+# shortcut: dependen del motor y de las masas; volver a medirlos en la mesa real.
+AIM_TABLE = {
+    "GK":  (),          # con -10° de recorrido hacia atrás no hay carrera para apuntar
+    "DEF": ((7.5, 0.032, 0.022), (11.8, 0.032, 0.050)),
+    "MID": ((10.6, 0.032, 0.010),),
+    "ATK": ((5.3, 0.004, 0.016), (10.9, 0.008, 0.040)),
+}
+
+
+def best_lane(state: WorldState, ball: BallState, team: str, role: str, min_clearance: float = 0.0):
+    """
+    Mejor hueco hacia la portería rival para los tiros de una barra: recto (0) o en
+    diagonal (±1 suave, ±2 abierto; signo = sentido de y). Devuelve (tiro, holgura en m)
+    o (None, 0): la bola debe entrar entre los postes sin tocar figuras rivales bajadas.
+    """
+    f, d = state.field, team_direction(team)
+    goal_x = f.x_max if team == 'A' else f.x_min
+    best, best_clear = None, min_clearance
+    for aim in (0, 1, -1, 2, -2):                # a igualdad de holgura, el más recto
+        if abs(aim) > len(AIM_TABLE[role]):
+            continue
+        slope = 0.0
+        if aim:
+            slope = math.copysign(math.tan(math.radians(AIM_TABLE[role][abs(aim) - 1][0])), aim)
+        clear = f.goal_y_max - BALL_RADIUS - abs(ball.y + slope * abs(goal_x - ball.x))
+        for bar in state.bars:
+            ahead = (bar.bar_x - ball.x) * d
+            if bar.team == team or ahead <= 0.0 or not bar.is_in_kick_zone():
+                continue
+            y = ball.y + slope * ahead
+            for off in bar.player_offsets:
+                clear = min(clear, abs(y - bar.linear_pos - off) - PLAYER_HALF_WIDTH - BALL_RADIUS)
+        if clear > best_clear:
+            best, best_clear = aim, clear
+    return best, (best_clear if best is not None else 0.0)
+
+
 class HeuristicOpponent:
     """
     Jugador heurístico para cualquier equipo.
@@ -199,6 +261,8 @@ class HeuristicOpponent:
         golpea hacia la portería rival.
       - Si la bola está detrás de la barra, la levanta hacia atrás para no tapar
         a sus compañeros ni arrastrar la bola al armar.
+      - Con `aim_on`, cualquier barra (también defensa y portero) busca un hueco entre los
+        rivales hacia la portería, recto o en diagonal, y puede esperar armada a que se abra.
       - En otro caso deja el pie abajo para bloquear.
 
     skill ∈ [0, 1]: con menos nivel reacciona más tarde, se coloca con error y
@@ -222,6 +286,8 @@ class HeuristicOpponent:
         self._kick_ok = {}
         self._striking = {}
         self._mode_time = {}
+        self._aim = {}
+        self._figure = {}
         self._t = 0
 
     def set_skill(self, skill: float):
@@ -240,6 +306,8 @@ class HeuristicOpponent:
         self._kick_ok.clear()
         self._striking.clear()
         self._mode_time.clear()
+        self._aim.clear()
+        self._figure.clear()
         self._ball_hist.clear()
         self._t = 0
 
@@ -267,6 +335,7 @@ class HeuristicOpponent:
         for idx in idxs:
             bar = state.bars[idx]
             P = self.roles.roles[bar.role]               # parámetros de su rol
+            lo_t = team_angle_limits(bar.role)[0]        # tope hacia atrás de su rol (marco del equipo)
             approaching = ball.vx * (bar.bar_x - ball.x) > 0
             if approaching and abs(ball.vx) > 0.05:
                 target_y = PhysicsEngine.predict_ball_y(ball, bar.bar_x, field)
@@ -274,39 +343,58 @@ class HeuristicOpponent:
                 target_y = ball.y
             target_y *= P.y_gain
             target_y += self._aim_error.get(idx, 0.0)
-            # Desplazamiento lateral hacia el centro de la portería rival: el
-            # golpe sale algo diagonal gracias al rozamiento con el pie en movimiento
-            target_y -= P.aim_offset * math.copysign(1.0, target_y) if abs(target_y) > 0.02 else 0.0
+            # Huecos hacia la portería, también para defensa y portero
+            lane = None
+            mode = self._striking.get(idx, "idle")
+            if P.aim_on > 0.5 and mode != "idle":
+                if mode == "windup":
+                    lane, _ = best_lane(state, ball, team, bar.role, P.lane_margin)
+                    self._aim[idx] = lane or 0
+                aim = self._aim.get(idx, 0)
+                if aim:
+                    _, setup, sweep = AIM_TABLE[bar.role][abs(aim) - 1]
+                    # Armando: colocarse. Golpeando: barrer desde esa colocación.
+                    target_y += (1.0 if aim > 0 else -1.0) * (-setup if mode == "windup" else sweep - setup)
 
             # Jugador que mejor alcanza target_y
             best_lin, best_err = 0.0, float("inf")
-            for off in bar.player_offsets:
+            # Al apuntar, la figura que arma el golpe es la que lo termina
+            aiming = P.aim_on > 0.5 and mode != "idle" and idx in self._figure
+            for off in ((self._figure[idx],) if aiming else bar.player_offsets):
                 lin = min(max(target_y - off, -LINEAR_RANGE), LINEAR_RANGE)
                 err = abs(lin + off - target_y) + 0.05 * abs(lin - bar.linear_pos)
                 if err < best_err:
                     best_lin, best_err = lin, err
+                    if not aiming:
+                        self._figure[idx] = off
+            # Para apuntar, armado del todo y quieto: si no, el barrido llega antes que el pie
+            placed = (abs(best_lin - bar.linear_pos) < 0.003 and abs(bar.linear_vel) < 0.03
+                      and (not self._aim.get(idx, 0)
+                           or (bar.angle * d < max(-1.45, lo_t + 0.12) and abs(bar.angular_vel) < 3.0)))
             linear_cmd = best_lin / LINEAR_RANGE
 
             # Golpeo
             front = (ball.x - bar.bar_x) * d          # >0: bola delante del pie
             fwd_v = ball.vx * d                       # >0: bola va hacia la portería rival
             aligned = min(abs(ball.y - (bar.linear_pos + off))
-                          for off in bar.player_offsets) < PLAYER_HALF_WIDTH + BALL_RADIUS
+                          for off in bar.player_offsets) < PLAYER_HALF_WIDTH + BALL_RADIUS + (0.04 if P.aim_on > 0.5 and mode != "idle" else 0.0)
             theta = bar.angle * d                     # ángulo en el marco del equipo
 
             # Modo por barra: idle → windup (pie atrás) → strike (golpe adelante)
-            mode = self._striking.get(idx, "idle")
             reach = aligned and -0.005 < front < P.reach_max
             timer = self._mode_time.get(idx, 0) + 1
-            if mode in ("strike", "windup") and timer > P.mode_timeout:
+            wait = P.gap_wait if P.aim_on > 0.5 and mode == "windup" else 0.0
+            if mode in ("strike", "windup") and timer > P.mode_timeout + wait:
                 mode = "idle"                         # bloqueado demasiado tiempo: abortar
             elif mode == "strike" and (theta > P.strike_end_theta or not reach):
                 mode = "idle"                         # golpe terminado
             elif mode == "windup":
                 if not reach:
                     mode = "idle"                     # la bola se fue
-                elif theta < P.armed_theta or front < P.strike_trigger:
-                    mode = "strike"                   # armado, o la bola se acerca: golpear ya
+                elif front < P.strike_trigger or (theta < max(P.armed_theta, lo_t + 0.12)
+                                                  and (P.aim_on <= 0.5
+                                                       or (lane is not None and placed) or timer >= wait)):
+                    mode = "strike"                   # armado y con hueco (o sin más espera), o bola encima
             elif mode == "idle":
                 # Armar solo con la bola delante, separada del taco y sin venir
                 # deprisa hacia el pie (si no, el pie que se retira la arrastra atrás).
@@ -314,14 +402,18 @@ class HeuristicOpponent:
                         and fwd_v > P.approach_vmin and self._kick_ok.get(idx, True)):
                     mode = "windup"
 
-            if mode == "strike":
-                angular = P.strike_cmd
+            if mode == "windup" and self._aim.get(idx, 0):
+                angular = -1.0                        # los ángulos de tiro se midieron desde -90°
+            elif mode == "strike":
+                # Apuntando, el golpe va a fondo: los ángulos se midieron así
+                angular = 1.0 if self._aim.get(idx, 0) else P.strike_cmd
             elif mode == "windup":
                 angular = P.windup_cmd
-            elif front < -0.03:
+            elif front < -0.03 and lo_t < -1.0:
                 # Bola detrás de esta barra: levantarla hacia atrás. Así no tapa los
                 # pases de los compañeros y, al armar luego, el pie no pasa sobre la bola.
-                angular = P.lift_cmd
+                # (El portero, con solo -10° de recorrido hacia atrás, no puede levantarse.)
+                angular = LIFT_CMD
             else:
                 angular = P.rest_cmd                  # pie abajo, bloquear
             if mode != self._striking.get(idx, "idle"):
@@ -341,7 +433,9 @@ class AbsentOpponent:
 
     def get_commands(self, state: WorldState, team: str = 'B') -> dict:
         d = team_direction(team)
-        return {i: (0.0, d * 0.5) for i in get_team_bar_indices(team)}
+        # Todos levantados: el portero hacia delante (+90°, su único lado libre), el resto hacia atrás
+        return {i: (0.0, d * (1.0 if state.bars[i].role == "GK" else LIFT_CMD))
+                for i in get_team_bar_indices(team)}
 
 
 class PolicyOpponent:
@@ -472,7 +566,10 @@ class FoosballEnv:
             kinds = ["ideal"] * len(BAR_DEFINITIONS)
         self.actuators = ActuatorBank(
             n_bars=8, dt=dt, add_noise=noise, randomize=self.randomize, kinds=kinds,
-            n_players=[n for _, n, _, _ in BAR_DEFINITIONS], spec=self.spec)
+            n_players=[n for _, n, _, _ in BAR_DEFINITIONS], spec=self.spec,
+            # El final de carrera está donde se levanta cada equipo (pie atrás)
+            home_signs=[-team_direction(t) for _, _, t, _ in BAR_DEFINITIONS],
+            limits=[angle_limits(r, t) for _, _, t, r in BAR_DEFINITIONS])
 
         self._team_bar_idxs = get_team_bar_indices(controlled_team)
         self._n_agent_bars  = len(self._team_bar_idxs)   # 4

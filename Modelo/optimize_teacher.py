@@ -34,7 +34,9 @@ import time
 import numpy as np
 
 SKILLS = (0.4, 0.7, 1.0)
-SHOT_WEIGHT = 0.10          # peso de los tiros a puerta (señal más densa que los goles)
+# Los tiros a puerta (propios y del rival) son una señal más densa que los goles. El peso es
+# aproximadamente su tasa de conversión: con más, el optimizador buscaría tirar y no marcar.
+SHOT_WEIGHT = 0.04
 
 _ENV = None
 
@@ -46,7 +48,7 @@ def _init_worker(seconds: float):
 
 
 def _play(args):
-    """Juega partidos con unos parámetros. Devuelve array (n, 4): marca, recibe, tiros, minutos."""
+    """Juega partidos. Devuelve array (n, 5): marca, recibe, tiros, minutos, tiros del rival."""
     params_dict, seeds, skills = args
     from env import RoleParams
     from example import HeuristicAgent
@@ -57,19 +59,20 @@ def _play(args):
     for seed, skill in zip(seeds, skills):
         env.opponent_skill = skill
         env.reset(seed=int(seed))
-        done, shots = False, 0
+        done, shots, against = False, 0, 0
         while not done:
             _, _, te, tr, info = env.step(agent.predict())
             done = te or tr
             shots += info["events"].get("shot_on_target") == env.controlled_team
-        out.append((info["score"]["A"], info["score"]["B"], shots, minutes))
+            against += info["events"].get("shot_on_target") == env.opponent_team
+        out.append((info["score"]["A"], info["score"]["B"], shots, minutes, against))
     return np.array(out, dtype=float)
 
 
 def _fitness(res: np.ndarray) -> float:
     minutes = res[:, 3]
     diff = (res[:, 0] - res[:, 1]) / minutes
-    shots = res[:, 2] / minutes
+    shots = (res[:, 2] - (res[:, 4] if res.shape[1] > 4 else 0.0)) / minutes
     return float(np.mean(diff) + SHOT_WEIGHT * np.mean(shots))
 
 
@@ -115,6 +118,8 @@ def main():
 
     ap = argparse.ArgumentParser(description="Optimiza el heuristico del robot con CMA-ES")
     ap.add_argument("--roles", default=",".join(ROLES), help="Roles a optimizar (GK,DEF,MID,ATK)")
+    ap.add_argument("--shared", action="store_true",
+                    help="Un solo juego de parámetros para todos los roles (13 en vez de 52)")
     ap.add_argument("--base", default="models/teacher/heuristic_optimized.json",
                     help="Parámetros de partida (y valores fijos de los roles no optimizados)")
     ap.add_argument("--minutes", type=float, default=30.0, help="Tiempo máximo de optimización")
@@ -130,6 +135,7 @@ def main():
                     help="Juntar los parámetros de cada rol de varios ficheros en --out y salir")
     ap.add_argument("--compare", nargs="+", metavar="NOMBRE=FICHERO",
                     help="Solo validar y comparar ficheros de parámetros")
+    ap.add_argument("--pick", metavar="FICHERO", help="Con --compare, guardar aquí el de mejor diferencia")
     args = ap.parse_args()
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
 
@@ -151,9 +157,15 @@ def main():
         with ctx.Pool(args.workers, initializer=_init_worker, initargs=(args.seconds,)) as pool:
             val = validate(pool, named, args.validate_matches, seed=3_000_000 + args.seed)
         _print_table(val, args.validate_matches, args.seconds)
+        if args.pick:
+            best = max(val, key=lambda k: val[k]["diff"])
+            os.makedirs(os.path.dirname(args.pick) or ".", exist_ok=True)
+            RoleParams.from_dict(named[best]).save(args.pick)
+            print()
+            print(f"Elegido: {best} -> {args.pick}")
         return
 
-    roles = [r.strip() for r in args.roles.split(",") if r.strip()]
+    roles = [ROLES[0]] if args.shared else [r.strip() for r in args.roles.split(",") if r.strip()]
     for r in roles:
         if r not in ROLES:
             raise SystemExit(f"Rol desconocido: {r}")
@@ -162,6 +174,8 @@ def main():
     lo = np.tile(np.array([PARAM_BOUNDS[k][0] for k in names]), len(roles))
     hi = np.tile(np.array([PARAM_BOUNDS[k][1] for k in names]), len(roles))
     base = RoleParams.load(args.base)
+    if args.shared:
+        base = RoleParams.shared(base.roles[ROLES[0]])
     default_u = (np.concatenate([base.roles[r].to_array() for r in roles]) - lo) / (hi - lo)
 
     def build(u) -> dict:
@@ -170,6 +184,10 @@ def main():
         rp = RoleParams({r: HeuristicParams.from_array(base.roles[r].to_array()) for r in ROLES})
         for i, r in enumerate(roles):
             rp.roles[r] = HeuristicParams.from_array(x[i * n:(i + 1) * n])
+        if args.shared:
+            rp = RoleParams.shared(rp.roles[roles[0]])
+        for p in rp.roles.values():
+            p.aim_on = 1.0                 # buscar huecos es una regla de juego, no un parámetro a apagar
         return rp.to_dict()
 
     popsize = args.popsize or int(4 + 3 * math.log(len(default_u))) + 6

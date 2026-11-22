@@ -1,0 +1,143 @@
+name: Profesor y alumnos
+
+# Cadena completa: optimiza el profesor (3 semillas), elige el mejor con partidos nuevos y
+# entrena 5 alumnos con él. No escribe en el repositorio: todo sale como artefactos.
+# Se lanza subiendo un cambio a `.github/entrenar.txt` en la rama `train`
+# (primera línea: minutos de optimización; segunda: pasos de PPO).
+on:
+  workflow_dispatch:
+  push:
+    branches: [train]
+    paths: [".github/entrenar.txt"]
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUNBUFFERED: "1"
+  PYTHONIOENCODING: utf-8
+
+jobs:
+  profesor:
+    name: profesor ${{ matrix.seed }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [1, 2, 3]
+    defaults: { run: { working-directory: Modelo } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip, cache-dependency-path: Modelo/requirements.txt }
+      - name: Instalar dependencias
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+      - name: Optimizar
+        run: |
+          MIN="$(sed -n 1p ../.github/entrenar.txt | tr -dc '0-9')"
+          python optimize_teacher.py --shared --base models/teacher/base_90.json --minutes "${MIN:-120}" \
+            --workers 4 --popsize 14 --matches 24 --sigma 0.2 --seed ${{ matrix.seed }} \
+            --validate-matches 120 --out salida/p${{ matrix.seed }}.json | tee salida_p${{ matrix.seed }}.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: prof_${{ matrix.seed }}
+          path: |
+            Modelo/salida/*.json
+            Modelo/salida_p${{ matrix.seed }}.txt
+
+  elegir:
+    needs: profesor
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    defaults: { run: { working-directory: Modelo } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip, cache-dependency-path: Modelo/requirements.txt }
+      - name: Instalar dependencias
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+      - uses: actions/download-artifact@v4
+        with: { pattern: prof_*, path: Modelo/candidatos, merge-multiple: true }
+      - name: Elegir el mejor con 240 partidos nuevos y grabar partidos
+        run: |
+          find candidatos -type f
+          mkdir -p elegido
+          ARGS="base=models/teacher/base_90.json"
+          for s in 1 2 3; do
+            F="$(find candidatos -name "p$s.json" | head -1)"
+            [ -n "$F" ] && ARGS="$ARGS semilla$s=$F"
+          done
+          python optimize_teacher.py --workers 4 --validate-matches 240 --compare $ARGS \
+            --pick elegido/profesor.json | tee elegido/comparacion.txt
+          for s in 1 2 3; do
+            python visualize.py --teacher elegido/profesor.json --seconds 60 --seed $s --save elegido/partido_$s.html --no-open
+          done
+          { echo '```'; cat elegido/comparacion.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with: { name: profesor, path: Modelo/elegido }
+
+  alumno:
+    name: ${{ matrix.name }}
+    needs: elegir
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: alumno_s1, seed: 1, ideal: "", logstd: "-2.5" }
+          - { name: alumno_s2, seed: 2, ideal: "", logstd: "-2.5" }
+          - { name: alumno_s3, seed: 3, ideal: "", logstd: "-2.5" }
+          - { name: ppo_ruido_normal, seed: 1, ideal: "", logstd: "-1.2" }
+          - { name: sensores_ideales, seed: 1, ideal: "--ideal-sensors", logstd: "" }
+    defaults: { run: { working-directory: Modelo } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip, cache-dependency-path: Modelo/requirements.txt }
+      - name: Instalar dependencias
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+      - uses: actions/download-artifact@v4
+        with: { name: profesor, path: Modelo/elegido }
+      - name: DAgger
+        run: |
+          python dagger.py --teacher elegido/profesor.json --out models/${{ matrix.name }}/student \
+            --workers 4 --rounds 8 --matches 64 --seed ${{ matrix.seed }} ${{ matrix.ideal }}
+      - name: PPO
+        if: matrix.logstd != ''
+        run: |
+          PASOS="$(sed -n 2p ../.github/entrenar.txt | tr -dc '0-9')"
+          python train.py --timesteps "${PASOS:-1000000}" --n-envs 4 --curriculum \
+            --init-model models/${{ matrix.name }}/student --log-std=${{ matrix.logstd }} --seed ${{ matrix.seed }} \
+            --save-dir models/${{ matrix.name }}/ppo --log-dir logs/${{ matrix.name }} --eval-episodes 2
+          python dashboard.py --log-dir logs/${{ matrix.name }} --total "${PASOS:-1000000}" --export panel.html || true
+      - name: Evaluar (100 partidos de 60 s)
+        run: |
+          M="models/${{ matrix.name }}/student"
+          for f in best/best_model foosball_ppo_final; do
+            [ -f "models/${{ matrix.name }}/ppo/$f.zip" ] && M="$M models/${{ matrix.name }}/ppo/$f"
+          done
+          python benchmark.py --matches 100 --seed 20000 --teacher elegido/profesor.json ${{ matrix.ideal }} $M | tee resultados.txt
+          for s in 1 2; do
+            python visualize.py --model models/${{ matrix.name }}/student --seconds 60 --seed $s --save partido_$s.html --no-open || true
+          done
+          { echo '```'; cat resultados.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ matrix.name }}
+          path: |
+            Modelo/resultados.txt
+            Modelo/panel.html
+            Modelo/partido_*.html
+            Modelo/models/${{ matrix.name }}/student.zip
+            Modelo/models/${{ matrix.name }}/ppo/best
+            Modelo/models/${{ matrix.name }}/ppo/foosball_ppo_final.zip

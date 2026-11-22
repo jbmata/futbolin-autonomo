@@ -115,7 +115,8 @@ class Camera:
     def record(self, state):
         bars = state.bars
         self._hist.append((
-            state.time, state.ball.x, state.ball.y, ball_occluded(state),
+            state.time, state.ball.x, state.ball.y,
+            self.spec.occlusion and ball_occluded(state),
             state.ball.speed,
             tuple((bars[i].linear_pos, bars[i].angle) for i in self.bar_idxs),
         ))

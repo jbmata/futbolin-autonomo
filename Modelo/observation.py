@@ -27,7 +27,7 @@ robot basta con construir esa parte. Ver policies.py.
 from collections import deque
 import numpy as np
 
-from world import (LINEAR_RANGE, OBS_REL_X_SCALE, OBS_REL_Y_SCALE,
+from world import (ANGULAR_RANGE, LINEAR_RANGE, OBS_REL_X_SCALE, OBS_REL_Y_SCALE,
                    get_team_bar_indices, team_direction)
 from vision import Camera
 
@@ -82,13 +82,13 @@ class ObservationBuilder:
         for i in self.own:
             lin, ang, lv, av = env.actuators[i].estimate()
             est.append((i, lin))
-            out.extend((s * lin / LINEAR_RANGE, s * ang / np.pi,
+            out.extend((s * lin / LINEAR_RANGE, s * _clip(ang / ANGULAR_RANGE),
                         _clip(s * lv / LIN_V_SCALE), _clip(s * av / ANG_V_SCALE)))
         for lin, ang, lv, av in cam.opponent_bars():
-            out.extend((s * lin / LINEAR_RANGE, s * ang / np.pi,
+            out.extend((s * lin / LINEAR_RANGE, s * _clip(ang / ANGULAR_RANGE),
                         _clip(s * lv / LIN_V_SCALE), _clip(s * av / ANG_V_SCALE)))
         for lin, ang in cam.own_bars():
-            out.extend((s * lin / LINEAR_RANGE, s * ang / np.pi))
+            out.extend((s * lin / LINEAR_RANGE, s * ang / ANGULAR_RANGE))
         for i, lin in est:
             bar = state.bars[i]
             rel_x = s * (bx - bar.bar_x) / OBS_REL_X_SCALE
@@ -109,7 +109,7 @@ class ObservationBuilder:
                _clip(s * b.wx / BALL_V_SCALE), _clip(s * b.wy / BALL_V_SCALE)]
         for i in self.own + self.opp:
             bar = state.bars[i]
-            out.extend((s * bar.linear_pos / LINEAR_RANGE, s * bar.angle / np.pi,
+            out.extend((s * bar.linear_pos / LINEAR_RANGE, s * bar.angle / ANGULAR_RANGE,
                         _clip(s * bar.linear_vel / LIN_V_SCALE),
                         _clip(s * bar.angular_vel / ANG_V_SCALE)))
         for i in self.own:
@@ -121,7 +121,7 @@ class ObservationBuilder:
             bar = state.bars[i]
             lin, ang, _, _ = env.actuators[i].estimate()
             out.append(_clip(s * (bar.linear_pos - lin) / LINEAR_RANGE * 10.0))
-            out.append(_clip(s * (bar.angle - ang) / np.pi * 10.0))
+            out.append(_clip(s * (bar.angle - ang) / ANGULAR_RANGE * 10.0))
         return out
 
     def build(self, last_action) -> np.ndarray:

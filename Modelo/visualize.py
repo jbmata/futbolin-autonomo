@@ -1,500 +1,207 @@
 """
 visualize.py
 ------------
-Visualización en tiempo real del agente RL jugando al futbolín.
+Graba un partido del simulador y lo convierte en un reproductor en un solo fichero
+HTML (sin servidor ni dependencias): pausa, cámara lenta, avance por fotogramas y
+saltos a goles, saques y tiros.
 
-Muestra:
-  - Campo verde con porterías
-  - Bola (círculo blanco) con estela de trayectoria
-  - Jugadores de cada equipo (azul=A, rojo=B)
-  - Barras como líneas verticales
-  - Marcador y estadísticas en tiempo real
-  - Gráfica de reward acumulado
+Dos vistas a la misma escala en X:
+  - Planta: bola real, bola que ve la cámara y figuras.
+  - Alzado: cada figura con su cabeza, pierna y taco girados, y la bola. Verde si la
+    bola cabe por debajo de la figura, del color del equipo si la tapa. El contorno
+    discontinuo es donde el firmware CREE que está la barra (pasos perdidos).
 
 Uso:
-    python visualize.py                          # modelo entrenado por defecto
-    python visualize.py --model models/best/best_model
-    python visualize.py --heuristic              # comparar con agente heurístico
-    python visualize.py --episodes 5             # jugar N episodios
-    python visualize.py --speed 2.0              # velocidad x2
-    python visualize.py --save replay.gif        # guardar como GIF animado
+    python visualize.py --teacher                              # profesor optimizado
+    python visualize.py --teacher models/teacher/roles.json
+    python visualize.py --heuristic                            # heurístico por defecto
+    python visualize.py --model models/dagger/student          # una red entrenada
+    python visualize.py --teacher --seconds 60 --skill 0.7 --seed 3 --save partido.html
 """
 
 import argparse
+import json
+import os
+import webbrowser
+
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-import matplotlib.animation as animation
-from matplotlib.gridspec import GridSpec
-from collections import deque
 
-from env import FoosballEnv
-from world import BALL_RADIUS
+import world
+from env import FoosballEnv, RoleParams
+from example import HeuristicAgent
+from world import BAR_DEFINITIONS
+
+DEFAULT_TEACHER = "models/teacher/heuristic_optimized.json"
+
+
+def make_agent(env, model=None, teacher=None):
+    """Devuelve una función obs -> acción."""
+    if model is not None:
+        return lambda obs: model.predict(obs, deterministic=True)[0]
+    if teacher is not None:
+        agent = HeuristicAgent(env, seed=0, reaction_delay=0.0, params=RoleParams.load(teacher))
+    else:
+        agent = HeuristicAgent(env, seed=0)
+    return lambda obs: agent.predict()
+
+
+def record(seconds=30.0, seed=0, skill=0.7, opponent="heuristic", model_path=None, teacher=None,
+           title="") -> dict:
+    """Juega un partido y devuelve todo lo necesario para reproducirlo."""
+    model, version = None, None
+    if model_path:
+        from stable_baselines3 import PPO
+        from train import obs_version_of
+        model = PPO.load(model_path, device="cpu")
+        version = obs_version_of(model)
+    env = FoosballEnv(max_steps=int(round(seconds / 0.02)), opponent=opponent, opponent_skill=skill,
+                      obs_version=version)
+    act = make_agent(env, model, teacher)
+    obs, _ = env.reset(seed=seed)
+    cam = env._builder.camera if env._builder is not None else None
+    frames, events = [], []
+
+    def snap():
+        b = env.state.ball
+        row = [b.x, b.y, b.vx, b.vy]
+        row += [cam.ball[0], cam.ball[1], float(cam.visible)] if cam else [b.x, b.y, 1.0]
+        for bar in env.state.bars:
+            row += [bar.linear_pos, bar.angle]
+        for i in range(8):
+            lin, ang, _, _ = env.actuators[i].estimate()
+            row += [lin, ang]
+        frames.append([round(float(v), 4) for v in row])
+
+    snap()
+    done = False
+    pinned = False
+    while not done:
+        obs, _, term, trunc, info = env.step(act(obs))
+        done = term or trunc
+        snap()
+        ev, k = info["events"], len(frames) - 1
+        if ev["goal"]:
+            events.append([k, "gol", f"Gol de {ev['goal']} ({info['score']['A']}-{info['score']['B']})"])
+        if ev.get("serve"):
+            events.append([k, "saque", f"Saca el portero de {ev['serve']}"])
+        if ev["shot_on_target"]:
+            if not events or events[-1][1] != "tiro" or k - events[-1][0] > 10:
+                events.append([k, "tiro", f"Tiro a puerta de {ev['shot_on_target']}"])
+        if ev["pinned"] and not pinned:
+            events.append([k, "pisada", "Bola pisada"])
+        pinned = ev["pinned"]
+    return {
+        "title": title, "dt": env.dt, "frames": frames, "events": events,
+        "score": info["score"], "lost_steps": info.get("lost_steps", 0),
+        "bars": [{"x": x, "team": t, "role": r, "off": list(env.state.bars[i].player_offsets)}
+                 for i, (x, n, t, r) in enumerate(BAR_DEFINITIONS)],
+        "geo": {"L": world.FIELD_LENGTH, "W": world.FIELD_WIDTH, "goal": world.GOAL_WIDTH,
+                "r": world.BALL_RADIUS, "H": world.ROD_HEIGHT, "foot": world.FOOT_LENGTH,
+                "head": world.HEAD_LENGTH, "fh": world.FOOT_HEIGHT, "fl": world.FOOT_HALF_LENGTH,
+                "body": world.BODY_HALF_DEPTH, "leg": world.PLAYER_DEPTH, "hw": world.PLAYER_HALF_WIDTH},
+    }
+
+
+HTML = r"""<!doctype html><html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Partido simulado</title><style>
+:root{--bg:#10151c;--card:#181f29;--ink:#e8ecf2;--mute:#93a0b2;--line:#2a3442;--a:#5b9bff;--b:#ff6b6b;--ok:#4fd08a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,Segoe UI,sans-serif}
+main{max-width:1240px;margin:0 auto;padding:16px}h1{font-size:17px;margin:0}
+.row{display:flex;gap:14px;align-items:center;flex-wrap:wrap;justify-content:space-between;margin-bottom:10px}
+.sc{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}.sc .a{color:var(--a)}.sc .b{color:var(--b)}
+.mute{color:var(--mute);font-size:12px}.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px}
+canvas{width:100%;display:block;border-radius:6px}button,select{background:#232d3a;color:var(--ink);border:1px solid var(--line);
+border-radius:7px;padding:6px 11px;font:inherit;cursor:pointer}button:hover{background:#2d3949}button:focus-visible,select:focus-visible{outline:2px solid var(--a)}
+input[type=range]{width:100%;accent-color:var(--a);margin:8px 0 0}.ctl{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.ev{display:flex;gap:6px;flex-wrap:wrap;max-height:120px;overflow:auto}.ev button{padding:3px 9px;font-size:12px}
+.gol{border-color:#f5c542;color:#f5c542}.saque{border-color:var(--ok);color:var(--ok)}
+.key{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--mute);margin-top:6px}.key i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+</style></head><body><main>
+<div class="row"><div><h1 id="ti"></h1><div class="mute" id="inf"></div></div><div class="sc"><span class="a">A <span id="sa">0</span></span> – <span class="b"><span id="sb">0</span> B</span></div></div>
+<div class="card"><canvas id="top"></canvas><div style="height:8px"></div><canvas id="side"></canvas>
+<div class="key"><span><i style="background:#fff"></i>bola real</span><span><i style="border:2px solid #ffd54a"></i>bola según la cámara</span>
+<span><i style="background:var(--ok)"></i>figura levantada: la bola pasa</span><span><i style="background:var(--a)"></i>robot (A, ataca →) tapa</span><span><i style="background:var(--b)"></i>rival (B, ataca ←) tapa</span><span>línea discontinua: dónde cree el firmware que está</span></div>
+<input id="sl" type="range" min="0" value="0" aria-label="Posición en el partido">
+<div class="ctl" style="margin-top:6px"><button id="pl">Pausa</button><button id="bk" title="Fotograma anterior">◀</button><button id="fw" title="Fotograma siguiente">▶</button>
+<select id="sp" aria-label="Velocidad"><option value="0.1">0,1×</option><option value="0.25">0,25×</option><option value="0.5">0,5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select>
+<span class="mute" id="st"></span></div></div>
+<div class="card"><div class="mute" style="margin-bottom:6px">Saltar a (empieza 1 s antes) · espacio: pausa · flechas: fotograma</div><div class="ev" id="ev"></div></div>
+</main><script>(()=>{
+const D=__DATA__,G=D.geo,F=D.frames,$=i=>document.getElementById(i);
+const C={a:"#5b9bff",b:"#ff6b6b",ok:"#4fd08a"};let k=0,play=true,acc=0,last=0;
+$("ti").textContent=D.title;$("sl").max=F.length-1;
+function parts(){const L=G.foot;return[[-G.head,0,G.body],[0,L-G.fh,G.leg],[L-G.fh,L,G.fl]]}
+function low(t){const s=Math.sin(t),c=Math.cos(t);let m=9;for(const[u0,u1,h]of parts())for(const u of[u0,u1])for(const v of[-h,h])m=Math.min(m,G.H-u*c+v*s);return m}
+const passes=t=>low(t)>2*G.r;
+function fit(cv,h){const d=devicePixelRatio||1,w=cv.clientWidth;cv.height=Math.round(w*h*d);cv.width=Math.round(w*d);cv.style.height=w*h+"px";const g=cv.getContext("2d");g.setTransform(d,0,0,d,0,0);return[g,w,w*h]}
+const M=.05,SX=G.L+2*M;
+function top(){const cv=$("top"),[g,w,h]=fit(cv,(G.W+.04)/SX),s=w/SX,X=x=>(x+G.L/2+M)*s,Y=y=>h/2-y*s,f=F[k];
+ g.fillStyle="#0c1016";g.fillRect(0,0,w,h);g.fillStyle="#1f6b3a";g.fillRect(X(-G.L/2),Y(G.W/2),G.L*s,G.W*s);
+ g.strokeStyle="#ffffff55";g.lineWidth=1;g.beginPath();g.moveTo(X(0),Y(G.W/2));g.lineTo(X(0),Y(-G.W/2));g.stroke();
+ g.fillStyle="#ffffff2e";g.fillRect(X(-G.L/2-M),Y(G.goal/2),M*s,G.goal*s);g.fillRect(X(G.L/2),Y(G.goal/2),M*s,G.goal*s);
+ D.bars.forEach((b,i)=>{const lin=f[7+2*i],t=f[8+2*i],base=b.team=="A"?C.a:C.b,sn=Math.sin(t),cs=Math.cos(t);
+  g.strokeStyle="#c9d1db99";g.lineWidth=2;g.beginPath();g.moveTo(X(b.x),Y(G.W/2));g.lineTo(X(b.x),Y(-G.W/2));g.stroke();
+  const ext=p=>{let a=9,z=-9;const[u0,u1,hh]=p;for(const u of[u0,u1])for(const v of[-hh,hh]){const x=b.x+u*sn+v*cs;a=Math.min(a,x);z=Math.max(z,x)}return[a,z]};
+  b.off.forEach(o=>{const y=lin+o;[0,1,2].forEach(j=>{const[a,z]=ext(parts()[j]);g.globalAlpha=j==2?.95:.6;g.fillStyle=passes(t)?C.ok:base;g.fillRect(X(a),Y(y+G.hw),(z-a)*s,2*G.hw*s)});g.globalAlpha=1})});
+ g.strokeStyle="#ffffff66";g.lineWidth=1.5;g.beginPath();for(let i=Math.max(0,k-25);i<=k;i++){const p=F[i],q=F[i-1];if(i==Math.max(0,k-25)||Math.hypot(p[0]-q[0],p[1]-q[1])>.15)g.moveTo(X(p[0]),Y(p[1]));else g.lineTo(X(p[0]),Y(p[1]))}g.stroke();
+ g.fillStyle="#fff";g.beginPath();g.arc(X(f[0]),Y(f[1]),G.r*s,0,7);g.fill();
+ g.strokeStyle=f[6]?"#ffd54a":"#ff9f43";g.lineWidth=2;g.setLineDash(f[6]?[]:[3,3]);g.beginPath();g.arc(X(f[4]),Y(f[5]),G.r*s,0,7);g.stroke();g.setLineDash([]);
+ g.font="11px system-ui";g.textAlign="center";D.bars.forEach((b,i)=>{g.fillStyle=b.team=="A"?"#a9caff":"#ffb3b3";g.fillText(b.role+" "+b.team,X(b.x),12)})}
+function side(){const cv=$("side"),Z=.15,[g,w,h]=fit(cv,Z/SX),s=w/SX,X=x=>(x+G.L/2+M)*s,Y=z=>h-10-z*s,f=F[k];
+ g.fillStyle="#0c1016";g.fillRect(0,0,w,h);g.fillStyle="#1f6b3a";g.fillRect(X(-G.L/2),Y(0),G.L*s,10);
+ g.strokeStyle="#ffffff30";g.setLineDash([2,4]);g.beginPath();g.moveTo(X(-G.L/2),Y(2*G.r));g.lineTo(X(G.L/2),Y(2*G.r));g.stroke();g.setLineDash([]);
+ const poly=(bx,t)=>{const sn=Math.sin(t),cs=Math.cos(t);return parts().map(([u0,u1,v])=>[[u0,-v],[u1,-v],[u1,v],[u0,v]].map(([u,q])=>[X(bx+u*sn+q*cs),Y(G.H-u*cs+q*sn)]))};
+ const path=p=>{g.beginPath();p.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.closePath()};
+ D.bars.forEach((b,i)=>{const t=f[8+2*i],e=f[24+2*i],col=passes(t)?C.ok:(b.team=="A"?C.a:C.b);
+  poly(b.x,t).forEach(p=>{g.fillStyle=col;g.globalAlpha=.9;path(p);g.fill();g.globalAlpha=1});
+  if(Math.abs(e-t)>.05){g.strokeStyle="#fff";g.setLineDash([3,3]);g.lineWidth=1;poly(b.x,e).forEach(p=>{path(p);g.stroke()});g.setLineDash([])}
+  g.fillStyle="#dfe5ec";g.beginPath();g.arc(X(b.x),Y(G.H),3,0,7);g.fill();
+  g.font="11px system-ui";g.textAlign="center";g.fillStyle=col;g.fillText(Math.round(t*180/Math.PI*(b.team=="A"?1:-1))+"°",X(b.x),12)});
+ g.fillStyle="#fff";g.beginPath();g.arc(X(f[0]),Y(G.r),G.r*s,0,7);g.fill()}
+function score(){let a=0,b=0;for(const e of D.events)if(e[0]<=k&&e[1]=="gol")e[2].startsWith("Gol de A")?a++:b++;$("sa").textContent=a;$("sb").textContent=b}
+function draw(){top();side();score();$("sl").value=k;const f=F[k],n=(x,d=2)=>x.toLocaleString("es-ES",{minimumFractionDigits:d,maximumFractionDigits:d});
+ const err=Math.hypot(f[4]-f[0],f[5]-f[1])*1000;$("st").textContent=`${n(k*D.dt)} s de ${n((F.length-1)*D.dt,0)} s · bola a ${n(Math.hypot(f[2],f[3]))} m/s · la cámara falla ${n(err,0)} mm${f[6]?"":" (bola oculta)"}`}
+function loop(t){if(last&&play){acc+=(t-last)/1000*+$("sp").value;while(acc>=D.dt){acc-=D.dt;if(k<F.length-1)k++;else setPlay(false)}draw()}last=t;requestAnimationFrame(loop)}
+function setPlay(v){play=v;acc=0;$("pl").textContent=v?"Pausa":"Reproducir"}
+const go=n=>{k=Math.max(0,Math.min(F.length-1,n));draw()};
+$("pl").onclick=()=>{if(!play&&k==F.length-1)k=0;setPlay(!play)};$("bk").onclick=()=>{setPlay(false);go(k-1)};$("fw").onclick=()=>{setPlay(false);go(k+1)};$("sl").oninput=e=>{setPlay(false);go(+e.target.value)};
+onkeydown=e=>{if(["SELECT","BUTTON"].includes(e.target.tagName)&&e.key==" ")return;if(e.key==" "){e.preventDefault();$("pl").click()}if(e.key=="ArrowLeft"){e.preventDefault();$("bk").click()}if(e.key=="ArrowRight"){e.preventDefault();$("fw").click()}};
+D.events.forEach(e=>{const b=document.createElement("button");b.className=e[1];b.textContent=(e[0]*D.dt).toFixed(1).replace(".",",")+" s · "+e[2];b.onclick=()=>{go(e[0]-Math.round(1/D.dt));setPlay(true)};$("ev").append(b)});
+if(!D.events.length)$("ev").textContent="Sin eventos";
+$("inf").textContent=`Ángulos en el sentido de ataque de cada equipo: negativo = pie atrás. Pasos perdidos por el robot en el partido: ${D.lost_steps}.`;
+const q=new URLSearchParams(location.search);if(q.has("f")){go(+q.get("f"));setPlay(false)}
+addEventListener("resize",draw);draw();requestAnimationFrame(loop);
+})()</script></body></html>"""
+
+
+def export(data: dict, path: str):
+    text = HTML.replace("__DATA__", json.dumps(data, separators=(",", ":")).replace("</", "<\\/"), 1)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(text)
 
-
-# ---------------------------------------------------------------------------
-# Configuración visual
-# ---------------------------------------------------------------------------
-
-COLOR_FIELD       = "#2d7a2d"
-COLOR_FIELD_LINES = "#3a9e3a"
-COLOR_BALL        = "white"
-COLOR_TEAM_A      = "#4488ff"   # azul
-COLOR_TEAM_B      = "#ff4444"   # rojo
-COLOR_BAR_A       = "#2255cc"
-COLOR_BAR_B       = "#cc2222"
-COLOR_TRAIL       = "#ffff88"
-COLOR_GOAL_A      = "#88aaff"
-COLOR_GOAL_B      = "#ff8888"
-COLOR_SCORE_BG    = "#1a1a1a"
-
-PLAYER_RADIUS     = 0.018   # radio del círculo que representa cada jugador [m]
-TRAIL_LENGTH      = 40      # pasos de estela de la bola
-
-
-# ---------------------------------------------------------------------------
-# Clase principal de visualización
-# ---------------------------------------------------------------------------
-
-class FoosballVisualizer:
-
-    def __init__(
-        self,
-        model_path: str = None,
-        use_heuristic: bool = False,
-        n_episodes: int = 3,
-        speed: float = 1.0,
-        save_path: str = None,
-    ):
-        self.n_episodes   = n_episodes
-        self.speed        = speed
-        self.save_path    = save_path
-        self.use_heuristic = use_heuristic
-
-        # Modelo RL o heurístico
-        self.model = None
-        obs_version = None          # la del entorno realista (v3)
-        if not use_heuristic and model_path:
-            try:
-                from stable_baselines3 import PPO
-                from train import obs_version_of
-                self.model = PPO.load(model_path, device="cpu")
-                obs_version = obs_version_of(self.model)
-                print(f"Modelo cargado: {model_path} (observación v{obs_version})")
-            except Exception as e:
-                print(f"No se pudo cargar el modelo: {e}")
-                print("Usando agente heurístico.")
-                self.use_heuristic = True
-
-        # Entorno
-        self.env = FoosballEnv(dt=0.02, max_steps=750, noise=True, obs_version=obs_version)
-        self.field = self.env.state.field
-
-        if self.use_heuristic or self.model is None:
-            from example import HeuristicAgent
-            self._heuristic = HeuristicAgent(self.env)
-            print("Usando agente heurístico.")
-        else:
-            self._heuristic = None
-
-        # Estado de la animación
-        self._ep_count    = 0
-        self._step_count  = 0
-        self._obs         = None
-        self._done        = True
-        self._score       = {"A": 0, "B": 0}
-        self._ep_rewards  = []
-        self._ep_reward   = 0.0
-        self._trail       = deque(maxlen=TRAIL_LENGTH)
-        self._last_event  = ""
-        self._event_timer = 0
-        self._all_ep_rewards = []
-        # {(bar_idx, player_idx): frames_restantes} — flash en contacto real
-        self._contact_flash: dict = {}
-
-        # Construir figura
-        self._build_figure()
-
-    # ------------------------------------------------------------------
-    # Construcción de la figura
-    # ------------------------------------------------------------------
-
-    def _build_figure(self):
-        plt.style.use("dark_background")
-        self.fig = plt.figure(figsize=(14, 7), facecolor=COLOR_SCORE_BG)
-        self.fig.canvas.manager.set_window_title("Futbolin Autonomo — RL Agent")
-
-        gs = GridSpec(2, 2, figure=self.fig,
-                      width_ratios=[3, 1], height_ratios=[3, 1],
-                      hspace=0.3, wspace=0.3)
-
-        self.ax_field  = self.fig.add_subplot(gs[0, 0])
-        self.ax_score  = self.fig.add_subplot(gs[0, 1])
-        self.ax_reward = self.fig.add_subplot(gs[1, :])
-
-        self._setup_field_ax()
-        self._setup_score_ax()
-        self._setup_reward_ax()
-
-    def _setup_field_ax(self):
-        ax = self.ax_field
-        f  = self.field
-
-        ax.set_facecolor(COLOR_FIELD)
-        ax.set_xlim(f.x_min - 0.06, f.x_max + 0.06)
-        ax.set_ylim(f.y_min - 0.04, f.y_max + 0.04)
-        ax.set_aspect("equal")
-        ax.axis("off")
-
-        # Campo exterior
-        rect = patches.FancyBboxPatch(
-            (f.x_min, f.y_min), f.length, f.width,
-            boxstyle="round,pad=0.005",
-            linewidth=2, edgecolor="white", facecolor=COLOR_FIELD, zorder=1
-        )
-        ax.add_patch(rect)
-
-        # Línea central
-        ax.axvline(0, color=COLOR_FIELD_LINES, lw=1.5, alpha=0.6, zorder=2)
-
-        # Círculo central
-        circle = plt.Circle((0, 0), 0.06, color=COLOR_FIELD_LINES,
-                             fill=False, lw=1.5, alpha=0.6, zorder=2)
-        ax.add_patch(circle)
-
-        # Porterías
-        gw = f.goal_width / 2
-        gd = 0.04   # profundidad visual
-
-        for side, color in [(-1, COLOR_GOAL_A), (1, COLOR_GOAL_B)]:
-            gx = f.x_min if side == -1 else f.x_max
-            goal = patches.Rectangle(
-                (gx + side * gd if side == 1 else gx - gd, -gw),
-                gd, gw * 2,
-                linewidth=1.5, edgecolor="white",
-                facecolor=color, alpha=0.35, zorder=2
-            )
-            ax.add_patch(goal)
-            ax.plot([gx, gx], [-gw, gw], color="white", lw=2.5, zorder=3)
-
-        # Barras (líneas estáticas)
-        self._bar_lines = {}
-        for i, bar in enumerate(self.env.state.bars):
-            color = COLOR_BAR_A if bar.team == 'A' else COLOR_BAR_B
-            line, = ax.plot(
-                [bar.bar_x, bar.bar_x], [f.y_min, f.y_max],
-                color=color, lw=1.5, alpha=0.25, zorder=3
-            )
-            self._bar_lines[i] = line
-
-        # Estela de la bola
-        self._trail_line, = ax.plot([], [], color=COLOR_TRAIL,
-                                    lw=1.5, alpha=0.5, zorder=4)
-
-        # Jugadores (círculos + línea de pie que muestra el ángulo)
-        self._player_circles = {}
-        self._player_foot_lines = {}
-        for i, bar in enumerate(self.env.state.bars):
-            color = COLOR_TEAM_A if bar.team == 'A' else COLOR_TEAM_B
-            circles = []
-            foot_lines = []
-            for _ in bar.player_offsets:
-                c = plt.Circle((bar.bar_x, 0), PLAYER_RADIUS,
-                               color=color, zorder=5, ec="white", lw=0.8)
-                ax.add_patch(c)
-                circles.append(c)
-                # Taco del pie proyectado en planta (cambia con el ángulo)
-                ln, = ax.plot([], [], color="white", lw=4.0, zorder=6, alpha=0.8,
-                              solid_capstyle="butt")
-                foot_lines.append(ln)
-            self._player_circles[i] = circles
-            self._player_foot_lines[i] = foot_lines
-
-        # Bola
-        self._ball_circle = plt.Circle((0, 0), BALL_RADIUS + 0.005,
-                                        color=COLOR_BALL, zorder=6,
-                                        ec="#cccccc", lw=1)
-        ax.add_patch(self._ball_circle)
-
-        # Texto de evento (GOL, etc.)
-        self._event_text = ax.text(
-            0, 0, "", fontsize=28, fontweight="bold",
-            color="yellow", ha="center", va="center",
-            zorder=10, alpha=0.0
-        )
-
-        # Título
-        agent_label = "Heuristico" if self.use_heuristic else "Agente RL (PPO)"
-        ax.set_title(
-            f"  Equipo A ({agent_label})  vs  Equipo B (Heuristico)  ",
-            fontsize=11, color="white", pad=6,
-            bbox=dict(boxstyle="round", facecolor=COLOR_SCORE_BG, alpha=0.7)
-        )
-
-    def _setup_score_ax(self):
-        ax = self.ax_score
-        ax.set_facecolor(COLOR_SCORE_BG)
-        ax.axis("off")
-        ax.set_xlim(0, 1)
-        ax.set_ylim(0, 1)
-
-        ax.text(0.5, 0.92, "MARCADOR", fontsize=10, color="#aaaaaa",
-                ha="center", va="top", transform=ax.transAxes)
-
-        self._score_text_A = ax.text(
-            0.25, 0.68, "0", fontsize=52, fontweight="bold",
-            color=COLOR_TEAM_A, ha="center", va="center", transform=ax.transAxes
-        )
-        ax.text(0.5, 0.68, "–", fontsize=40, color="white",
-                ha="center", va="center", transform=ax.transAxes)
-        self._score_text_B = ax.text(
-            0.75, 0.68, "0", fontsize=52, fontweight="bold",
-            color=COLOR_TEAM_B, ha="center", va="center", transform=ax.transAxes
-        )
-
-        ax.text(0.25, 0.50, "A (RL)", fontsize=9, color=COLOR_TEAM_A,
-                ha="center", va="center", transform=ax.transAxes)
-        ax.text(0.75, 0.50, "B (Heur.)", fontsize=9, color=COLOR_TEAM_B,
-                ha="center", va="center", transform=ax.transAxes)
-
-        ax.plot([0, 1], [0.44, 0.44], color="#444444", lw=0.8, transform=ax.transAxes)
-
-        self._info_lines = []
-        labels = ["Episodio", "Paso", "Reward ep."]
-        for i, lbl in enumerate(labels):
-            y = 0.35 - i * 0.10
-            ax.text(0.05, y, lbl + ":", fontsize=8, color="#888888",
-                    va="center", transform=ax.transAxes)
-            t = ax.text(0.95, y, "—", fontsize=8, color="white",
-                        ha="right", va="center", transform=ax.transAxes)
-            self._info_lines.append(t)
-
-        # Indicador de velocidad bola
-        ax.text(0.05, 0.05, "Vel. bola:", fontsize=8,
-                color="#888888", va="center", transform=ax.transAxes)
-        self._vel_text = ax.text(0.95, 0.05, "—", fontsize=8, color="white",
-                                  ha="right", va="center", transform=ax.transAxes)
-
-    def _setup_reward_ax(self):
-        ax = self.ax_reward
-        ax.set_facecolor(COLOR_SCORE_BG)
-        ax.set_xlabel("Paso (episodio actual)", fontsize=8, color="#888888")
-        ax.set_ylabel("Reward acumulado", fontsize=8, color="#888888")
-        ax.tick_params(colors="#666666", labelsize=7)
-        for spine in ax.spines.values():
-            spine.set_edgecolor("#333333")
-        ax.grid(True, alpha=0.15, color="#555555")
-
-        self._reward_line, = ax.plot([], [], color="#88ff88", lw=1.5)
-        self._reward_steps = []
-        self._reward_vals  = []
-
-    # ------------------------------------------------------------------
-    # Lógica de simulación
-    # ------------------------------------------------------------------
-
-    def _get_action(self):
-        if self.model is not None:
-            action, _ = self.model.predict(self._obs, deterministic=True)
-        else:
-            action = self._heuristic.predict()
-        return action
-
-    def _reset_episode(self):
-        if self._ep_count >= self.n_episodes:
-            return False
-        self._obs, _      = self.env.reset()
-        self._done        = False
-        self._step_count  = 0
-        self._ep_reward   = 0.0
-        self._trail.clear()
-        self._reward_steps = []
-        self._reward_vals  = []
-        self._ep_count    += 1
-        return True
-
-    # ------------------------------------------------------------------
-    # Update de animación
-    # ------------------------------------------------------------------
-
-    def _update(self, frame):
-        if self._done:
-            ok = self._reset_episode()
-            if not ok:
-                self._anim.event_source.stop()
-                return self._get_artists()
-
-        # N pasos por frame (controla la velocidad)
-        steps_per_frame = max(1, int(self.speed))
-        for _ in range(steps_per_frame):
-            if self._done:
-                break
-            action = self._get_action()
-            self._obs, r, terminated, truncated, info = self.env.step(action)
-            self._done        = terminated or truncated
-            self._ep_reward  += r
-            self._step_count += 1
-
-            # Actualizar estela
-            ball = self.env.state.ball
-            self._trail.append((ball.x, ball.y))
-
-            # Detectar eventos
-            evt = info["events"]
-            if evt.get("goal") == "A":
-                self._score["A"] += 1
-                self._last_event  = "GOL A!"
-                self._event_timer = 30
-            elif evt.get("goal") == "B":
-                self._score["B"] += 1
-                self._last_event  = "GOL B!"
-                self._event_timer = 30
-
-            # Registrar qué jugadores tocaron la bola este paso
-            # (bar_idx, player_idx) → flash durante N frames
-            for bar_idx, player_idx in evt.get("touches", []):
-                self._contact_flash[(bar_idx, player_idx)] = 8  # duración del flash
-
-        # Actualizar gráficos
-        self._draw_field()
-        self._draw_score(info)
-        self._draw_reward()
-
-        return self._get_artists()
-
-    def _draw_field(self):
-        ball = self.env.state.ball
-
-        # Bola
-        self._ball_circle.center = (ball.x, ball.y)
-
-        # Estela
-        if len(self._trail) > 1:
-            tx = [p[0] for p in self._trail]
-            ty = [p[1] for p in self._trail]
-            self._trail_line.set_data(tx, ty)
-
-        # Jugadores
-        for i, bar in enumerate(self.env.state.bars):
-            base_color = COLOR_TEAM_A if bar.team == 'A' else COLOR_TEAM_B
-            x0, x1 = bar.foot_footprint_x()
-            for j, (circle, foot_line, player_y) in enumerate(
-                zip(self._player_circles[i], self._player_foot_lines[i], bar.get_player_abs_y())
-            ):
-                circle.center = (bar.bar_x, player_y)
-
-                # Taco: su huella en X según el ángulo (amarillo si alcanza la bola)
-                foot_line.set_data([x0, x1], [player_y, player_y])
-                in_kick = bar.is_in_kick_zone()
-                foot_line.set_color("yellow" if in_kick else "#666666")
-
-                key = (i, j)
-                flash = self._contact_flash.get(key, 0)
-
-                if flash > 0:
-                    # Contacto real con la bola: agrandar y poner amarillo
-                    circle.set_radius(PLAYER_RADIUS * 1.7)
-                    circle.set_facecolor("yellow")
-                    self._contact_flash[key] = flash - 1
-                else:
-                    # Tamaño y color normales
-                    circle.set_radius(PLAYER_RADIUS)
-                    circle.set_facecolor(base_color)
-
-        # Texto de evento
-        if self._event_timer > 0:
-            self._event_text.set_text(self._last_event)
-            alpha = min(1.0, self._event_timer / 15.0)
-            self._event_text.set_alpha(alpha)
-            self._event_timer -= 1
-        else:
-            self._event_text.set_alpha(0.0)
-
-    def _draw_score(self, info):
-        self._score_text_A.set_text(str(self._score["A"]))
-        self._score_text_B.set_text(str(self._score["B"]))
-
-        self._info_lines[0].set_text(f"{self._ep_count}/{self.n_episodes}")
-        self._info_lines[1].set_text(str(self._step_count))
-        self._info_lines[2].set_text(f"{self._ep_reward:.1f}")
-
-        ball = self.env.state.ball
-        speed_ms = np.hypot(ball.vx, ball.vy)
-        self._vel_text.set_text(f"{speed_ms:.2f} m/s")
-
-    def _draw_reward(self):
-        self._reward_steps.append(self._step_count)
-        self._reward_vals.append(self._ep_reward)
-        self._reward_line.set_data(self._reward_steps, self._reward_vals)
-        self.ax_reward.relim()
-        self.ax_reward.autoscale_view()
-
-    def _get_artists(self):
-        artists = [
-            self._ball_circle, self._trail_line,
-            self._event_text, self._reward_line,
-            self._score_text_A, self._score_text_B,
-            self._vel_text,
-        ] + self._info_lines
-        for circles in self._player_circles.values():
-            artists.extend(circles)
-        return artists
-
-    # ------------------------------------------------------------------
-    # Ejecutar
-    # ------------------------------------------------------------------
-
-    def run(self):
-        interval_ms = max(10, int(20 / self.speed))   # 20ms base = 50fps sim
-
-        self._anim = animation.FuncAnimation(
-            self.fig,
-            self._update,
-            interval=interval_ms,
-            blit=False,
-            cache_frame_data=False,
-        )
-
-        if self.save_path:
-            print(f"Guardando animacion en {self.save_path} ...")
-            writer = animation.PillowWriter(fps=30)
-            # Capturar solo los primeros 300 frames para el GIF
-            anim_save = animation.FuncAnimation(
-                self.fig, self._update,
-                frames=300, interval=interval_ms, blit=False
-            )
-            anim_save.save(self.save_path, writer=writer, dpi=100)
-            print(f"Guardado: {self.save_path}")
-        else:
-            plt.show()
-
-
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
 
 def main():
-    ap = argparse.ArgumentParser(description="Visualizador del agente RL de futbolin")
-    ap.add_argument("--model",      type=str,   default="models/foosball_ppo_final",
-                    help="Ruta al modelo PPO guardado")
-    ap.add_argument("--heuristic",  action="store_true",
-                    help="Usar agente heuristico en lugar del RL")
-    ap.add_argument("--episodes",   type=int,   default=5,
-                    help="Numero de episodios a visualizar")
-    ap.add_argument("--speed",      type=float, default=1.0,
-                    help="Velocidad de la simulacion (1.0=normal, 2.0=doble)")
-    ap.add_argument("--save",       type=str,   default=None,
-                    help="Guardar como GIF (ej: --save replay.gif)")
+    ap = argparse.ArgumentParser(description="Graba un partido y lo reproduce en el navegador")
+    who = ap.add_mutually_exclusive_group()
+    who.add_argument("--model", help="Red entrenada (PPO o alumno DAgger), sin .zip")
+    who.add_argument("--teacher", nargs="?", const=DEFAULT_TEACHER, metavar="FICHERO",
+                     help="Heurístico optimizado (por defecto models/teacher/heuristic_optimized.json)")
+    who.add_argument("--heuristic", action="store_true", help="Heurístico por defecto")
+    ap.add_argument("--seconds", type=float, default=30.0)
+    ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--skill", type=float, default=0.7, help="Nivel del rival (0..1)")
+    ap.add_argument("--opponent", default="heuristic", choices=("heuristic", "absent"))
+    ap.add_argument("--save", default="partido.html", help="Fichero HTML de salida")
+    ap.add_argument("--no-open", action="store_true", help="No abrir el navegador")
     args = ap.parse_args()
 
-    viz = FoosballVisualizer(
-        model_path    = args.model,
-        use_heuristic = args.heuristic,
-        n_episodes    = args.episodes,
-        speed         = args.speed,
-        save_path     = args.save,
-    )
-    viz.run()
+    name = args.model or args.teacher or "heurístico por defecto"
+    title = f"{name} contra rival {'ausente' if args.opponent == 'absent' else f'de nivel {args.skill}'} (semilla {args.seed})"
+    data = record(args.seconds, args.seed, args.skill, args.opponent, args.model, args.teacher, title)
+    export(data, args.save)
+    print(f"Marcador A {data['score']['A']} - {data['score']['B']} B | {len(data['events'])} eventos | {args.save}")
+    if not args.no_open:
+        webbrowser.open("file:///" + os.path.abspath(args.save).replace("\\", "/"))
 
 
 if __name__ == "__main__":

@@ -23,13 +23,14 @@ HumanBarActuator (alias BarActuator) — barra manejada por una persona, o
 
 Control: posición objetivo normalizada en [-1, 1].
   - lineal:  cmd → objetivo ∈ [-LINEAR_RANGE, +LINEAR_RANGE]
-  - angular: cmd → objetivo ∈ [-π, +π]
+  - angular: cmd → objetivo ∈ [-90°, +90°] (0 = vertical). El tope es de la orden: un
+    golpe puede empujar la barra más allá.
 """
 
 import math
 import numpy as np
 from world import (
-    LINEAR_RANGE, LINEAR_VMAX, LINEAR_AMAX,
+    LINEAR_RANGE, LINEAR_VMAX, LINEAR_AMAX, ANGULAR_RANGE, angle_limits,
     ANGULAR_OMEGA_MAX, ANGULAR_ALPHA_MAX,
     bar_inertia, bar_mass,
 )
@@ -47,7 +48,23 @@ SLIPPAGE_LINEAR   = 0.003   # m
 SLIPPAGE_ANGULAR  = 0.03    # rad
 LIMIT_RANDOMIZATION = (0.85, 1.10)
 
+def _stops(lo: float, hi: float) -> tuple:
+    """
+    Topes mecánicos del giro. Un recorrido recortado (el portero, -10° a +90°) es un tope
+    real; en las demás barras los ±90° son solo lo que se ordena, y pueden girar libremente.
+    """
+    return (lo, hi) if (hi - lo) < 2.0 * ANGULAR_RANGE - 1e-6 else (-np.pi, np.pi)
+
+
+def _cmd_to_angle(cmd: float, lo: float, hi: float) -> float:
+    """Orden [-1, 1] -> ángulo: 0 es siempre vertical, +1 es el tope `hi` y -1 el tope `lo`."""
+    cmd = min(max(cmd, -1.0), 1.0)
+    return cmd * hi if cmd >= 0.0 else -cmd * lo
+
+
 MOTOR_DT = 0.0011           # s, paso de integración del rotor
+HOME_TOL = 0.02             # rad, el final de carrera se pulsa ~1° antes del tope
+HOME_SEARCH = 1.2           # rad, recorrido máximo buscando el final de carrera
 
 
 # ---------------------------------------------------------------------------
@@ -130,7 +147,9 @@ class _StepperAxis:
     """
 
     def __init__(self, pos_min, pos_max, k, load_inertia, friction, spec: RobotSpec,
-                 rng=None):
+                 rng=None, home: float = None, closed_loop: bool = False):
+        self.closed_loop = closed_loop
+        self.home = home        # posición del final de carrera (None = no hay)
         self.pos_min, self.pos_max = pos_min, pos_max
         self.k = k
         self.spec = spec
@@ -167,6 +186,7 @@ class _StepperAxis:
         pos = min(max(float(pos), self.pos_min), self.pos_max)
         self.pos = self.est_pos = self.cmd = pos
         self.vel = self.est_vel = 0.0
+        self._pressed = False
         self.lost_steps = 0
         self._slip_cycles = 0
 
@@ -177,22 +197,22 @@ class _StepperAxis:
         self.pos, self.vel = pos, vel
 
     def _torque(self, w_abs: float, T0: float) -> float:
-        st = self.stepper
-        if w_abs >= st.max_speed:
-            return 0.0
-        t = T0 if w_abs <= st.corner_speed else T0 * st.corner_speed / w_abs
-        return t * (1.0 - w_abs / st.max_speed)
+        return self.stepper.torque(w_abs) * T0 / self.T0_nom
 
     def update(self, h: float) -> tuple:
         n = max(1, int(math.ceil(h / MOTOR_DT - 1e-9)))
         dt = h / n
         k, N, J, c, fric = self.k, self.N, self.J, self.c, self.fric
+        target = self.cmd
+        if self.home is not None and not self._pressed and abs(self.cmd - self.home) < 1e-6:
+            # Buscar el final de carrera: seguir más allá hasta que se pulse
+            target = self.home + math.copysign(HOME_SEARCH, self.home)
         for _ in range(n):
             # Firmware: perfil con aceleración limitada por el par a esa velocidad
             v = self.est_vel
             a_lim = self._a_scale * max(self._torque(abs(v) * k, self.T0_nom) - self.fric_nom, 0.0)
             a_lim = max(a_lim, 1e-3)
-            self.est_pos, self.est_vel = _profile_step(self.est_pos, v, self.cmd, self.vmax, a_lim, dt)
+            self.est_pos, self.est_vel = _profile_step(self.est_pos, v, target, self.vmax, a_lim, dt)
 
             # Rotor real
             q = self.pos * k
@@ -216,7 +236,20 @@ class _StepperAxis:
             elif pos >= self.pos_max:
                 pos, vel = self.pos_max, min(vel, 0.0)
             self.pos, self.vel = pos, vel
+        if self.closed_loop:
+            self.end_of_step()          # el MCU cierra el lazo con el encoder en cada ciclo
+        if self.home is not None:
+            pressed = self.pos * math.copysign(1.0, self.home) >= abs(self.home) - HOME_TOL
+            if pressed and not self._pressed:
+                self._resync()
+            self._pressed = pressed
         return self.pos, self.vel
+
+    def _resync(self):
+        """El firmware sabe dónde está (final de carrera): quita los ciclos eléctricos perdidos."""
+        period = 2.0 * math.pi / self.N / self.k
+        self.est_pos += round((self.pos - self.est_pos) / period) * period
+        self._slip_cycles = 0
 
     def end_of_step(self):
         """Cuenta los pasos perdidos; con encoder el firmware corrige su estimación."""
@@ -225,7 +258,7 @@ class _StepperAxis:
         if cycles != self._slip_cycles:
             self.lost_steps += 4 * abs(cycles - self._slip_cycles)   # 1 ciclo = 4 pasos
             self._slip_cycles = cycles
-        if cycles and self.spec.encoders:
+        if cycles and self.closed_loop:
             self.est_pos += cycles * period
             self._slip_cycles = 0
 
@@ -241,7 +274,8 @@ class HumanBarActuator:
 
     def __init__(self, dt: float = 0.02, add_noise: bool = True, seed: int = None,
                  randomize: bool = False, n_players: int = 1, human: HumanSpec = None,
-                 ideal: bool = False):
+                 ideal: bool = False, limits: tuple = None):
+        self.angle_lo, self.angle_hi = limits or (-ANGULAR_RANGE, ANGULAR_RANGE)
         self.dt = dt
         self.add_noise = add_noise
         self.randomize = randomize
@@ -263,7 +297,7 @@ class HumanBarActuator:
         self.lin_mass = bar_mass(n_players) * factor
         self._linear = _TrapezoidalActuator(-LINEAR_RANGE, LINEAR_RANGE, *lin,
                                             LINEAR_POS_NOISE, dt, add_noise, self.rng)
-        self._angular = _TrapezoidalActuator(-np.pi, np.pi, *rot,
+        self._angular = _TrapezoidalActuator(*_stops(self.angle_lo, self.angle_hi), *rot,
                                              ANGULAR_POS_NOISE, dt, add_noise, self.rng)
 
     def reset(self, seed=None):
@@ -277,7 +311,7 @@ class HumanBarActuator:
 
     def set_command(self, linear_cmd: float, angular_cmd: float):
         self._linear.set_target(linear_cmd * LINEAR_RANGE)
-        self._angular.set_target(angular_cmd * np.pi)
+        self._angular.set_target(_cmd_to_angle(angular_cmd, self.angle_lo, self.angle_hi))
 
     def update(self, h: float = None) -> tuple:
         lin_pos, lin_vel = self._linear.update(h)
@@ -315,8 +349,9 @@ class HumanBarActuator:
 # Nombre histórico: actuador ideal con los límites de world.py
 class BarActuator(HumanBarActuator):
     def __init__(self, dt: float = 0.02, add_noise: bool = True, seed: int = None,
-                 randomize: bool = False, n_players: int = 1):
-        super().__init__(dt, add_noise, seed, randomize, n_players, human=None, ideal=True)
+                 randomize: bool = False, n_players: int = 1, limits: tuple = None):
+        super().__init__(dt, add_noise, seed, randomize, n_players, human=None, ideal=True,
+                         limits=limits)
 
 
 class StepperBarActuator:
@@ -325,8 +360,10 @@ class StepperBarActuator:
     kind = "stepper"
 
     def __init__(self, dt: float = 0.02, add_noise: bool = True, seed: int = None,
-                 randomize: bool = False, n_players: int = 1, robot: RobotSpec = None):
+                 randomize: bool = False, n_players: int = 1, robot: RobotSpec = None,
+                 home_sign: float = -1.0, limits: tuple = None):
         robot = robot or DEFAULT_SPEC.robot
+        self.angle_lo, self.angle_hi = limits or (-ANGULAR_RANGE, ANGULAR_RANGE)
         self.dt = dt
         self.add_noise = add_noise
         self.randomize = randomize
@@ -339,8 +376,11 @@ class StepperBarActuator:
         m_lin = bar_mass(n_players) + robot.carriage_mass
         J_lin_shaft = st.rotor_inertia + m_lin * robot.pulley_radius ** 2   # en el motor
         # Ejes: el giro trabaja en rad de barra (k = reducción), el lineal en m (k = 1/r)
-        self._angular = _StepperAxis(-np.pi, np.pi, g, J_rot / (g * g),
-                                     robot.rot_friction / g, robot, self.rng)
+        home = self.angle_lo if home_sign < 0 else self.angle_hi    # final de carrera: pie atrás
+        self._angular = _StepperAxis(*_stops(self.angle_lo, self.angle_hi), g, J_rot / (g * g),
+                                     robot.rot_friction / g, robot, self.rng,
+                                     home=home if robot.home_switch else None,
+                                     closed_loop=robot.encoders)
         self._linear = _StepperAxis(-LINEAR_RANGE, LINEAR_RANGE, 1.0 / robot.pulley_radius,
                                     J_lin_shaft, robot.lin_friction * robot.pulley_radius,
                                     robot, self.rng)
@@ -364,7 +404,7 @@ class StepperBarActuator:
 
     def set_command(self, linear_cmd: float, angular_cmd: float):
         self._linear.set_target(linear_cmd * LINEAR_RANGE)
-        self._angular.set_target(angular_cmd * np.pi)
+        self._angular.set_target(_cmd_to_angle(angular_cmd, self.angle_lo, self.angle_hi))
 
     def update(self, h: float = None) -> tuple:
         h = self.dt if h is None else h
@@ -412,20 +452,22 @@ class ActuatorBank:
 
     def __init__(self, n_bars: int = 8, dt: float = 0.02, add_noise: bool = True,
                  seed: int = None, randomize: bool = False, kinds=None,
-                 n_players=None, spec: SimSpec = None):
+                 n_players=None, spec: SimSpec = None, home_signs=None, limits=None):
+        home_signs = home_signs or [-1.0] * n_bars
+        limits = limits or [None] * n_bars
         spec = spec or DEFAULT_SPEC
         kinds = kinds or ["ideal"] * n_bars
         n_players = n_players or [1] * n_bars
         seeds = np.random.SeedSequence(seed).spawn(n_bars)
         self.actuators = []
-        for kind, n, s in zip(kinds, n_players, seeds):
+        for kind, n, s, home_sign, lim in zip(kinds, n_players, seeds, home_signs, limits):
             child = int(s.generate_state(1)[0])
             if kind == "stepper":
-                act = StepperBarActuator(dt, add_noise, child, randomize, n, spec.robot)
+                act = StepperBarActuator(dt, add_noise, child, randomize, n, spec.robot, home_sign, lim)
             elif kind == "human":
-                act = HumanBarActuator(dt, add_noise, child, randomize, n, spec.human)
+                act = HumanBarActuator(dt, add_noise, child, randomize, n, spec.human, limits=lim)
             else:
-                act = BarActuator(dt, add_noise, child, randomize, n)
+                act = BarActuator(dt, add_noise, child, randomize, n, lim)
             self.actuators.append(act)
 
     def reset(self, seed=None):

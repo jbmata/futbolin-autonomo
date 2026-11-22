@@ -392,6 +392,7 @@ def train_ppo(
     phase_fractions: tuple = None,
     skip_phase0:     bool = None,
     net_size:        int = 256,
+    log_std:         float = None,
 ):
     """
     skip_phase0: sin la fase de rival ausente. Por defecto True si se parte de un
@@ -464,6 +465,9 @@ def train_ppo(
                     # Solo se copian los pesos; los hiperparámetros son los de este entrenamiento.
                     model.set_parameters(init_model, exact_match=False)
                     print(f"Pesos iniciales desde {init_model}")
+                if log_std is not None:
+                    # Ruido de exploración: exp(log_std) en unidades de acción
+                    model.policy.log_std.data.fill_(log_std)
             else:
                 model.set_env(train_env)
 
@@ -627,6 +631,8 @@ def main():
                     help="Currículo: sin rival -> heurístico flojo -> heurístico completo")
     ap.add_argument("--self-play", action="store_true",
                     help="Añade una fase final contra copias de la propia política")
+    ap.add_argument("--log-std", type=float, default=None,
+                    help="Logaritmo de la desviación inicial de exploración (p. ej. -2.5 = 0,08)")
     ap.add_argument("--net-size", type=int, default=256,
                     help="Neuronas por capa del actor (debe coincidir con la del --init-model)")
     ap.add_argument("--with-phase0", action="store_true",
@@ -672,6 +678,7 @@ def main():
             subproc         = False if args.no_subproc else None,
             skip_phase0     = False if args.with_phase0 else None,
             net_size        = args.net_size,
+            log_std         = args.log_std,
         )
         print(f"\nEntrenamiento completado en {(time.time() - t0)/60:.1f} minutos.")
         print("\nEvaluando modelo entrenado...")

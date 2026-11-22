@@ -325,6 +325,71 @@ sobre todo el más afortunado. Los parámetros son `models/teacher/heuristic_opt
   variantes entrenadas en paralelo en GitHub Actions (rama `train`). Los
   resultados de ese entrenamiento se añadirán aquí cuando existan.
 
+**Resultado del entrenamiento en GitHub y de la optimización por roles (22 de noviembre)**
+
+Evaluación con 100 partidos de 60 s contra el heurístico de nivel 0,7 (goles/min):
+
+| Agente | Diferencia (IC 95 %) |
+|---|---|
+| Heurístico por defecto | −0,50 ± 0,22 |
+| **Profesor optimizado (ve el estado real)** | **+0,16 ± 0,11** |
+| Alumno DAgger, red 128 | −0,24 ± 0,15 |
+| Alumno DAgger, red 256 (3 semillas) | −0,17 ± 0,16 · −0,32 ± 0,18 · −0,05 ± 0,21 |
+| Alumno DAgger, red 512 | −0,27 ± 0,18 |
+| Tras PPO (mejor guardado), todas las variantes | de −0,63 a −1,30 |
+| Tras PPO (modelo final), todas las variantes | de −0,67 a −1,55 |
+
+- **DAgger funciona** (mucho mejor que el heurístico por defecto) pero queda por debajo del
+  profesor: lo que se pierde por ver solo cámara y firmware.
+- **PPO empeora al alumno en las 5 variantes**: olvida lo copiado y la recompensa escasa no
+  le da nada mejor. Habrá que anclarlo al alumno (pérdida de imitación o límite KL) o dejarlo fuera.
+- **El tamaño de la red (128, 256, 512) no cambia el resultado**: las diferencias están dentro
+  de la variación entre semillas.
+
+Optimización del profesor por roles (4 trabajos de 150 min en GitHub, cada uno un rol): solo
+los delanteros mejoran en su validación (+0,46 ± 0,28 frente a +0,21 ± 0,22); portero, defensa
+y medios no superan a los parámetros de partida (con la búsqueda de la defensa sin converger).
+Juntos y validados con 240 partidos de 30 s:
+
+| Profesor | Marca | Recibe | Diferencia (IC 95 %) | Tiros/min |
+|---|---|---|---|---|
+| Anterior (mismo juego para los 4 roles) | 0,47 | 0,14 | +0,33 ± 0,16 | 12,3 |
+| Por roles | 0,57 | 0,20 | +0,37 ± 0,16 | 14,1 |
+
+La diferencia en goles (+0,04) no es significativa; los tiros suben un 15 %. Conclusión: con
+esta forma de búsqueda el profesor está en una meseta de +0,2 a +0,4 goles/min. Sigue siendo
+ruido de medida: dos validaciones del mismo profesor anterior dieron +0,19 y +0,33.
+
+**Reglas de juego y del robot añadidas el 22 de noviembre** (todo lo anterior a esto se
+entrenó sin ellas y hay que repetirlo):
+
+- **Giro de las barras**: de −90° a +90° (0 = vertical), y el **portero de −10° a +90°**, que
+  es un tope mecánico: apenas puede echar el pie atrás. En el equipo B los ángulos están
+  girados 180°.
+- **Levantar es siempre a −90°** (pie atrás: la bola pasa por debajo, con 59 mm libres);
+  el ángulo positivo se usa solo para golpear. El portero no se levanta atrás: queda en
+  vertical. Un profesor anterior levantaba a −159°, donde la **cabeza** de la figura tapa
+  la bola, y bloqueaba sus propios pases y el saque.
+- **Giro en lazo cerrado** (encoder): el MCU corrige los pasos perdidos en cada ciclo. El
+  eje lateral va en lazo abierto. Sin nada, una barra estaba desfasada más de 5° el 66 % del
+  tiempo y llegaba a 156°; con final de carrera, el 32 %; con encoder, el 0 %.
+- **Huecos hacia la portería** (`aim_on`): cualquier barra, también defensa y medios, busca
+  un hueco entre los rivales y tira recto o en diagonal. Se apunta descentrando la figura
+  respecto a la bola y barriendo la barra al golpear; los ajustes por rol salen de medir el
+  simulador (`AIM_TABLE`: de unos 5° a 12°, con ±1,5° a ±3° de dispersión). El portero tira
+  siempre recto.
+- **Motor 17HS4401 con TMC2209 a 12 V**: el par sale del modelo eléctrico (1,7 A, 1,5 Ω,
+  2,8 mH, 40 N·cm), no de una curva supuesta: 0,28 N·m parado y 0,18 N·m al golpear
+  (47 rad/s). A 24 V serían 0,28 N·m al golpear.
+- **Optimizador**: los tiros a puerta pesan 0,04 (antes 0,10, que los hacía valer unas seis
+  veces más que un gol) y cuentan los del rival restados.
+- **Visor** (`visualize.py`): reproductor HTML con planta y alzado de cada partido.
+
+Comparación hecha con esas reglas (90 partidos de 30 s, mismo profesor, con y sin buscar
+huecos): sin huecos +0,67 ± 0,28 goles/min, con huecos +0,56 ± 0,29. Sin diferencia clara, y
+con huecos tira menos (11,6 frente a 14,6 tiros/min): sus parámetros (`gap_wait`,
+`lane_margin`) aún no están optimizados.
+
 ---
 
 ## 7. Lecciones aprendidas

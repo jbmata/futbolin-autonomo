@@ -100,7 +100,7 @@ jobs:
         run: |
           mkdir -p models/teacher
           python optimize_teacher.py --base models/teacher/heuristic_optimized.json \
-            --merge GK=roles/GK.json DEF=roles/DEF.json MID=roles/MID.json ATK=roles/ATK.json \
+            --merge GK=roles/models/teacher/GK.json DEF=roles/models/teacher/DEF.json MID=roles/models/teacher/MID.json ATK=roles/models/teacher/ATK.json \
             --out models/teacher/roles.json
           python optimize_teacher.py --workers 4 --validate-matches 240 \
             --compare anterior=models/teacher/heuristic_optimized.json por_roles=models/teacher/roles.json \

@@ -69,8 +69,8 @@ class PhysicsTests(unittest.TestCase):
         # Bola rodando hacia delante por detrás del pie, y bola parada delante.
         for ball_x, ball_vx in ((0.185, 0.2), (0.225, 0.0)):
             with self.subTest(ball_x=ball_x):
-                # Armado a ~-108°: desde 180° la cabeza de la figura toca antes la bola
-                max_vx, touched = self._kick(ball_x, ball_vx, -0.6 * math.pi, 0.6)
+                # Armado a -90°, el tope de los motores
+                max_vx, touched = self._kick(ball_x, ball_vx, -0.5 * math.pi, 1.0)
                 self.assertTrue(touched)
                 self.assertGreater(max_vx, 1.5)
 
@@ -103,7 +103,7 @@ class PhysicsTests(unittest.TestCase):
         act = BarActuator(add_noise=False)
         act._angular.reset(1.6)
         state.bars[ATK_A].angle = 1.6
-        act.set_command(0.0, 0.25)
+        act.set_command(0.0, 0.5)
         state.ball.reset(x=0.27, y=0.0, vx=0.0, vy=0.0)
         pinned = 0
         for _ in range(40):
@@ -210,7 +210,7 @@ class RealismTests(unittest.TestCase):
     def test_stepper_follows_profile_without_load(self):
         act = StepperBarActuator(add_noise=False, n_players=5)
         act.reset()
-        act.set_command(1.0, 0.5)
+        act.set_command(1.0, 1.0)
         for _ in range(50):
             act.update(0.02)
             act.end_of_step()
@@ -491,6 +491,165 @@ class MatchFormatTests(unittest.TestCase):
 
 
 class RoleTests(unittest.TestCase):
+    def test_goalkeeper_rotates_only_from_minus_10_to_plus_90_degrees(self):
+        from world import angle_limits
+        for team, bar_idx in (('A', 0), ('B', 7)):
+            sign = 1.0 if team == 'A' else -1.0                 # B está girado 180°
+            lo, hi = angle_limits("GK", team)
+            self.assertAlmostEqual(math.degrees(min(lo * sign, hi * sign)), -10.0)
+            self.assertAlmostEqual(math.degrees(max(lo * sign, hi * sign)), 90.0)
+            for kind in ("stepper", "human", "ideal"):
+                env = FoosballEnv(controlled_team='A', opponent=None, noise=False)
+                kinds = [kind] * 8
+                bank = ActuatorBank(kinds=kinds, add_noise=False, n_players=[1] * 8,
+                                    limits=[angle_limits("GK", team)] * 8)
+                act = bank[bar_idx]
+                for cmd, want in ((1.0, 90.0), (-1.0, -10.0), (0.0, 0.0), (3.0, 90.0), (-3.0, -10.0)):
+                    with self.subTest(team=team, kind=kind, cmd=cmd):
+                        act.reset()
+                        act.set_command(0.0, cmd * sign)           # orden en el marco del equipo
+                        for _ in range(120):
+                            act.update(0.02)
+                        self.assertAlmostEqual(math.degrees(act._angular.pos) * sign, want, delta=1.5)
+                # Un golpe fuerte no puede empujar al portero más allá del tope
+                act.reset()
+                act._angular.set_true(act.angle_hi, 30.0)
+                act.update(0.02)
+                self.assertLessEqual(act._angular.pos, act.angle_hi + 1e-9)
+
+    def test_goalkeeper_heuristic_never_asks_for_more_than_its_range(self):
+        from env import RoleParams
+        from world import team_angle_limits
+        lo, hi = team_angle_limits("GK")
+        for team in ('A', 'B'):
+            env = FoosballEnv(controlled_team=team, opponent_skill=0.7, max_steps=600)
+            agent = HeuristicAgent(env, seed=0, params=RoleParams.load("models/teacher/heuristic_optimized.json"))
+            env.reset(seed=2)
+            gk_idx = 0 if team == 'A' else 7
+            sign = 1.0 if team == 'A' else -1.0
+            for _ in range(600):
+                env.step(agent.predict())
+                angle = env.state.bars[gk_idx].angle * sign
+                self.assertGreaterEqual(angle, lo - 0.02)
+                self.assertLessEqual(angle, hi + 0.02)
+
+    def test_best_lane_finds_the_gap_and_aims_from_any_bar(self):
+        from env import best_lane
+        from world import BallState
+        state = create_standard_world()
+        rivals = [b for b in state.bars if b.team == 'B']
+        for x in (-0.45, -0.31, 0.25):                     # portero, defensa y delantero de A
+            ball = BallState(x=x, y=0.0, vx=0.0, vy=0.0)
+            for b in rivals:
+                b.angle = -math.pi / 2                     # todos levantados: hueco recto
+            self.assertEqual(best_lane(state, ball, 'A', 'ATK')[0], 0)
+        ball = BallState(x=0.25, y=0.0, vx=0.0, vy=0.0)
+        gk = state.bars[7]
+        gk.angle = 0.0                                     # portero centrado: hay que cruzarla
+        self.assertIn(best_lane(state, ball, 'A', 'ATK')[0], (1, -1, 2, -2))
+        gk.linear_pos = 0.06                               # portero a +y: hueco recto o hacia -y
+        self.assertIn(best_lane(state, ball, 'A', 'ATK')[0], (0, -1, -2))
+        for b in rivals:                                   # muro completo: sin hueco
+            b.angle, b.player_offsets = 0.0, [k * 0.03 for k in range(-12, 13)]
+        self.assertIsNone(best_lane(state, ball, 'A', 'ATK')[0])
+
+    def test_heuristic_really_shoots_at_the_chosen_angle(self):
+        """Defensa, medios y delanteros cruzan el tiro por el hueco que eligen."""
+        from env import AIM_TABLE, HeuristicParams, RoleParams
+        params = RoleParams.shared(HeuristicParams(aim_on=1.0, gap_wait=15.0))
+        for idx in (1, 3, 5):                          # defensa, medios y delanteros de A
+            for side in (1, -1):
+                with self.subTest(bar=idx, side=side):
+                    env = FoosballEnv(opponent="absent", noise=False, max_steps=200)
+                    agent = HeuristicAgent(env, seed=0, reaction_delay=0.0, params=params)
+                    env.reset(seed=0)
+                    bar = env.state.bars[idx]
+                    dist = env.state.field.x_max - (bar.bar_x + 0.05)
+                    # Bola descentrada hacia el lado contrario: el mejor hueco es cruzar suave
+                    y = -side * dist * math.tan(math.radians(AIM_TABLE[bar.role][0][0]))
+                    reach = bar.player_offsets[0] - 0.05, bar.player_offsets[-1] + 0.05
+                    y = min(max(y, reach[0]), reach[1])
+                    env.state.ball.reset(x=bar.bar_x + 0.05, y=y, vx=0.0, vy=0.0)
+                    angle = None
+                    for _ in range(60):
+                        env.step(agent.predict())
+                        b = env.state.ball
+                        if b.vx > 0.8:
+                            angle = math.degrees(math.atan2(b.vy, b.vx))
+                            break
+                    self.assertIsNotNone(angle, "no ha llegado a tirar")
+                    aim = agent._policy._aim[idx]
+                    self.assertGreater(aim * side, 0)
+                    self.assertGreater(angle * side, 2.0)
+
+    def test_limit_switch_recovers_lost_steps_when_lifting(self):
+        for sign in (-1.0, 1.0):                       # equipo A y equipo B
+            for offset in (-0.6, 0.6):                 # el real por delante o por detrás
+                with self.subTest(sign=sign, offset=offset):
+                    act = StepperBarActuator(add_noise=False, n_players=5, home_sign=sign,
+                                             robot=RobotSpec(encoders=False, home_switch=True))
+                    act.reset()
+                    ax = act._angular
+                    period = 2 * math.pi / ax.N / ax.k
+                    ax.set_true(round(offset / period) * period, 0.0)      # ciclos perdidos
+                    self.assertGreater(abs(ax.pos - ax.est_pos), 0.5)
+                    act.set_command(0.0, sign)                             # levantar
+                    for _ in range(60):
+                        act.update(0.02)
+                    self.assertAlmostEqual(math.degrees(ax.pos), 90 * sign, delta=2.0)
+                    act.set_command(0.0, 0.0)                              # y bajar a vertical
+                    for _ in range(60):
+                        act.update(0.02)
+                    self.assertAlmostEqual(math.degrees(ax.pos), 0.0, delta=2.0)
+
+    def test_positive_angle_is_only_used_to_strike(self):
+        from env import PARAM_BOUNDS, RoleParams
+        self.assertLessEqual(PARAM_BOUNDS["rest_cmd"][1], 0.0)
+        self.assertLess(PARAM_BOUNDS["windup_cmd"][1], 0.0)
+        params = RoleParams.load("models/teacher/heuristic_optimized.json")
+        for team in ('A', 'B'):
+            d = 1.0 if team == 'A' else -1.0
+            env = FoosballEnv(controlled_team=team, opponent_skill=0.7, max_steps=600)
+            agent = HeuristicAgent(env, seed=0, params=params)
+            env.reset(seed=1)
+            for _ in range(600):
+                action = agent.predict()
+                for k, idx in enumerate(get_team_bar_indices(team)):
+                    if agent._policy._striking[idx] != "strike":
+                        self.assertLessEqual(action[2 * k + 1], 1e-9)
+                env.step(action)
+
+    def test_motor_rotation_is_limited_to_90_degrees(self):
+        for act in (StepperBarActuator(add_noise=False, n_players=1), BarActuator(add_noise=False)):
+            for cmd in (-3.0, -1.0, 1.0, 3.0):
+                act.reset()
+                act.set_command(0.0, cmd)
+                for _ in range(100):
+                    act.update(0.02)
+                self.assertAlmostEqual(abs(math.degrees(act._angular.pos)), 90.0, delta=0.5)
+
+    def test_lifted_players_never_block_their_own_passes(self):
+        """Levantados a -90° (±10°), la bola pasa por debajo en ambos sentidos."""
+        from env import LIFT_CMD
+        from world import ANGULAR_RANGE
+        self.assertEqual(LIFT_CMD, -1.0)
+        for cmd in (LIFT_CMD - 0.11, LIFT_CMD, LIFT_CMD + 0.11):
+            for idx, (_, _, team, role) in enumerate(BAR_DEFINITIONS):
+                if role == "GK":
+                    continue                       # el portero (-10° a +90°) no se levanta atrás
+                d = 1.0 if team == 'A' else -1.0
+                for direction in (1.0, -1.0):
+                    with self.subTest(cmd=cmd, bar=idx, direction=direction):
+                        state = create_standard_world()
+                        bar = state.bars[idx]
+                        state.bars[:] = [bar]
+                        bar.bar_x, bar.angle = 0.0, d * cmd * ANGULAR_RANGE
+                        state.ball.reset(x=-0.13 * direction, y=bar.player_offsets[0], vx=1.5 * direction, vy=0.0)
+                        physics = PhysicsEngine(noise=False)
+                        for _ in range(12):
+                            physics.step(state)
+                        self.assertGreater(state.ball.x * direction, 0.09)
+
     def test_old_flat_file_with_dead_parameter_still_loads(self):
         from env import ROLES, RoleParams
         with tempfile.TemporaryDirectory() as directory:
@@ -498,7 +657,7 @@ class RoleTests(unittest.TestCase):
             path.write_text('{"windup_cmd": -0.42, "stagger": 0.9}', encoding="utf-8")
             rp = RoleParams.load(str(path))
         self.assertEqual(set(rp.roles), set(ROLES))
-        self.assertTrue(all(p.windup_cmd == -0.42 and p.y_gain == 1.0 for p in rp.roles.values()))
+        self.assertTrue(all(p.windup_cmd == -0.84 and p.y_gain == 1.0 for p in rp.roles.values()))
 
     def test_role_params_roundtrip_through_array_and_file(self):
         from env import PARAM_BOUNDS, ROLES, HeuristicParams, RoleParams
