@@ -38,7 +38,7 @@ def _rollout(task):
     (seeds, team, rival, beta, student_path, teacher_path, noise_std, steps) = task
     import torch
     torch.set_num_threads(1)
-    from env import FoosballEnv, HeuristicParams
+    from env import FoosballEnv, RoleParams
     from example import HeuristicAgent
     from train import final_reward_config
 
@@ -46,7 +46,7 @@ def _rollout(task):
     env = FoosballEnv(controlled_team=team, opponent=opp, opponent_skill=skill, noise=True,
                       max_steps=steps, reward_config=final_reward_config(1.0))
     teacher = HeuristicAgent(env, seed=int(seeds[0]), reaction_delay=0.0,
-                             params=HeuristicParams.load(teacher_path))
+                             params=RoleParams.load(teacher_path))
     student = None
     if beta < 1.0 and student_path:
         from stable_baselines3 import PPO

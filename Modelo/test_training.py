@@ -490,6 +490,68 @@ class MatchFormatTests(unittest.TestCase):
         self.assertAlmostEqual(s["conceded"], 0.0)
 
 
+class RoleTests(unittest.TestCase):
+    def test_old_flat_file_with_dead_parameter_still_loads(self):
+        from env import ROLES, RoleParams
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "old.json"
+            path.write_text('{"windup_cmd": -0.42, "stagger": 0.9}', encoding="utf-8")
+            rp = RoleParams.load(str(path))
+        self.assertEqual(set(rp.roles), set(ROLES))
+        self.assertTrue(all(p.windup_cmd == -0.42 and p.y_gain == 1.0 for p in rp.roles.values()))
+
+    def test_role_params_roundtrip_through_array_and_file(self):
+        from env import PARAM_BOUNDS, ROLES, HeuristicParams, RoleParams
+        rng = np.random.default_rng(0)
+        lo = np.array([PARAM_BOUNDS[k][0] for k in PARAM_BOUNDS])
+        hi = np.array([PARAM_BOUNDS[k][1] for k in PARAM_BOUNDS])
+        x = np.concatenate([lo + (hi - lo) * rng.random(len(lo)) for _ in ROLES])
+        rp = RoleParams.from_array(x)
+        np.testing.assert_allclose(rp.to_array(), x)
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "roles.json")
+            rp.save(path)
+            self.assertEqual(RoleParams.load(path).to_dict(), rp.to_dict())
+
+    def test_each_role_uses_its_own_parameters(self):
+        from env import ROLES, HeuristicParams, RoleParams, HeuristicOpponent
+        import dataclasses
+        base = HeuristicParams()
+        rp = RoleParams.shared(base)
+        rp.roles["GK"] = dataclasses.replace(base, y_gain=0.5)      # el portero se centra
+        env = FoosballEnv(opponent=None, noise=False, max_steps=50)
+        env.reset(seed=0)
+        env.state.ball.reset(x=0.0, y=0.05, vx=0.0, vy=0.0)   # dentro del recorrido: no satura
+        shared = HeuristicOpponent(skill=1.0, reaction_delay=0.0, params=RoleParams.shared(base))
+        roles = HeuristicOpponent(skill=1.0, reaction_delay=0.0, params=rp)
+        a, b = shared.get_commands(env.state, 'A'), roles.get_commands(env.state, 'A')
+        gk = 0                                                        # índice de la barra del portero A
+        self.assertNotAlmostEqual(a[gk][0], b[gk][0])
+        for idx in (1, 3, 5):                                        # las demás barras, iguales
+            self.assertAlmostEqual(a[idx][0], b[idx][0])
+
+    def test_optimizer_merge_takes_one_role_from_each_file(self):
+        import subprocess, sys
+        import dataclasses
+        from env import HeuristicParams, RoleParams
+        with tempfile.TemporaryDirectory() as directory:
+            d = Path(directory)
+            base = RoleParams.shared(HeuristicParams())
+            base.save(str(d / "base.json"))
+            gk = RoleParams.shared(dataclasses.replace(HeuristicParams(), windup_cmd=-0.9))
+            gk.save(str(d / "gk.json"))
+            atk = RoleParams.shared(dataclasses.replace(HeuristicParams(), strike_cmd=0.9))
+            atk.save(str(d / "atk.json"))
+            subprocess.run([sys.executable, "optimize_teacher.py", "--base", str(d / "base.json"),
+                            "--merge", f"GK={d / 'gk.json'}", f"ATK={d / 'atk.json'}",
+                            "--out", str(d / "out.json")], check=True, capture_output=True)
+            out = RoleParams.load(str(d / "out.json"))
+        self.assertEqual(out.roles["GK"].windup_cmd, -0.9)
+        self.assertEqual(out.roles["ATK"].strike_cmd, 0.9)
+        self.assertEqual(out.roles["DEF"], HeuristicParams())
+        self.assertEqual(out.roles["MID"], HeuristicParams())
+
+
 class RewardTests(unittest.TestCase):
     def test_potential_shaping_telescopes(self):
         cfg = RewardConfig(potential_prox=0.5)

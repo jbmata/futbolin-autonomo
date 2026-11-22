@@ -1,0 +1,119 @@
+name: Optimizar el profesor por roles
+
+# Optimiza los parámetros del heurístico del robot SEPARADAMENTE para cada rol
+# (portero, defensa, medios, delanteros), cada uno en su propia máquina, y luego
+# junta los cuatro y los valida con partidos nuevos. No escribe nada en el repositorio:
+# el resultado se descarga como artefacto `profesor_por_roles`.
+#
+# Se lanza subiendo un cambio a `.github/optimizar-profesor.txt` en la rama `train`;
+# su primera línea son los minutos de optimización por rol (por defecto 150).
+on:
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: "Minutos de optimización por rol"
+        default: "150"
+        required: true
+  push:
+    branches: [train]
+    paths: [".github/optimizar-profesor.txt"]
+
+jobs:
+  rol:
+    name: optimizar ${{ matrix.rol }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        rol: [GK, DEF, MID, ATK]
+    defaults:
+      run:
+        working-directory: Modelo
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fijar los minutos
+        working-directory: .
+        run: |
+          MIN="${{ inputs.minutes }}"
+          if [ -z "$MIN" ] && [ -f .github/optimizar-profesor.txt ]; then
+            MIN="$(head -n 1 .github/optimizar-profesor.txt | tr -dc '0-9')"
+          fi
+          echo "MINUTOS=${MIN:-150}" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: Modelo/requirements.txt
+
+      - name: Instalar dependencias (PyTorch para CPU)
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+
+      - name: Optimizar el rol ${{ matrix.rol }}
+        run: |
+          python optimize_teacher.py --roles ${{ matrix.rol }} --minutes "$MINUTOS" --workers 4 \
+            --popsize 14 --validate-matches 96 --out models/teacher/${{ matrix.rol }}.json \
+            | tee optimizar_${{ matrix.rol }}.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rol_${{ matrix.rol }}
+          retention-days: 14
+          path: |
+            Modelo/models/teacher/${{ matrix.rol }}*.json
+            Modelo/optimizar_${{ matrix.rol }}.txt
+
+  juntar:
+    name: juntar y validar
+    needs: rol
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: Modelo
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: Modelo/requirements.txt
+
+      - name: Instalar dependencias (PyTorch para CPU)
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: rol_*
+          path: Modelo/roles
+          merge-multiple: true
+
+      - name: Juntar los cuatro roles y comparar con el profesor anterior
+        run: |
+          mkdir -p models/teacher
+          python optimize_teacher.py --base models/teacher/heuristic_optimized.json \
+            --merge GK=roles/GK.json DEF=roles/DEF.json MID=roles/MID.json ATK=roles/ATK.json \
+            --out models/teacher/roles.json
+          python optimize_teacher.py --workers 4 --validate-matches 240 \
+            --compare anterior=models/teacher/heuristic_optimized.json por_roles=models/teacher/roles.json \
+            | tee comparacion.txt
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat comparacion.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: profesor_por_roles
+          retention-days: 30
+          path: |
+            Modelo/models/teacher/roles.json
+            Modelo/comparacion.txt
+            Modelo/roles

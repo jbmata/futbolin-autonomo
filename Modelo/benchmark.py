@@ -96,8 +96,8 @@ def main():
         rows.append(("heuristico (por defecto)", play(heuristic_policy(), args.matches, args.seed,
                                                     args.seconds, opponent_skill=args.skill)))
         if os.path.isfile(args.teacher):
-            from env import HeuristicParams
-            teacher = heuristic_policy(HeuristicParams.load(args.teacher), reaction_delay=0.0)
+            from env import RoleParams
+            teacher = heuristic_policy(RoleParams.load(args.teacher), reaction_delay=0.0)
             rows.append(("profesor optimizado (estado real)",
                          play(teacher, args.matches, args.seed, args.seconds,
                               opponent_skill=args.skill)))

@@ -94,7 +94,7 @@ class HeuristicParams:
     lift_cmd:            float = -0.5    # pose levantada si la bola está detrás de la barra
     rest_cmd:            float = 0.0     # pose de defensa (pie abajo)
     aim_offset:          float = 0.0     # m; desplazamiento lateral hacia el centro de la portería rival
-    stagger:             float = 0.5     # fracción: el delantero no arma si el medio ya está armado
+    y_gain:              float = 1.0     # factor sobre la posición lateral prevista de la bola (<1 centra la barra)
 
     def to_array(self) -> np.ndarray:
         return np.array([getattr(self, n) for n in PARAM_BOUNDS], dtype=float)
@@ -115,7 +115,8 @@ class HeuristicParams:
     def load(cls, path: str) -> "HeuristicParams":
         import json
         with open(path, encoding="utf-8") as f:
-            return cls(**json.load(f))
+            data = json.load(f)
+        return cls(**{k: v for k, v in data.items() if k in PARAM_BOUNDS})
 
 
 PARAM_BOUNDS = {
@@ -132,8 +133,59 @@ PARAM_BOUNDS = {
     "lift_cmd":         (-0.9, 0.9),
     "rest_cmd":         (-0.2, 0.3),
     "aim_offset":       (-0.03, 0.03),
-    "stagger":          (0.0, 1.0),
+    "y_gain":           (0.4, 1.3),
 }
+
+
+ROLES = ("GK", "DEF", "MID", "ATK")
+
+
+@dataclass
+class RoleParams:
+    """Un juego de parámetros del heurístico para cada rol (portero, defensa, medios, delanteros)."""
+    roles: dict
+
+    @classmethod
+    def shared(cls, p: "HeuristicParams") -> "RoleParams":
+        return cls({r: dataclasses.replace(p) for r in ROLES})
+
+    def to_array(self) -> np.ndarray:
+        return np.concatenate([self.roles[r].to_array() for r in ROLES])
+
+    @classmethod
+    def from_array(cls, x) -> "RoleParams":
+        n = len(PARAM_BOUNDS)
+        return cls({r: HeuristicParams.from_array(x[i * n:(i + 1) * n]) for i, r in enumerate(ROLES)})
+
+    def to_dict(self) -> dict:
+        return {"roles": {r: dataclasses.asdict(p) for r, p in self.roles.items()}}
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "RoleParams":
+        if "roles" in data:
+            return cls({r: HeuristicParams(**{k: v for k, v in data["roles"][r].items() if k in PARAM_BOUNDS})
+                        for r in ROLES})
+        return cls.shared(HeuristicParams(**{k: v for k, v in data.items() if k in PARAM_BOUNDS}))
+
+    def save(self, path: str):
+        import json
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(self.to_dict(), f, indent=2)
+
+    @classmethod
+    def load(cls, path: str) -> "RoleParams":
+        import json
+        with open(path, encoding="utf-8") as f:
+            return cls.from_dict(json.load(f))
+
+
+def as_role_params(p) -> "RoleParams":
+    """Acepta None, HeuristicParams (el mismo para todos los roles) o RoleParams."""
+    if p is None:
+        return RoleParams.shared(HeuristicParams())
+    if isinstance(p, RoleParams):
+        return p
+    return RoleParams.shared(p)
 
 
 class HeuristicOpponent:
@@ -162,7 +214,7 @@ class HeuristicOpponent:
                  params: HeuristicParams = None):
         self.rng = rng or np.random.default_rng()
         self.dt = dt
-        self.params = params or HeuristicParams()
+        self.roles = as_role_params(params)
         self._fixed_delay = reaction_delay
         self._ball_hist = deque(maxlen=1)
         self.set_skill(skill)
@@ -200,7 +252,6 @@ class HeuristicOpponent:
             self._kick_ok[i] = bool(self.rng.random() < p_kick)
 
     def get_commands(self, state: WorldState, team: str = 'B') -> dict:
-        P = self.params
         b = state.ball
         self._ball_hist.append((b.x, b.y, b.vx, b.vy))
         ball  = BallState(*self._ball_hist[0])      # bola percibida (con retardo)
@@ -215,11 +266,13 @@ class HeuristicOpponent:
         armed_bars = 0
         for idx in idxs:
             bar = state.bars[idx]
+            P = self.roles.roles[bar.role]               # parámetros de su rol
             approaching = ball.vx * (bar.bar_x - ball.x) > 0
             if approaching and abs(ball.vx) > 0.05:
                 target_y = PhysicsEngine.predict_ball_y(ball, bar.bar_x, field)
             else:
                 target_y = ball.y
+            target_y *= P.y_gain
             target_y += self._aim_error.get(idx, 0.0)
             # Desplazamiento lateral hacia el centro de la portería rival: el
             # golpe sale algo diagonal gracias al rozamiento con el pie en movimiento

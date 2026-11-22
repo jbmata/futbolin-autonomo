@@ -1,0 +1,2 @@
+150
+# Primera linea: minutos de optimizacion por rol. Cambiar este fichero y subirlo a la rama train lanza el workflow.
