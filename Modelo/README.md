@@ -98,30 +98,41 @@ toca la bola. Por eso el golpe se arma a unos −110°, no a −180°.
 
 ### Robot — `actuators.py`, `hardware.py`
 
-Cada barra del robot tiene dos motores paso a paso (NEMA17 + TMC2209, como en
-`Hardware/MCU-RT`): uno gira la barra en directo y otro la desplaza con una
-correa GT2 de 30 dientes.
+Cada barra del robot tiene dos motores paso a paso (**NEMA17 17HS4401** con
+driver TMC2209 a **12 V**, como en `Hardware/MCU-RT`): uno gira la barra en directo
+y otro la desplaza con una correa GT2 (polea de 30 dientes, **supuesta**: hay que
+confirmarla). El motor es el mismo en los dos ejes y el simulador limita su
+velocidad de crucero a 47 rad/s.
 
 - **Motor**: par como muelle sinusoidal hacia la posición comandada,
-  `T = −T(ω)·sin(50·(q − q_cmd)) − c·(ω − ω_cmd)`, con curva par‑velocidad y la
-  inercia real de cada barra (varilla + figuras).
+  `T = −T(ω)·sin(50·(q − q_cmd)) − c·(ω − ω_cmd)`, con la inercia real de cada barra
+  (varilla + figuras). La curva par‑velocidad sale del modelo eléctrico del motor
+  (1,7 A, 1,5 Ω, 2,8 mH, 40 N·cm; no hay curva medida): **0,28 N·m parado y
+  0,18 N·m a 47 rad/s** con 12 V (con 24 V serían 0,28 N·m a esa velocidad).
+- **Rango de giro**: de **−90° a +90°** con 0 en vertical. El **portero** gira solo de
+  **−10° a +90°** (tope mecánico). Levantar es siempre a −90°; el ángulo positivo
+  se usa para golpear. En el equipo B los ángulos están girados 180°.
 - **Firmware**: perfil trapezoidal con la aceleración limitada al 50 % del par
   disponible a cada velocidad. La orden llega con 10 ms de latencia.
-- **Lazo abierto**: si una carga (golpe de la bola, taco que pisa la bola, motor
-  más débil de lo previsto) separa el rotor más de 2 pasos, el motor salta y
-  **pierde pasos**. El firmware sigue creyendo que está donde mandó. Con
-  `RobotSpec(encoders=True)` se corrige.
+- **Pérdida de pasos**: si una carga (golpe de la bola, taco que pisa la bola, motor
+  más débil de lo previsto) separa el rotor más de 2 pasos, el motor salta. **El giro va
+  en lazo cerrado** (encoder, por defecto): el MCU corrige el desfase en cada ciclo. El
+  **eje lateral va en lazo abierto**. Alternativa sin encoder: `RobotSpec(encoders=False,
+  home_switch=True)`, con un final de carrera a −90° que recupera la referencia cada vez
+  que se levanta el jugador. Sin ninguna de las dos, una barra quedaba desfasada más de
+  5° el 66 % del tiempo.
 
 Capacidades con los valores por defecto (`python hardware.py`):
 
 | Barra | Figuras | Aceleración de giro | Vel. de giro | Vel. de la punta | Vel. lateral |
 |---|---|---|---|---|---|
-| GK | 1 | ~1.600 rad/s² | 47 rad/s | 3,3 m/s | 0,45 m/s |
-| DEF | 2 | ~950 rad/s² | 47 rad/s | 3,3 m/s | 0,45 m/s |
-| MID | 5 | ~440 rad/s² | 47 rad/s | 3,3 m/s | 0,45 m/s |
-| ATK | 3 | ~680 rad/s² | 47 rad/s | 3,3 m/s | 0,45 m/s |
+| GK | 1 | ~1.100 rad/s² | 47 rad/s | 3,3 m/s | 0,45 m/s |
+| DEF | 2 | ~670 rad/s² | 47 rad/s | 3,3 m/s | 0,45 m/s |
+| MID | 5 | ~300 rad/s² | 47 rad/s | 3,3 m/s | 0,45 m/s |
+| ATK | 3 | ~480 rad/s² | 47 rad/s | 3,3 m/s | 0,45 m/s |
 
-Un golpe armado saca la bola a unos 2,5 m/s.
+Un golpe armado saca la bola a unos 2,5 m/s. Con solo 90° de carrerilla (10° el
+portero), el golpe está limitado por la **aceleración**, no por el tope de velocidad.
 
 ### Rival humano
 
@@ -211,8 +222,9 @@ posiciones objetivo. `ang > 0` lleva el pie hacia delante.
 2. En el PC: detectar la bola y las barras con la cámara y construir la parte
    del actor de la observación como en `observation.py`.
 3. Ejecutar el actor con `policies.actor_weights()` y `actor_forward()`, que
-   solo necesitan NumPy (~100k pesos, < 1 ms). La red también cabe en el
-   STM32H733.
+   solo necesitan NumPy (~115 k pesos, < 1 ms). También cabe en el STM32 de la
+   NUCLEO‑H753ZI (2 MB de flash), pero **no puede leer la Logitech Brio**: la cámara
+   necesita un PC o una Raspberry Pi.
 4. Enviar a la placa las 8 posiciones objetivo a 50 Hz. El firmware genera el
    perfil trapezoidal limitado por par.
 
@@ -329,35 +341,43 @@ tensorboard --logdir logs/ppo_v5
 
 ```python
 from env import FoosballEnv
-import numpy as np
 
-env = FoosballEnv(dt=0.02, max_steps=750)
-obs, _ = env.reset()
-
-for _ in range(750):
-    action = env.action_space.sample()         # acción aleatoria
-    obs, reward, terminated, truncated, info = env.step(action)
+# Partido de 30 s contra un rival heurístico: sigue tras cada gol (saca el portero que lo recibe)
+env = FoosballEnv(max_steps=1500, opponent_skill=0.7)
+obs, _ = env.reset(seed=0)
+for _ in range(1500):
+    obs, reward, terminated, truncated, info = env.step(env.action_space.sample())
     if terminated or truncated:
         break
-
-print(f"Score: A={info['score']['A']}  B={info['score']['B']}")
+print(info["score"], obs.shape)       # observación v3: 240 dimensiones (el actor usa las 186 primeras)
 ```
 
 ```python
-# Cargar y usar el agente entrenado
+# Heurístico de referencia (el profesor) jugando
+from env import FoosballEnv, RoleParams
+from example import HeuristicAgent
+
+env = FoosballEnv(max_steps=1500)
+agent = HeuristicAgent(env, reaction_delay=0.0, params=RoleParams.load("models/teacher/base_90.json"))
+obs, _ = env.reset(seed=1)
+for _ in range(1500):
+    obs, *_ = env.step(agent.predict())
+```
+
+```python
+# Cargar una red entrenada (alumno DAgger o PPO)
 from stable_baselines3 import PPO
 from env import FoosballEnv
 
-model = PPO.load("models/foosball_ppo_final")
-env   = FoosballEnv()
-obs, _ = env.reset()
-
-done = False
-while not done:
+model = PPO.load("models/dagger/student")
+env = FoosballEnv()
+obs, _ = env.reset(seed=1)
+for _ in range(1500):
     action, _ = model.predict(obs, deterministic=True)
     obs, r, terminated, truncated, info = env.step(action)
-    done = terminated or truncated
 ```
+
+Para ver un partido en el navegador: `python visualize.py --teacher models/teacher/base_90.json`.
 
 ---
 
@@ -369,6 +389,7 @@ stable-baselines3[extra]>=2.0
 gymnasium>=0.29
 torch>=2.0
 matplotlib>=3.7
+cma>=3.3
 ```
 
 ```bash
@@ -385,6 +406,14 @@ La cámara, los actuadores y la mecánica están modelados en el simulador, pero
 siguen siendo aproximaciones y no hay una conexión de control con la placa. Para
 la transferencia a hardware hay que medir y validar esos parámetros, implementar
 el firmware y conectar la percepción y el actor al sistema real.
+
+Pendiente de medir, por orden de impacto: latencia real de la Brio (se supone 70 ms),
+masa de una figura y del carro (40 g y 0,45 kg estimados), polea y correa del eje lateral,
+corriente del driver (1,2 A RMS supuestos), largo y alto del taco. **Los modelos
+entrenados hasta ahora usan esas suposiciones y habrá que repetirlos** cuando se midan.
+
+El estado de los resultados, las lecciones aprendidas y el trabajo futuro (por ejemplo,
+un profesor por refuerzo) están en [`docs/REFERENCIA.md`](docs/REFERENCIA.md).
 
 ---
 
