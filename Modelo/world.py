@@ -36,18 +36,68 @@ from typing import List
 #   sim: estimaciones iniciales (campo de 116 x 70 cm, recorrido ±70 mm). Los modelos entrenados
 #        antes del 23/11/2026 se entrenaron con esta mesa: evaluarlos con FUTBOLIN_MESA=sim.
 #   cad (por defecto): montaje CAD de Mecanica/3d/futbolin_actualizado (docs/MEDIDAS_CAD_VS_SIMULADOR.md):
-#        plancha de 115 x 68 cm, separaciones del plano de futbolinmadrid.com, posiciones de las
-#        barras del modelo y carrera de 115,68 mm de los topes del CAD. En el CAD el portero queda
-#        centrado en la mitad de su carrera; las demás barras se centran igual, porque sus
-#        desplazamientos absolutos salen del largo de barra del modelo genérico y no son fiables.
-# shortcut: ninguna de las dos está medida en la mesa real; medir topes, barras y campo.
+#        plancha de 115 x 68 cm, posiciones de las barras, posición de cada jugador y carrera de
+#        115,68 mm de los topes del CAD.
+#
+# Referencia de las barras (mesa cad): cada barra se mide desde el final de carrera del lado de
+# SUS motores (el lado del puño; en el equipo A es −y y en el B es +y):
+#   s = 0      la barra está contra ese tope (jugadores lo más cerca posible de esa banda);
+#   s = carrera la barra está contra el tope contrario.
+#   home_mm: distancia de cada jugador (centro del pie) a la banda del lado de los motores,
+#            medida con la barra en s = 0. Todo positivo y medible en la mesa real con una regla.
+# Internamente el simulador usa linear_pos = s − carrera/2 en el equipo A y carrera/2 − s en el
+# B (0 = mitad de la carrera, con +y del mundo), porque así la normaliza la observación.
+# Valores sacados de futbolin_madrid.glb. Los topes del rival no están guardados en el CAD: se han
+# deducido de su animación suponiendo la misma carrera (con los cuatro del robot el método acierta);
+# salen como el espejo de los del robot con unos 2 mm de diferencia.
+# shortcut: ninguna de las dos mesas está medida en la mesa real; medir carrera y home_mm de
+# cada barra y la plancha.
 # Cambia el comportamiento de la mesa: usar el mismo valor al entrenar, evaluar y ejecutar.
 _MESAS = {
     "sim": dict(length=1.16, width=0.70, linear_range=0.07,
                 bar_x=(0.50, 0.36, 0.20, 0.05), spacing={2: 0.14, 3: 0.14, 5: 0.12}),
-    "cad": dict(length=1.15, width=0.68, linear_range=0.11568 / 2,
-                bar_x=(0.493, 0.352, 0.212, 0.071), spacing={2: 0.230, 3: 0.172, 5: 0.115}),
+    "cad": dict(length=1.15, width=0.68,
+                bar_x=(0.493, 0.352, 0.212, 0.071),
+                # (carrera, home_mm) de cada rol, igual en los dos equipos: la mesa es simétrica
+                # por rotación de 180° (en el CAD el rival difiere unos 2 mm: 283,1 en el portero;
+                # 261,1 · 491,1 en la defensa; 31,1 … 491,1 en los medios; 146,8 · 318,8 · 490,8
+                # en los delanteros). Se usan las barras del robot, cuyos topes sí están en el CAD.
+                roles_mm={"GK":  (115.68, [284.9]),
+                          "DEF": (115.68, [263.0, 493.0]),
+                          "MID": (115.68, [32.9, 147.9, 262.9, 377.9, 492.9]),
+                          "ATK": (115.68, [152.9, 324.9, 496.9])}),
 }
+# equipo y rol de cada barra, en el orden de BAR_DEFINITIONS
+_BAR_ROLES = (('A', 'GK'), ('A', 'DEF'), ('B', 'ATK'), ('A', 'MID'),
+              ('B', 'MID'), ('A', 'ATK'), ('B', 'DEF'), ('B', 'GK'))
+
+
+def motor_side(team: str) -> float:
+    """Signo de y del lado de los motores (y de los puños) de un equipo: A en −y, B en +y."""
+    return -1.0 if team == 'A' else 1.0
+
+
+def linear_pos_from_s(team: str, s: float) -> float:
+    """linear_pos interno [m] a partir de s [m] medido desde el final de carrera de los motores."""
+    return -motor_side(team) * (s - LINEAR_RANGE)
+
+
+def s_from_linear_pos(team: str, linear_pos: float) -> float:
+    """s [m] desde el final de carrera del lado de los motores (0 .. 2·LINEAR_RANGE)."""
+    return LINEAR_RANGE - motor_side(team) * linear_pos
+
+
+if "roles_mm" in _MESAS["cad"]:
+    _c = _MESAS["cad"]
+    _c["bars_mm"] = tuple(_c["roles_mm"][role] for _, role in _BAR_ROLES)
+    _trav = {t for t, _ in _c["bars_mm"]}
+    assert len(_trav) == 1, f"el simulador usa una sola carrera para todas las barras: {_trav}"
+    _c["linear_range"] = _trav.pop() / 2000.0
+    # y de cada jugador (desde el centro del campo) con la barra a mitad de carrera
+    _half_w = _c["width"] * 500.0
+    _c["offsets_mm"] = tuple(
+        sorted(motor_side(team) * (_half_w - d - t / 2.0) for d in home)
+        for (team, _), (t, home) in zip(_BAR_ROLES, _c["bars_mm"]))
 MESA = os.environ.get("FUTBOLIN_MESA", "cad")
 if MESA not in _MESAS:
     raise ValueError(f"FUTBOLIN_MESA={MESA!r}: usa uno de {sorted(_MESAS)}")
@@ -177,7 +227,7 @@ BAR_DEFINITIONS = [
 N_BARS = len(BAR_DEFINITIONS)
 
 # Separación Y entre jugadores de la misma barra
-_PLAYER_SPACING = {1: 0.0, **_M["spacing"]}
+_PLAYER_SPACING = {1: 0.0, **_M.get("spacing", {2: 0.14, 3: 0.14, 5: 0.12})}
 
 # Dimensiones de la observación
 OBS_DIM_V1 = 4 + N_BARS * 4          # 36: bola + 8 barras (formato histórico)
@@ -421,8 +471,12 @@ class WorldState:
 def create_standard_world() -> WorldState:
     """Crea un mundo con las 8 barras estándar del futbolín tipo Madrid."""
     bars = []
-    for bar_x, n_players, team, role in BAR_DEFINITIONS:
-        offsets = _compute_offsets(n_players)
+    for i, (bar_x, n_players, team, role) in enumerate(BAR_DEFINITIONS):
+        if "offsets_mm" in _M:
+            offsets = [o / 1000.0 for o in _M["offsets_mm"][i]]
+            assert len(offsets) == n_players
+        else:
+            offsets = _compute_offsets(n_players)
         bars.append(BarState(
             bar_x=bar_x,
             n_players=n_players,

@@ -189,7 +189,8 @@ usar **el mismo valor al entrenar, evaluar y ejecutar** el modelo. Los modelos e
 de activar la compensación (23 de noviembre) no sirven con ella.
 
 `FUTBOLIN_MESA` elige las medidas de la mesa: `cad` (por defecto desde el 23 de noviembre: plancha
-de 115 × 68 cm, barras y separaciones del montaje CAD, carrera de 115,68 mm) o `sim` (las
+de 115 × 68 cm, barras, jugadores y topes del montaje CAD, carrera de 115,68 mm, con cada barra
+medida desde el final de carrera del lado de sus motores) o `sim` (las
 estimaciones anteriores, ±70 mm). Todos los modelos guardados hasta esa fecha se entrenaron con
 `sim`: evaluarlos con `FUTBOLIN_MESA=sim`. Detalle en
 [docs/MEDIDAS_CAD_VS_SIMULADOR.md](docs/MEDIDAS_CAD_VS_SIMULADOR.md).

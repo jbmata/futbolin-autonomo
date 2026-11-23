@@ -8,20 +8,47 @@ Las medidas del CAD no sustituyen las mediciones de la mesa real.
 
 `world.py` usa ahora por defecto la mesa `cad` (`FUTBOLIN_MESA=cad`; `sim` recupera la
 anterior): plancha de 1150 × 680, barras en ±493 (porteros), ±352 (defensas), ±212
-(delanteros) y ±71 (medios), separaciones de 230, 172 y 115, y carrera de 115,68 en las
-cuatro barras (±57,84 alrededor de la mitad de la carrera). En el CAD, con la barra en la
-mitad de su carrera el portero queda a 2,7 mm del centro del campo. Las demás barras se
-centran igual: sus desplazamientos absolutos en el CAD salen del largo de barra del modelo
-genérico (la defensa quedaría unos 10 cm descentrada), y una mesa real los tiene simétricos.
+(delanteros) y ±71 (medios), y la posición de cada jugador y los topes de cada barra tal
+como los pone el CAD.
+
+### Referencia: el final de carrera del lado de los motores
+
+Cada barra se mide desde el final de carrera del lado de **sus** motores (el lado del puño:
+−y en el equipo A, +y en el B). `s = 0` es la barra contra ese tope y `s = carrera` contra el
+contrario. La tabla da, con la barra en `s = 0`, la distancia de cada jugador (centro del pie)
+a la banda del lado de los motores. Son las medidas que hay que tomar en la mesa real.
+
+| Barra | Carrera | Jugadores en `s = 0`, desde la banda de los motores | Hueco en `s = 0` (pie del primero a esa banda) | Hueco en `s = carrera` (pie del último a la banda contraria) |
+|---|---:|---|---:|---:|
+| Portero A | 115,68 | 284,9 | 269,9 | 264,4 |
+| Defensa A | 115,68 | 263,0 · 493,0 | 248,0 | 56,3 |
+| Medios A | 115,68 | 32,9 · 147,9 · 262,9 · 377,9 · 492,9 | 17,9 | 56,4 |
+| Delanteros A | 115,68 | 152,9 · 324,9 · 496,9 | 137,9 | 52,4 |
+
+Banda = borde de la plancha de 680 (las bandas inclinadas cubren hasta la pared, 40 mm más
+por cada lado). Pie de 30 mm en el simulador. Las barras del rival usan los mismos valores,
+cada una medida desde su propio lado de los motores (+y): la mesa es simétrica por rotación
+de 180°, como exigen las pruebas y el agente, que juega con cualquiera de los dos equipos. Sus
+topes no están guardados en el CAD; deducidos de su animación con la misma carrera, salen a
+unos 2 mm de los del robot (283,1 en el portero; 261,1 · 491,1 en la defensa; 31,1 … 491,1
+en los medios; 146,8 · 318,8 · 490,8 en los delanteros). `world.linear_pos_from_s()` y
+`s_from_linear_pos()` pasan de esta referencia a la interna del simulador (0 = mitad de la
+carrera).
+
+En el CAD el jugador del extremo contrario a los motores queda a unos 55 mm de su banda en
+todas las barras, y los huecos grandes quedan del lado de los motores (248 mm en la defensa,
+138 en los delanteros). Es lo que sale de colocar los agujeros del plano de
+futbolinmadrid.com, medidos desde la punta del mango, sobre las barras del modelo genérico
+con una carrera de 115,68 igual para todas. Hay que comprobarlo en la mesa real.
 
 Sin trasladar: la polea de 20 dientes y las masas (están en `hardware.py`, pendientes de
 decidir y medir), la portería (sigue en 200) y la geometría de la figura.
 
-Consecuencias de la carrera de 115,68 (bola de 35 mm, taco de 30 mm): el portero cubre
-±90 mm de una portería de ±100, y entre los dos defensas queda un hueco central de 50 mm
-por el que la bola pasa sin que ninguno llegue. Con 100 partidos de 60 s (semilla 20000):
+Primera prueba, con los jugadores aún centrados en la mitad de la carrera (carrera de
+115,68; portero ±90 mm de cobertura sobre una portería de ±100; hueco central de 50 mm entre
+los defensas). 100 partidos de 60 s, semilla 20000:
 
-| Agente | Mesa `sim` | Mesa `cad` | `cad` con 140 de carrera |
+| Agente | Mesa `sim` | `cad` centrada | `cad` centrada con 140 de carrera |
 |---|---:|---:|---:|
 | Heurístico por defecto | −0,34 ± 0,16 | −0,32 ± 0,17 | −0,24 ± 0,16 |
 | Profesor con estado real (`base_90`) | +0,34 ± 0,21 | +0,62 ± 0,22 | +0,25 ± 0,21 |

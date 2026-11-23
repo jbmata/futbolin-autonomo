@@ -39,6 +39,12 @@ def _drive(state, bar_idx, actuator):
     return update
 
 
+def _front_y(state, bar_idx=None):
+    """y del jugador más cercano al centro de una barra (delanteros de A por defecto)."""
+    bar = state.bars[ATK_A if bar_idx is None else bar_idx]
+    return min(bar.get_player_abs_y(), key=abs)
+
+
 def _sync(state, actuator):
     def on_bar_change(bar_idx):
         bar = state.bars[bar_idx]
@@ -57,7 +63,7 @@ class PhysicsTests(unittest.TestCase):
         act._angular.reset(start_angle)
         state.bars[ATK_A].angle = start_angle
         act.set_command(0.0, target_cmd)
-        state.ball.reset(x=ball_x, y=0.0, vx=ball_vx, vy=0.0)
+        state.ball.reset(x=ball_x - 0.20 + state.bars[ATK_A].bar_x, y=_front_y(state), vx=ball_vx, vy=0.0)
         touched, max_vx = False, -np.inf
         for _ in range(steps):
             events = self.physics.step(state, _drive(state, ATK_A, act), _sync(state, act))
@@ -79,7 +85,7 @@ class PhysicsTests(unittest.TestCase):
             with self.subTest(angle=angle):
                 state = create_standard_world()
                 state.bars[ATK_A].angle = angle
-                state.ball.reset(x=0.30, y=0.0, vx=-1.0, vy=0.0)
+                state.ball.reset(x=0.30, y=_front_y(state), vx=-1.0, vy=0.0)
                 for _ in range(8):
                     self.physics.step(state)
                 if passes:
@@ -105,7 +111,7 @@ class PhysicsTests(unittest.TestCase):
         state.bars[ATK_A].angle = 1.6
         act.set_command(0.0, 0.5)
         x0 = state.bars[ATK_A].bar_x + 0.07                  # bola bajo la suela al bajar el taco
-        state.ball.reset(x=x0, y=0.0, vx=0.0, vy=0.0)
+        state.ball.reset(x=x0, y=_front_y(state), vx=0.0, vy=0.0)
         pinned = 0
         for _ in range(40):
             events = self.physics.step(state, _drive(state, ATK_A, act), _sync(state, act))
@@ -253,7 +259,7 @@ class RealismTests(unittest.TestCase):
         lag = 0.0 if vision.COMPENSATE else env.spec.camera.latency
         self.assertAlmostEqual(env.state.ball.x - seen_x, 1.0 * lag, delta=0.03)
         state = create_standard_world()
-        state.ball.reset(x=state.bars[ATK_A].bar_x, y=0.0, vx=0.0, vy=0.0)
+        state.ball.reset(x=state.bars[ATK_A].bar_x, y=_front_y(state), vx=0.0, vy=0.0)
         self.assertTrue(ball_occluded(state))
         state.ball.reset(x=0.0, y=0.3, vx=0.0, vy=0.0)
         self.assertFalse(ball_occluded(state))
@@ -587,9 +593,14 @@ class RoleTests(unittest.TestCase):
                     bar = env.state.bars[idx]
                     dist = env.state.field.x_max - (bar.bar_x + 0.05)
                     # Bola descentrada hacia el lado contrario: el mejor hueco es cruzar suave
-                    y = -side * dist * math.tan(math.radians(AIM_TABLE[bar.role][0][0]))
-                    reach = bar.player_offsets[0] - 0.05, bar.player_offsets[-1] + 0.05
-                    y = min(max(y, reach[0]), reach[1])
+                    want = -side * dist * math.tan(math.radians(AIM_TABLE[bar.role][0][0]))
+                    # Donde algún jugador puede armar y barrer el tiro sin salirse de sus topes
+                    from world import LINEAR_RANGE
+                    m = max(setup for _, setup, _ in AIM_TABLE[bar.role])
+                    spans = [(o - LINEAR_RANGE + m, o + LINEAR_RANGE - m) for o in bar.player_offsets]
+                    y = min((min(max(want, a), b) for a, b in spans), key=lambda v: abs(v - want))
+                    if y * want <= 0 or abs(y) < 0.5 * abs(want):
+                        self.skipTest(f"con estos topes la barra no llega a y={want:+.3f}")
                     env.state.ball.reset(x=bar.bar_x + 0.05, y=y, vx=0.0, vy=0.0)
                     angle = None
                     for _ in range(60):
@@ -744,10 +755,11 @@ class RewardTests(unittest.TestCase):
             _, _, terminated, truncated, info = env.step(rng.uniform(-1, 1, 8))
             total += discount * info["reward_bd"].get("shaping", 0.0)
             discount *= cfg.gamma
-            if terminated or truncated:
+            goal = info["events"].get("goal") is not None
+            if terminated or truncated or goal:
                 break
-        # Σ γ^t F_t = γ^T Φ(s_T) − Φ(s_0)
-        expected = discount * env._phi - phi0
+        # Σ γ^t F_t = γ^T Φ(s_T) − Φ(s_0); un gol cierra el tramo con Φ = 0
+        expected = discount * (0.0 if goal or terminated else env._phi) - phi0
         self.assertAlmostEqual(total, expected, places=5)
 
     def test_potential_rewards_ball_progress_and_speed(self):
@@ -943,6 +955,29 @@ class TrainingTests(unittest.TestCase):
                        {"total_timesteps": 2, "curriculum": True}):
             with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
                 train_ppo(**kwargs)
+
+
+class CadTableTests(unittest.TestCase):
+    """La mesa `cad` reproduce las posiciones y los topes del montaje 3D."""
+
+    def test_players_sit_where_the_cad_puts_them_at_each_stop(self):
+        # Con la barra en el final de carrera de sus motores (s = 0), cada jugador está a home_mm
+        # de la banda de ese lado; en el tope contrario (s = carrera), a home_mm + carrera.
+        import world
+        if world.MESA != "cad":
+            self.skipTest("solo con FUTBOLIN_MESA=cad")
+        c = world._MESAS["cad"]
+        half_w = world.FIELD_WIDTH / 2
+        state = create_standard_world()
+        for bar, (travel, home) in zip(state.bars, c["bars_mm"]):
+            for s in (0.0, travel):
+                bar.linear_pos = world.linear_pos_from_s(bar.team, s / 1000.0)
+                self.assertLessEqual(abs(bar.linear_pos), world.LINEAR_RANGE + 1e-9)
+                self.assertAlmostEqual(world.s_from_linear_pos(bar.team, bar.linear_pos) * 1000, s, places=6)
+                side = world.motor_side(bar.team)
+                got = sorted((half_w - side * y) * 1000 for y in bar.get_player_abs_y())
+                for g, w in zip(got, sorted(d + s for d in home)):
+                    self.assertAlmostEqual(g, w, delta=0.06)      # offsets redondeados a 0,1 mm
 
 
 if __name__ == "__main__":
