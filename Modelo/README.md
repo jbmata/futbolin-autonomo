@@ -432,8 +432,11 @@ masa de una figura y del carro (40 g y 0,45 kg estimados), polea y correa del ej
 corriente del driver (1,2 A RMS supuestos), largo y alto del taco. **Los modelos
 entrenados hasta ahora usan esas suposiciones y habrá que repetirlos** cuando se midan.
 
-El estado de los resultados, las lecciones aprendidas y el trabajo futuro (por ejemplo,
-un profesor por refuerzo) están en [`docs/REFERENCIA.md`](docs/REFERENCIA.md).
+**Estado (23 de noviembre de 2026):** hay un alumno entrenado (`models/alumno/compensado_s3.zip`)
+que, con 200 partidos, queda en −0,14 goles/min de media frente al heurístico de nivel 0,7 (el heurístico
+por defecto, −0,32; el profesor con estado real, +0,35). Con la percepción de la cámara, ese
+mismo profesor llega a −0,06: lo que falta es de percepción, no de entrenamiento. Los resultados, las lecciones
+aprendidas y el trabajo futuro están en [`docs/REFERENCIA.md`](docs/REFERENCIA.md) (apartado «Estado actual»).
 
 ---
 

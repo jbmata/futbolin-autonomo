@@ -1,8 +1,37 @@
 # Futbolín autónomo — documento de referencia
 
-Estado a **21 de noviembre de 2026**. Recoge qué simula el proyecto, de dónde
+Estado a **23 de noviembre de 2026**. Recoge qué simula el proyecto, de dónde
 sale cada número, qué se ha probado y qué falta por medir. El `README.md` es la
 guía de uso; este documento es la memoria técnica.
+
+---
+
+## Estado actual (23 de noviembre de 2026)
+
+**Qué hay entrenado.** Un alumno por imitación (DAgger, red de 256 neuronas, solo cámara y
+firmware) que juega al nivel de un heurístico que viera con la misma cámara. Se evalúa con 200
+partidos de 60 s contra el rival heurístico de nivel 0,7, en goles por minuto de diferencia:
+
+| | Diferencia |
+|---|---|
+| heurístico por defecto | −0,32 ± 0,13 |
+| **alumno (media de 3 semillas, con compensación de latencia)** | **−0,14** (de −0,05 a −0,30) |
+| profesor con la percepción del robot (cámara) | −0,06 ± 0,16 |
+| profesor con el estado real (referencia, no realizable) | +0,35 ± 0,13 |
+
+- **El alumno ya está entrenado y no hay que seguir entrenándolo** con esta receta: más datos, más
+  épocas, más memoria, otro profesor y PPO no han mejorado nada. Copia a su profesor tan bien como
+  puede; lo que le falta ya es de **percepción** (la bola llega 70–90 ms tarde y con ruido).
+- **Dónde está:** `models/alumno/compensado_s3.zip` (el mejor de tres semillas; la elección usa los
+  mismos partidos de evaluación, así que el margen real es el de las semillas, ~±0,12). Se carga con
+  `PPO.load("models/alumno/compensado_s3")`. El resto de modelos están solo como artefactos de
+  GitHub (caducan a los 90 días).
+- **Qué NO es:** no es un modelo final. Se entrenó con parámetros estimados (latencia 70 ms, polea,
+  masas, corriente del driver) y hay que repetirlo cuando se midan. Con la compensación de latencia
+  activada por defecto, los modelos anteriores al 23 de noviembre no sirven.
+- **Siguiente:** medir la latencia real de la Brio y ver cuánto valen la latencia y los fps en
+  el simulador (con el profesor con ojos del alumno); después, repetir el entrenamiento con los
+  parámetros medidos. Lo demás (profesor por refuerzo, PPO) no ataca el cuello de botella actual.
 
 ---
 
@@ -445,15 +474,25 @@ La compensación sube al alumno unos **0,35 goles/min** (los márgenes no se toc
 valor por defecto**. Más datos, más épocas o más memoria no añaden nada; con 6 fotogramas, solo, empeora.
 Quedan ~0,4 goles/min hasta el profesor.
 
-**Techo con esta percepción.** Un primer chequeo (24 partidos de 30 s, muy ruidoso) del
-mismo heurístico decidiendo con la bola que da la cámara compensada, aún con las barras rivales
-reales, dio −0,08, igual que el alumno, frente a +0,58 con el estado real en esos partidos. Si se confirma
-con 200 partidos, el hueco que queda no es de imitación: es lo que un heurístico no puede hacer
-con la bola vista a destiempo y con ruido, y el alumno ya lo iguala. La ronda siguiente
-(`alumnos.yml`, segunda versión) lo mide: semillas 2 y 3 de compensado, tres alumnos que imitan a
-ese profesor «con ojos del alumno», que ya ve también las barras rivales por la cámara
-(`HeuristicAgent(perceived=True)`, `dagger.py --teacher-view camera`) y la fila de ese profesor
-en cada evaluación (`benchmark.py`).
+**Techo con esta percepción (run 45142565146, 200 partidos de 60 s, nivel 0,7, goles/min):**
+
+| Agente | Marca | Recibe | Diferencia |
+|---|---|---|---|
+| profesor (estado real) | 0,58 | 0,23 | +0,35 ± 0,13 |
+| **profesor con los ojos del alumno** (bola y barras rivales por la cámara) | 0,47 | 0,53 | **−0,06 ± 0,16** |
+| alumno `compensado`, semillas 1 / 2 / 3 | 0,46 / 0,41 / 0,41 | 0,54 / 0,71 / 0,46 | −0,08 / −0,30 / −0,05 |
+| alumno que imita al profesor con ojos del alumno, semillas 1 / 2 / 3 | 0,38 / 0,43 / 0,42 | 0,66 / 0,65 / 0,62 | −0,28 / −0,22 / −0,20 |
+
+- **El hueco con el profesor es de percepción, no de imitación.** El mismo heurístico pasa de
+  +0,35 a −0,06 solo por ver la bola y las barras rivales con la cámara; el alumno (media de
+  tres semillas: −0,14) queda en ese techo, o algo por debajo. La diferencia se nota sobre todo en
+  defensa (recibe 0,53 frente a 0,23).
+- **Imitar al profesor con ojos del alumno no ayuda** (media −0,23, dentro del ruido de −0,14).
+- **El ruido entre semillas es grande** con la misma receta (−0,05 a −0,30): la cifra de −0,08 de
+  la primera ronda era una semilla afortunada. Una sola semilla no sirve para comparar variantes.
+- Lo que queda por mejorar es **percibir mejor** (latencia, fotogramas por segundo, ruido y
+  oclusión de la cámara) o un profesor/política que juegue bien con información retrasada
+  (PPO no lo ha conseguido).
 
 ---
 
