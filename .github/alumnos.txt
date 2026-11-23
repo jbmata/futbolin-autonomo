@@ -1,2 +1,2 @@
 Cambiar este fichero en la rama train lanza .github/workflows/alumnos.yml.
-2026-11-23 (2): semillas 2 y 3 de compensado y tres alumnos que imitan a un profesor con los ojos del alumno.
+2026-11-23 (3): mesa con las medidas del CAD; tres semillas con el profesor anterior (base_90).

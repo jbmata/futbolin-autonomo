@@ -29,7 +29,7 @@ from train import (FoosballEvalCallback, FoosballGymEnv, FoosballMetricsCallback
 from world import (BALL_RADIUS, FOOT_ROUNDING, KICK_ANGLE_MAX, OBS_DIM_V1, OBS_DIM_V2,
                    create_standard_world, get_team_bar_indices)
 
-ATK_A = 5   # delanteros A, x = +0.20
+ATK_A = 5   # delanteros A (x = +0.212 en la mesa cad, +0.20 en la sim)
 
 
 def _drive(state, bar_idx, actuator):
@@ -104,14 +104,15 @@ class PhysicsTests(unittest.TestCase):
         act._angular.reset(1.6)
         state.bars[ATK_A].angle = 1.6
         act.set_command(0.0, 0.5)
-        state.ball.reset(x=0.27, y=0.0, vx=0.0, vy=0.0)
+        x0 = state.bars[ATK_A].bar_x + 0.07                  # bola bajo la suela al bajar el taco
+        state.ball.reset(x=x0, y=0.0, vx=0.0, vy=0.0)
         pinned = 0
         for _ in range(40):
             events = self.physics.step(state, _drive(state, ATK_A, act), _sync(state, act))
             pinned += events["pinned"]
         self.assertGreater(pinned, 20)
         self.assertLess(abs(state.ball.vx), 0.05)
-        self.assertAlmostEqual(state.ball.x, 0.27, delta=0.02)
+        self.assertAlmostEqual(state.ball.x, x0, delta=0.02)
         self.assertGreater(state.bars[ATK_A].angle, 0.25 * math.pi + 0.1)
 
     def test_end_walls_bounce_and_goal_openings_stay_open(self):
@@ -215,7 +216,8 @@ class RealismTests(unittest.TestCase):
             act.update(0.02)
             act.end_of_step()
         self.assertEqual(act.lost_steps(), (0, 0))
-        self.assertAlmostEqual(act._linear.pos, 0.07, delta=0.002)
+        from world import LINEAR_RANGE
+        self.assertAlmostEqual(act._linear.pos, LINEAR_RANGE, delta=0.002)
         self.assertAlmostEqual(act._angular.pos, math.pi / 2, delta=0.03)
 
     def test_light_bar_recoils_when_hit(self):

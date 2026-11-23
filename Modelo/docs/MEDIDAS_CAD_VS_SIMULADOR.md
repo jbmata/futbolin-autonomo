@@ -2,9 +2,32 @@
 
 Comparación del 23/11/2026. Unidades en milímetros, salvo indicación contraria.
 
-El montaje CAD está actualizado, pero estos cambios todavía no están trasladados
-al simulador. Este documento registra las diferencias; no modifica sus parámetros.
 Las medidas del CAD no sustituyen las mediciones de la mesa real.
+
+## Trasladado al simulador (23/11/2026)
+
+`world.py` usa ahora por defecto la mesa `cad` (`FUTBOLIN_MESA=cad`; `sim` recupera la
+anterior): plancha de 1150 × 680, barras en ±493 (porteros), ±352 (defensas), ±212
+(delanteros) y ±71 (medios), separaciones de 230, 172 y 115, y carrera de 115,68 en las
+cuatro barras (±57,84 alrededor de la mitad de la carrera). En el CAD, con la barra en la
+mitad de su carrera el portero queda a 2,7 mm del centro del campo. Las demás barras se
+centran igual: sus desplazamientos absolutos en el CAD salen del largo de barra del modelo
+genérico (la defensa quedaría unos 10 cm descentrada), y una mesa real los tiene simétricos.
+
+Sin trasladar: la polea de 20 dientes y las masas (están en `hardware.py`, pendientes de
+decidir y medir), la portería (sigue en 200) y la geometría de la figura.
+
+Consecuencias de la carrera de 115,68 (bola de 35 mm, taco de 30 mm): el portero cubre
+±90 mm de una portería de ±100, y entre los dos defensas queda un hueco central de 50 mm
+por el que la bola pasa sin que ninguno llegue. Con 100 partidos de 60 s (semilla 20000):
+
+| Agente | Mesa `sim` | Mesa `cad` | `cad` con 140 de carrera |
+|---|---:|---:|---:|
+| Heurístico por defecto | −0,34 ± 0,16 | −0,32 ± 0,17 | −0,24 ± 0,16 |
+| Profesor con estado real (`base_90`) | +0,34 ± 0,21 | +0,62 ± 0,22 | +0,25 ± 0,21 |
+
+El profesor se optimizó en la mesa `sim`; hay que reoptimizarlo y volver a entrenar al alumno
+con la mesa `cad`. Los modelos anteriores solo valen con `FUTBOLIN_MESA=sim`.
 
 ## Diferencias principales
 

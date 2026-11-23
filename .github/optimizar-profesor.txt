@@ -1,2 +1,3 @@
 150
 # Primera linea: minutos de optimizacion por rol. Cambiar este fichero y subirlo a la rama train lanza el workflow.
+# 2026-11-23: reoptimizar el profesor con la mesa de medidas del CAD (FUTBOLIN_MESA=cad por defecto).

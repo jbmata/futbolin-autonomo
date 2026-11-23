@@ -1,5 +1,9 @@
 name: Alumnos frente a la camara
 
+# 23/11/2026 (3): la mesa por defecto pasa a las medidas del CAD (FUTBOLIN_MESA=cad). Tres alumnos
+# DAgger con el profesor anterior (base_90, optimizado para la mesa antigua) como referencia; el
+# profesor reoptimizado para la mesa nueva sale del workflow optimizar-profesor.
+# Lo que sigue describe la ronda anterior (mesa antigua).
 # Segunda ronda de alumnos DAgger (sin PPO), con la compensacion de latencia ya activada por
 # defecto. En la ronda anterior (run 45124636693) `compensado` quedo en -0,08 con una sola semilla
 # y el profesor en +0,35. Aqui: (1) otras dos semillas con el profesor de estado real, para saber
@@ -29,11 +33,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: compensado_s2, seed: 2, tv: real }
-          - { name: compensado_s3, seed: 3, tv: real }
-          - { name: ojos_s1,       seed: 1, tv: camera }
-          - { name: ojos_s2,       seed: 2, tv: camera }
-          - { name: ojos_s3,       seed: 3, tv: camera }
+          - { name: cad_s1, seed: 1, tv: real }
+          - { name: cad_s2, seed: 2, tv: real }
+          - { name: cad_s3, seed: 3, tv: real }
     env:
       FUTBOLIN_COMPENSAR: "1"
     defaults: { run: { working-directory: Modelo } }

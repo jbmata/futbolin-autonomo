@@ -2,7 +2,7 @@
 world.py
 --------
 Estado completo del sistema — futbolín tipo Madrid.
-Campo de referencia: Don Futbolín Madrid, 116 x 70 cm interiores.
+Geometría de la mesa según FUTBOLIN_MESA (sim: estimación inicial; cad: montaje CAD).
 8 barras totales (4 por equipo), con posición lineal Y y ángulo de rotación.
 
 Convenciones geométricas
@@ -23,6 +23,7 @@ self-play con la misma red.
 """
 
 import math
+import os
 import numpy as np
 from dataclasses import dataclass, field
 from typing import List
@@ -31,14 +32,35 @@ from typing import List
 # Constantes físicas del futbolín tipo Madrid
 # ---------------------------------------------------------------------------
 
-FIELD_LENGTH  = 1.16    # m  (eje X, largo)
-FIELD_WIDTH   = 0.70    # m  (eje Y, ancho)
+# Geometría de la mesa. FUTBOLIN_MESA elige el juego de medidas:
+#   sim: estimaciones iniciales (campo de 116 x 70 cm, recorrido ±70 mm). Los modelos entrenados
+#        antes del 23/11/2026 se entrenaron con esta mesa: evaluarlos con FUTBOLIN_MESA=sim.
+#   cad (por defecto): montaje CAD de Mecanica/3d/futbolin_actualizado (docs/MEDIDAS_CAD_VS_SIMULADOR.md):
+#        plancha de 115 x 68 cm, separaciones del plano de futbolinmadrid.com, posiciones de las
+#        barras del modelo y carrera de 115,68 mm de los topes del CAD. En el CAD el portero queda
+#        centrado en la mitad de su carrera; las demás barras se centran igual, porque sus
+#        desplazamientos absolutos salen del largo de barra del modelo genérico y no son fiables.
+# shortcut: ninguna de las dos está medida en la mesa real; medir topes, barras y campo.
+# Cambia el comportamiento de la mesa: usar el mismo valor al entrenar, evaluar y ejecutar.
+_MESAS = {
+    "sim": dict(length=1.16, width=0.70, linear_range=0.07,
+                bar_x=(0.50, 0.36, 0.20, 0.05), spacing={2: 0.14, 3: 0.14, 5: 0.12}),
+    "cad": dict(length=1.15, width=0.68, linear_range=0.11568 / 2,
+                bar_x=(0.493, 0.352, 0.212, 0.071), spacing={2: 0.230, 3: 0.172, 5: 0.115}),
+}
+MESA = os.environ.get("FUTBOLIN_MESA", "cad")
+if MESA not in _MESAS:
+    raise ValueError(f"FUTBOLIN_MESA={MESA!r}: usa uno de {sorted(_MESAS)}")
+_M = _MESAS[MESA]
+
+FIELD_LENGTH  = _M["length"]   # m  (eje X, largo)
+FIELD_WIDTH   = _M["width"]    # m  (eje Y, ancho)
 # shortcut: bola y portería estimadas, sustituir al medir la mesa real.
 BALL_RADIUS   = 0.0175  # m  (diámetro 35 mm)
 GOAL_WIDTH    = 0.20    # m  (abertura de portería, centrada en Y=0)
 
-# shortcut: recorrido uniforme estimado de ±7 cm, medir los topes de cada barra.
-LINEAR_RANGE  = 0.07    # m
+# Recorrido lineal de cada barra: ±LINEAR_RANGE alrededor de la mitad de su carrera.
+LINEAR_RANGE  = _M["linear_range"]   # m
 
 # Giro de las barras: 0 = jugador vertical (pie abajo). Los motores van de -90° a +90°.
 ANGULAR_RANGE = math.pi / 2     # rad, orden ±1 → ±90°
@@ -140,21 +162,22 @@ def bar_mass(n_players: int) -> float:
 #   GK-A | DEF-A | ATK-B | MID-A | MID-B | ATK-A | DEF-B | GK-B
 # ---------------------------------------------------------------------------
 #  idx  x_pos   n_players  equipo  rol
-# shortcut: posiciones y separaciones de figuras aproximadas, sustituir al medir las barras.
+# shortcut: posiciones y separaciones de figuras sin medir en la mesa real (ver MESA).
+_GK_X, _DEF_X, _ATK_X, _MID_X = _M["bar_x"]
 BAR_DEFINITIONS = [
-    (-0.50, 1, 'A', 'GK'),    # 0  Portero A
-    (-0.36, 2, 'A', 'DEF'),   # 1  Defensa A
-    (-0.20, 3, 'B', 'ATK'),   # 2  Delanteros B
-    (-0.05, 5, 'A', 'MID'),   # 3  Medios A
-    ( 0.05, 5, 'B', 'MID'),   # 4  Medios B
-    ( 0.20, 3, 'A', 'ATK'),   # 5  Delanteros A
-    ( 0.36, 2, 'B', 'DEF'),   # 6  Defensa B
-    ( 0.50, 1, 'B', 'GK'),    # 7  Portero B
+    (-_GK_X,  1, 'A', 'GK'),    # 0  Portero A
+    (-_DEF_X, 2, 'A', 'DEF'),   # 1  Defensa A
+    (-_ATK_X, 3, 'B', 'ATK'),   # 2  Delanteros B
+    (-_MID_X, 5, 'A', 'MID'),   # 3  Medios A
+    ( _MID_X, 5, 'B', 'MID'),   # 4  Medios B
+    ( _ATK_X, 3, 'A', 'ATK'),   # 5  Delanteros A
+    ( _DEF_X, 2, 'B', 'DEF'),   # 6  Defensa B
+    ( _GK_X,  1, 'B', 'GK'),    # 7  Portero B
 ]
 N_BARS = len(BAR_DEFINITIONS)
 
 # Separación Y entre jugadores de la misma barra
-_PLAYER_SPACING = {1: 0.0, 2: 0.14, 3: 0.14, 5: 0.12}
+_PLAYER_SPACING = {1: 0.0, **_M["spacing"]}
 
 # Dimensiones de la observación
 OBS_DIM_V1 = 4 + N_BARS * 4          # 36: bola + 8 barras (formato histórico)
