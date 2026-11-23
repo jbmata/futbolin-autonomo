@@ -1,0 +1,61 @@
+ABRIR: futbolin_con_motores.blend
+
+Montaje visual sobre una copia del futbolin actualizado, a escala real en metros.
+Cuatro barras del equipo A, cada una con campana sobre el puno, NEMA17 de giro,
+carro y guia V-Slot 2020 de 400 mm. Cuatro NEMA17 adicionales accionan las correas.
+La campana gira con la barra. El carro y su motor solo se trasladan.
+Se conserva la animacion original de barras y jugadores (fotogramas 1 a 96).
+Los cuatro tensores son dobles, unidos por la punta; abrazan el perfil por ambos
+lados, con cuatro M5 y dos separadores de polea de 5.2 mm.
+
+Colores: verde campanas, azul carros, naranja soportes fijos, gris perfiles/motores.
+Colecciones Actuador_01, 02, 04 y 06 permiten ocultar cada conjunto.
+vista_general.png muestra la disposicion; detalle_actuador.png muestra el montaje.
+original/ es una copia completa, verificada, de futbolin_actualizado/ sin modificar.
+
+VIDEO
+El MP4 y el Blender animado incluyen los tensores dobles del montaje principal.
+El barrido recorre los carros en sentido inverso, desde el lado exterior de los
+cuatro motores lineales para que se vean sus cuerpos junto a la pared.
+Abrir video/futbolin_con_motores_animado.blend para ver la animacion y su camara;
+futbolin_con_motores.blend es el montaje principal con la animacion original corta.
+video/futbolin_con_motores.mp4: 12 segundos, 1280x720, 24 fps. Vista general y
+recorrido de cerca por los carros. Barras, jugadores, campanas, ruedas y poleas
+animados; los motores de giro se trasladan con los carros sin girar sus cuerpos.
+video/futbolin_con_motores_animado.blend guarda esta animacion por separado.
+Para regenerarla: blender --background --python video/crear_video.py
+Para renderizar: blender --background video/futbolin_con_motores_animado.blend --render-anim
+Es una animacion de movimientos; no simula cargas, colisiones ni el partido.
+
+AJUSTES EXCLUSIVOS DE ESTA COPIA
+La horquilla original chocaba con la brida al retraerse. Se ha rebajado su parte
+superior con la envolvente de paso de la campana (radio 38 mm). El soporte adaptado
+esta en soporte_pared_rebajado.step y .stl. No usar el soporte original sin rebaje
+en esta disposicion. Las piezas originales de otras carpetas siguen intactas.
+El eje de la barra queda 56 mm sobre el centro del perfil. La placa del carro queda
+a 21 mm sobre ese centro; ruedas de 10 mm de ancho y separadores de 16 mm.
+
+COMPROBADO
+Ejes motor/campana coincidentes, carro sin giro solidario a la barra, ocho motores,
+conservacion de los objetos originales y carrera completa de unos 115.68 mm.
+Centro del carro entre 138.40 y 254.08 mm desde el inicio del perfil, con margen
+para el encaje y el tensor. Collarin a 33.90 mm o mas de la pared en todo el recorrido.
+CAD: campana, collarin, motor y carro frente a guia/soportes/motor fijo en cinco
+posiciones del recorrido; rueda de referencia sin penetrar la guia.
+
+PENDIENTE ANTES DE FABRICAR
+Es un montaje geometrico de referencia, no un mecanismo listo para fabricar.
+Se usa la campana propia con salida metalica de 8 mm y acople comercial 5-8 de
+referencia. El modelo de Cults no se ha descargado ni integrado.
+Ruedas, separadores y acople comercial son envolventes provisionales: sustituir
+por las referencias compradas y comprobar contacto, precarga y ajuste.
+Falta definir el anclaje de correa al carro y un apoyo axial independiente para
+que el esfuerzo lineal de la barra no lo soporten los rodamientos del NEMA.
+El extremo tensor sigue en voladizo. Falta validar apoyo exterior, flecha del
+perfil, fijacion a la madera, tornilleria, tolerancias y resistencia del conjunto.
+No se ha hecho simulacion de cargas ni prueba fisica.
+
+REGENERAR
+1. Python 3.11 con build123d: python preparar_piezas.py
+2. Blender: blender --background --python montar_blender.py
+Los scripts usan los CAD existentes en la carpeta padre; no moverlos aislados.

@@ -1,0 +1,50 @@
+[
+  {
+    "barra": "Barra_01_A_1jug",
+    "guia_mm": 400,
+    "eje_barra_sobre_perfil_mm": 56,
+    "separadores_ruedas_mm": 16,
+    "carrera_mm": 115.68162270359889,
+    "centro_carro_desde_inicio_guia_mm": [
+      138.40080646550035,
+      254.08242916909924
+    ],
+    "holgura_minima_collarin_pared_mm": 33.900806465500395
+  },
+  {
+    "barra": "Barra_02_A_2jug",
+    "guia_mm": 400,
+    "eje_barra_sobre_perfil_mm": 56,
+    "separadores_ruedas_mm": 16,
+    "carrera_mm": 115.68162270359889,
+    "centro_carro_desde_inicio_guia_mm": [
+      138.4008255389867,
+      254.08244824258563
+    ],
+    "holgura_minima_collarin_pared_mm": 33.90082553898672
+  },
+  {
+    "barra": "Barra_04_A_5jug",
+    "guia_mm": 400,
+    "eje_barra_sobre_perfil_mm": 56,
+    "separadores_ruedas_mm": 16,
+    "carrera_mm": 115.68162270359889,
+    "centro_carro_desde_inicio_guia_mm": [
+      138.40077070271352,
+      254.08239340631238
+    ],
+    "holgura_minima_collarin_pared_mm": 33.90077070271354
+  },
+  {
+    "barra": "Barra_06_A_3jug",
+    "guia_mm": 400,
+    "eje_barra_sobre_perfil_mm": 56,
+    "separadores_ruedas_mm": 16,
+    "carrera_mm": 115.68161892854408,
+    "centro_carro_desde_inicio_guia_mm": [
+      138.40082450459371,
+      254.0824434331378
+    ],
+    "holgura_minima_collarin_pared_mm": 33.90082450459375
+  }
+]
