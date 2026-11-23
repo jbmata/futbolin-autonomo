@@ -26,9 +26,10 @@ python -m unittest test_training                              # pruebas
 
 ## Ramas y entrenamiento en GitHub
 
-- `dev` y `train` apuntan al mismo código. En `train` hay workflows que **solo se lanzan
-  al cambiar un fichero de disparo** (`.github/entrenar.txt`, `.github/lanzar-entrenamiento.txt`
-  o `.github/optimizar-profesor.txt`), así los entrenamientos no ensucian el historial de `dev`.
+- `train` lleva el código y los entrenamientos; `dev` se pone al día con él cuando se estabiliza.
+  En `train` hay workflows que **solo se lanzan al cambiar un fichero de disparo**
+  (`.github/entrenar.txt`, `.github/lanzar-entrenamiento.txt`, `.github/optimizar-profesor.txt`
+  o `.github/alumnos.txt`), así los entrenamientos no ensucian el historial de `dev`.
 - Los resultados (modelos, métricas, paneles y partidos en HTML) salen como artefactos de
   cada ejecución y no se escriben en el repositorio.
 

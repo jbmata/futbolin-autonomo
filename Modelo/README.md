@@ -167,6 +167,12 @@ Por defecto una **Logitech Brio** en 720p a 90 fps. Simula:
 
 Las barras rivales y las propias también se miden con la cámara.
 
+**Compensación de la latencia** (`FUTBOLIN_COMPENSAR=1`, apagada por defecto): la bola
+observada llega 70–90 ms tarde; con la bola a más de 1 m/s está de media a ~100 mm de la real.
+Si se activa, la observación adelanta la bola y las barras rivales al instante actual con su
+velocidad y la latencia **nominal** (el sistema real puede hacerlo: conoce la hora de llegada de
+cada fotograma). El error baja a ~58 mm; el resto es lo que la cámara aún no ha visto tras un golpe.
+
 ### Observación — `observation.py`
 
 | Parte | Dims | Contenido |
@@ -176,6 +182,10 @@ Las barras rivales y las propias también se miden con la cámara.
 
 La política del robot **solo usa la parte del actor**. `obs_version=2` (44
 dims) y `1` (36) siguen disponibles con estado perfecto para los modelos antiguos.
+
+Para experimentos, `FUTBOLIN_HISTORY=N` cambia los fotogramas apilados (3 por defecto; con 6
+la entrada del actor es de 372). Ésta y `FUTBOLIN_COMPENSAR` cambian lo que ve la red: hay que
+usar **el mismo valor al entrenar, evaluar y ejecutar** el modelo.
 
 ### Recompensa — `reward.py`
 
@@ -323,11 +333,20 @@ python dashboard.py --log-dir logs/ppo_v5 --total 2000000
 
 ### Entrenar variantes en GitHub Actions
 
-`.github/workflows/train.yml` (solo se lanza a mano) entrena en paralelo 5
-variantes —3 semillas con red de 256 neuronas y redes de 128 y 512— con DAgger y
-PPO, y publica los resultados como artefactos **sin escribir nada en el
-repositorio**. Necesita `models/teacher/heuristic_optimized.json` en el repositorio.
-Cada variante usa 4 vCPU y tarda ~1,5–2 h con 2M pasos.
+Todos los workflows publican sus resultados como artefactos **sin escribir nada en el
+repositorio**, y se lanzan al subir un cambio al fichero de disparo en la rama `train`:
+
+| Workflow | Disparo | Qué hace |
+|---|---|---|
+| `pipeline.yml` | `.github/entrenar.txt` | optimiza el profesor (3 semillas), elige con 240 partidos y entrena 5 alumnos con DAgger y PPO (~4 h) |
+| `alumnos.yml` | `.github/alumnos.txt` | variantes del alumno sin PPO frente a la cámara: referencia, compensación de latencia, 6 fotogramas, más datos y todo junto, con 200 partidos de evaluación |
+| `optimizar-profesor.yml` | `.github/optimizar-profesor.txt` | CMA‑ES por roles |
+| `train.yml` | `.github/lanzar-entrenamiento.txt` | variantes de red con DAgger y PPO |
+
+Cada trabajo usa 4 vCPU. Mientras corren, el avance se ve en la pestaña *Actions* o con
+`gh run watch`; los artefactos (`resultados.txt`, partidos en HTML y modelos) se bajan al terminar con
+`gh run download <id> -D carpeta`. Los resultados y su interpretación están en
+[`docs/REFERENCIA.md`](docs/REFERENCIA.md) §6.
 
 El entrenamiento también se puede seguir con TensorBoard:
 
