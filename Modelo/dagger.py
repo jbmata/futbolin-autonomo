@@ -149,9 +149,12 @@ if __name__ == "__main__":
     ap.add_argument("--workers", type=int, default=6)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--net-size", type=int, default=256)
+    ap.add_argument("--epochs-first", type=int, default=40, help="Épocas de la primera ronda")
+    ap.add_argument("--epochs-next", type=int, default=15, help="Épocas de cada ronda siguiente")
     ap.add_argument("--ideal-sensors", action="store_true",
                     help="Diagnóstico: alumno con cámara perfecta y encoders")
     args = ap.parse_args()
     betas = [1.0, 0.5, 0.25] + [0.0] * max(args.rounds - 3, 0)
     build_dagger(args.out, args.teacher, rounds=tuple(betas[:args.rounds]), matches=args.matches,
-                 workers=args.workers, seed=args.seed, net_size=args.net_size, ideal=args.ideal_sensors)
+                 workers=args.workers, seed=args.seed, net_size=args.net_size, ideal=args.ideal_sensors,
+                 epochs_first=args.epochs_first, epochs_next=args.epochs_next)

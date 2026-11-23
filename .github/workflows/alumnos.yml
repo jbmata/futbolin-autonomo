@@ -1,0 +1,74 @@
+name: Alumnos frente a la camara
+
+# Variantes del alumno DAgger (sin PPO) con el profesor fijo `base_90.json`. La cadena anterior
+# (run 45064712873) dejo: profesor +0,37, alumno con camara -0,32/-0,37/-0,32 y con sensores
+# ideales +0,15 goles/min. Hipotesis: la bola llega 70-90 ms tarde y no se adelanta al instante
+# actual (a 2,5 m/s son ~17 cm). FUTBOLIN_COMPENSAR=1 la adelanta con su velocidad y la latencia
+# nominal. Se evalua con 200 partidos (margen ~±0,14) y una referencia sin compensar en la misma
+# ejecucion. Se lanza subiendo un cambio a `.github/alumnos.txt` en la rama `train`.
+on:
+  workflow_dispatch:
+  push:
+    branches: [train]
+    paths: [".github/alumnos.txt"]
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUNBUFFERED: "1"
+  PYTHONIOENCODING: utf-8
+
+jobs:
+  alumno:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # igual que la cadena anterior: mide el ruido entre ejecuciones
+          - { name: referencia,       comp: "0", history: "3", rounds: 8,  matches: 64,  ef: 40, en: 15 }
+          # solo la compensacion de latencia
+          - { name: compensado,       comp: "1", history: "3", rounds: 8,  matches: 64,  ef: 40, en: 15 }
+          # compensacion + 6 fotogramas (120 ms de memoria)
+          - { name: compensado_h6,    comp: "1", history: "6", rounds: 8,  matches: 64,  ef: 40, en: 15 }
+          # compensacion + 3 veces mas partidos
+          - { name: compensado_datos, comp: "1", history: "3", rounds: 12, matches: 128, ef: 40, en: 15 }
+          # todo junto
+          - { name: compensado_todo,  comp: "1", history: "6", rounds: 12, matches: 128, ef: 60, en: 25 }
+    env:
+      FUTBOLIN_COMPENSAR: ${{ matrix.comp }}
+      FUTBOLIN_HISTORY: ${{ matrix.history }}
+    defaults: { run: { working-directory: Modelo } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip, cache-dependency-path: Modelo/requirements.txt }
+      - name: Instalar dependencias
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+      - name: DAgger
+        run: |
+          python dagger.py --teacher models/teacher/base_90.json --out models/${{ matrix.name }}/student \
+            --workers 4 --rounds ${{ matrix.rounds }} --matches ${{ matrix.matches }} --seed 1 \
+            --epochs-first ${{ matrix.ef }} --epochs-next ${{ matrix.en }} | tee dagger.txt
+      - name: Evaluar (200 partidos de 60 s)
+        run: |
+          python benchmark.py --matches 200 --seed 20000 --teacher models/teacher/base_90.json \
+            models/${{ matrix.name }}/student | tee resultados.txt
+          for s in 1 2; do
+            python visualize.py --model models/${{ matrix.name }}/student --seconds 60 --seed $s --save partido_$s.html --no-open || true
+          done
+          { echo '```'; cat resultados.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ matrix.name }}
+          path: |
+            Modelo/dagger.txt
+            Modelo/resultados.txt
+            Modelo/partido_*.html
+            Modelo/models/${{ matrix.name }}/student.zip

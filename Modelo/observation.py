@@ -24,10 +24,11 @@ La política (actor) solo lee las primeras ACTOR_DIM componentes, así que en el
 robot basta con construir esa parte. Ver policies.py.
 """
 
+import os
 from collections import deque
 import numpy as np
 
-from world import (ANGULAR_RANGE, LINEAR_RANGE, OBS_REL_X_SCALE, OBS_REL_Y_SCALE,
+from world import (ANGULAR_RANGE, LINEAR_RANGE, BALL_RADIUS, OBS_REL_X_SCALE, OBS_REL_Y_SCALE,
                    get_team_bar_indices, team_direction)
 from vision import Camera
 
@@ -36,11 +37,24 @@ LIN_V_SCALE  = 1.0     # m/s
 ANG_V_SCALE  = 50.0    # rad/s
 AGE_SCALE    = 0.25    # s
 
-HISTORY   = 3
+# Fotogramas apilados. Por defecto 3; FUTBOLIN_HISTORY=N lo cambia para experimentos (hay que usar el
+# mismo valor al entrenar, evaluar y ejecutar el modelo, porque cambia el tamaño de la entrada).
+HISTORY   = max(int(os.environ.get("FUTBOLIN_HISTORY", "3")), 1)
 FRAME_DIM = 6 + 16 + 16 + 8 + 8 + 8
 ACTOR_DIM = FRAME_DIM * HISTORY
 PRIV_DIM  = 6 + 32 + 8 + 8
 OBS_DIM_V3 = ACTOR_DIM + PRIV_DIM
+
+
+def _advance(x, v, dt, lim, bounce):
+    """Adelanta x con velocidad v durante dt; en las bandas rebota (y) o se queda en el límite (x)."""
+    x += v * dt
+    if bounce:
+        if x > lim:
+            x, v = 2 * lim - x, -v
+        elif x < -lim:
+            x, v = -2 * lim - x, -v
+    return min(max(x, -lim), lim), v
 
 
 def _clip(x, lim=2.0):
@@ -74,6 +88,10 @@ class ObservationBuilder:
         hx, hy = f.length / 2.0, f.width / 2.0
         cam = self.camera.observe(state.time)
         bx, by, bvx, bvy = cam.ball
+        lead = cam.lead(state.time)
+        if lead > 0.0:
+            bx, bvx = _advance(bx, bvx, lead, hx - BALL_RADIUS, bounce=False)
+            by, bvy = _advance(by, bvy, lead, hy - BALL_RADIUS, bounce=True)
         out = [s * bx / hx, s * by / hy,
                _clip(s * bvx / BALL_V_SCALE), _clip(s * bvy / BALL_V_SCALE),
                1.0 if cam.visible else 0.0,
@@ -85,6 +103,9 @@ class ObservationBuilder:
             out.extend((s * lin / LINEAR_RANGE, s * _clip(ang / ANGULAR_RANGE),
                         _clip(s * lv / LIN_V_SCALE), _clip(s * av / ANG_V_SCALE)))
         for lin, ang, lv, av in cam.opponent_bars():
+            if lead > 0.0:
+                lin = min(max(lin + lv * lead, -LINEAR_RANGE), LINEAR_RANGE)
+                ang = ang + av * lead
             out.extend((s * lin / LINEAR_RANGE, s * _clip(ang / ANGULAR_RANGE),
                         _clip(s * lv / LIN_V_SCALE), _clip(s * av / ANG_V_SCALE)))
         for lin, ang in cam.own_bars():

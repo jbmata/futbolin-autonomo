@@ -18,12 +18,19 @@ propias, porque si el motor pierde pasos el firmware deja de saber dónde están
 """
 
 import math
+import os
 from collections import deque
 import numpy as np
 
 from hardware import CameraSpec
 from world import (BALL_RADIUS, PLAYER_HALF_WIDTH, FOOT_LENGTH, FOOT_HALF_LENGTH,
                    get_team_bar_indices)
+
+# Compensar la latencia: adelantar bola y barras rivales al instante actual con su velocidad.
+# El sistema real puede hacerlo: sabe cuándo llega cada fotograma y resta la latencia nominal
+# medida (no la de cada momento, que varía). Por defecto apagado (FUTBOLIN_COMPENSAR=1 lo enciende)
+# hasta comparar; cambia lo que ve la red, así que hay que usar el mismo valor al entrenar y evaluar.
+COMPENSATE = os.environ.get("FUTBOLIN_COMPENSAR", "0") == "1"
 
 BODY_HALF_X = 0.012       # m, semigrosor del cuerpo de la figura visto desde arriba
 _HIDE_MARGIN = 0.004      # m, la bola está oculta si su centro queda tapado con este margen
@@ -178,6 +185,15 @@ class Camera:
         return self
 
     # Resultados (marco del mundo)
+    def lead(self, t_now: float) -> float:
+        """Tiempo que hay que adelantar lo visto para llevarlo a t_now (0 si no se compensa).
+        Llegada real del fotograma menos la latencia nominal: el error que queda es la
+        diferencia entre la latencia de esta partida y la nominal."""
+        if not COMPENSATE:
+            return 0.0
+        llegada = self._frame_t + self.latency
+        return min(max(t_now - llegada + self.spec.latency, 0.0), 0.2)
+
     @property
     def ball(self):
         return self._bx.x, self._by.x, self._bx.v, self._by.v

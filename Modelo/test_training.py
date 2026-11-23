@@ -246,7 +246,9 @@ class RealismTests(unittest.TestCase):
         for _ in range(10):
             obs, *_ = env.step(np.zeros(8))
         seen_x = obs[0] * env.state.field.length / 2.0
-        lag = env.spec.camera.latency
+        import vision
+        # Sin compensar, la bola se ve `latency` s tarde; compensando, se adelanta a ahora.
+        lag = 0.0 if vision.COMPENSATE else env.spec.camera.latency
         self.assertAlmostEqual(env.state.ball.x - seen_x, 1.0 * lag, delta=0.03)
         state = create_standard_world()
         state.ball.reset(x=state.bars[ATK_A].bar_x, y=0.0, vx=0.0, vy=0.0)
@@ -474,7 +476,8 @@ class MatchFormatTests(unittest.TestCase):
             HeuristicParams().save(path)
             o, a, r, (scored, conceded, minutes) = _rollout(
                 (np.array([3, 4]), "A", ("heuristic", 0.5), 1.0, None, path, 0.1, 60))
-        self.assertEqual(o.shape, (120, 240))
+        from observation import OBS_DIM_V3
+        self.assertEqual(o.shape, (120, OBS_DIM_V3))     # 240 con los 3 fotogramas por defecto
         self.assertEqual(a.shape, (120, 8))
         self.assertEqual(r.shape, (120,))
         self.assertTrue(np.all(np.abs(a) <= 1.0))

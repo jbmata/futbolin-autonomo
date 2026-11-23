@@ -1,0 +1,2 @@
+Cambiar este fichero en la rama train lanza .github/workflows/alumnos.yml.
+2026-11-23: compensacion de latencia de la camara (referencia, compensado, +6 fotogramas, +datos, todo).

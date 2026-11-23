@@ -390,6 +390,46 @@ huecos): sin huecos +0,67 ± 0,28 goles/min, con huecos +0,56 ± 0,29. Sin difer
 con huecos tira menos (11,6 frente a 14,6 tiros/min): sus parámetros (`gap_wait`,
 `lane_margin`) aún no están optimizados.
 
+**Cadena completa con las reglas nuevas (23 de noviembre, run 45064712873, 3 h 50 min)**.
+100 partidos de 60 s contra el heurístico de nivel 0,7, goles por minuto (IC 95 %):
+
+| Agente | Marca | Recibe | Diferencia |
+|---|---|---|---|
+| heurístico por defecto | 0,17 | 0,57 | −0,40 ± 0,16 |
+| profesor (estado real) | 0,61 | 0,24 | **+0,37 ± 0,19** |
+| alumno DAgger, cámara (3 semillas) | 0,30–0,37 | 0,62–0,74 | −0,32 / −0,37 / −0,32 (± 0,20–0,23) |
+| alumno DAgger, sensores ideales | 0,47 | 0,32 | **+0,15 ± 0,20** |
+| tras PPO con poco ruido (`best`) | 0,37–0,48 | 0,59–0,73 | −0,35 / −0,25 / −0,20 |
+| tras PPO con poco ruido (final) | 0,29–0,42 | 0,81–0,93 | −0,52 / −0,51 / −0,47 |
+| tras PPO con ruido normal (`best` / final) | 0,37–0,40 | 0,89–1,03 | −0,49 / −0,66 |
+
+- **El optimizador no mejoró al profesor.** Con las reglas nuevas, de las tres semillas de
+  CMA‑ES, dos acabaron devolviendo el punto de partida (`base_90.json`) y la tercera quedó peor
+  (+0,32 frente a +0,49 con 240 partidos). El profesor usado es `base_90.json`, ajustado a mano.
+  La meseta de +0,2 a +0,4 se confirma.
+- **La cámara es lo que más cuesta.** El alumno con sensores ideales queda en +0,15 y los tres con
+  cámara en −0,32 a −0,37: unos 0,5 goles/min por la percepción (latencia, ruido, oclusión) y unos
+  0,2 por la imitación en sí. Es una sola semilla en la variante ideal, y los intervalos se tocan.
+- **PPO no ayuda.** Con poco ruido (log‑std −2,5) el mejor punto no se separa del alumno inicial
+  (todas las diferencias caen dentro del margen), y el modelo final empeora siempre. Con el ruido
+  normal empeora más (−0,66). El ruido de exploración explica parte del daño, pero no todo.
+  Además `best_model` se elige con pocas partidas de evaluación, así que su mejora aparente
+  es en parte sesgo de selección.
+- **Defensa**: los alumnos reciben 2,5–3 veces más goles que el profesor; es donde se pierde.
+
+**Causa probable y siguiente prueba (lanzada el 23 de noviembre, workflow `alumnos.yml`).** La
+cámara entrega la bola con 70–90 ms de retraso (la latencia varía en cada partida) y la
+observación no la adelanta al instante actual: con la bola a más de 1 m/s, la que ve el alumno
+está a **101 mm** (mediana) de la real; las figuras miden 30 mm. Con `FUTBOLIN_COMPENSAR=1` se
+adelantan bola y barras rivales con su velocidad y la latencia **nominal** (lo que podrá hacer el
+sistema real: conoce la hora de llegada de cada fotograma) y el error baja a **58 mm**. Lo que
+queda es casi todo irreducible: durante ~70 ms tras cada golpe la cámara aún no lo ha visto.
+Detectar golpes en el filtro α‑β apenas cambia nada (49 mm de mediana, la misma media), así que no se usa.
+`FUTBOLIN_HISTORY=N` cambia los fotogramas apilados (3 por defecto). Las dos variables cambian lo
+que ve la red: hay que usar el mismo valor al entrenar, evaluar y ejecutar el modelo. Variantes:
+referencia, compensado, compensado con 6 fotogramas, compensado con 3× partidos y todo junto,
+evaluadas con 200 partidos (margen ±0,14). PPO queda fuera.
+
 ---
 
 ## 7. Lecciones aprendidas
