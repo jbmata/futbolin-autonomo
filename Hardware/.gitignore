@@ -1,0 +1,16 @@
+# Archivos locales y regenerables de KiCad
+*.kicad_prl
+*.kicad_pcb.lck
+*.kicad_sch.lck
+~*.lck
+*.bak
+*.bck
+*.kicad_sch-bak
+*.kicad_pcb-bak
+*-backups/
+fp-info-cache
+_autosave-*
+~*.kicad_*
+**/bom/
+**/production/
+.history/

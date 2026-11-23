@@ -10,7 +10,7 @@ contra una persona, con un agente entrenado en simulación y preparado para pasa
   PPO y evaluación con intervalo de confianza. La memoria técnica (valores y su fuente,
   resultados, lecciones y trabajo futuro) está en [`Modelo/docs/REFERENCIA.md`](./Modelo/docs/REFERENCIA.md).
 - [Hardware/MCU-RT](./Hardware/MCU-RT/README.md): esquema KiCad con STM32H733ZGT6,
-  ocho drivers TMC2209, ocho puertos AS5600 mediante TCA9548A y cuatro finales
+  ocho drivers TMC2209, ocho puertos AS5600 mediante TCA9548A y ocho finales
   mecánicos, con instrucciones de montaje y validación.
 - `Mecanica/3d/`: piezas 3D en [build123d](https://github.com/gumyr/build123d) (un `.py` por pieza: `carrovsolt.py`, `carrovsolt_nema17.py`,
   `motor_17hs4401.py`, `vslot2020.py` y `montaje.py`). Cada uno genera su `.step`/`.stl` y admite `--ver` (OCP CAD Viewer).
