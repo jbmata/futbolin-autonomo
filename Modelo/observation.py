@@ -81,9 +81,9 @@ class ObservationBuilder:
     def record(self):
         self.camera.record(self.env.state)
 
-    def _frame(self, last_action) -> list:
-        env, s = self.env, self.s
-        state = env.state
+    def perceived_ball(self):
+        """(x, y, vx, vy) de la bola como la ve el robot (cámara, filtro y compensación), marco del mundo."""
+        state = self.env.state
         f = state.field
         hx, hy = f.length / 2.0, f.width / 2.0
         cam = self.camera.observe(state.time)
@@ -92,6 +92,28 @@ class ObservationBuilder:
         if lead > 0.0:
             bx, bvx = _advance(bx, bvx, lead, hx - BALL_RADIUS, bounce=False)
             by, bvy = _advance(by, bvy, lead, hy - BALL_RADIUS, bounce=True)
+        return bx, by, bvx, bvy
+
+    def perceived_opponent_bars(self):
+        """{índice: (lin, ang, lin_vel, ang_vel)} de las barras rivales como las ve el robot."""
+        cam = self.camera.observe(self.env.state.time)
+        lead = cam.lead(self.env.state.time)
+        out = {}
+        for i, (lin, ang, lv, av) in zip(self.opp, cam.opponent_bars()):
+            if lead > 0.0:
+                lin = min(max(lin + lv * lead, -LINEAR_RANGE), LINEAR_RANGE)
+                ang = ang + av * lead
+            out[i] = (lin, ang, lv, av)
+        return out
+
+    def _frame(self, last_action) -> list:
+        env, s = self.env, self.s
+        state = env.state
+        f = state.field
+        hx, hy = f.length / 2.0, f.width / 2.0
+        cam = self.camera.observe(state.time)
+        bx, by, bvx, bvy = self.perceived_ball()
+        lead = cam.lead(state.time)
         out = [s * bx / hx, s * by / hy,
                _clip(s * bvx / BALL_V_SCALE), _clip(s * bvy / BALL_V_SCALE),
                1.0 if cam.visible else 0.0,

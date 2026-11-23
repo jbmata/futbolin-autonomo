@@ -167,9 +167,9 @@ Por defecto una **Logitech Brio** en 720p a 90 fps. Simula:
 
 Las barras rivales y las propias también se miden con la cámara.
 
-**Compensación de la latencia** (`FUTBOLIN_COMPENSAR=1`, apagada por defecto): la bola
+**Compensación de la latencia** (activada por defecto; `FUTBOLIN_COMPENSAR=0` la apaga): la bola
 observada llega 70–90 ms tarde; con la bola a más de 1 m/s está de media a ~100 mm de la real.
-Si se activa, la observación adelanta la bola y las barras rivales al instante actual con su
+La observación adelanta la bola y las barras rivales al instante actual con su
 velocidad y la latencia **nominal** (el sistema real puede hacerlo: conoce la hora de llegada de
 cada fotograma). El error baja a ~58 mm; el resto es lo que la cámara aún no ha visto tras un golpe.
 
@@ -185,7 +185,8 @@ dims) y `1` (36) siguen disponibles con estado perfecto para los modelos antiguo
 
 Para experimentos, `FUTBOLIN_HISTORY=N` cambia los fotogramas apilados (3 por defecto; con 6
 la entrada del actor es de 372). Ésta y `FUTBOLIN_COMPENSAR` cambian lo que ve la red: hay que
-usar **el mismo valor al entrenar, evaluar y ejecutar** el modelo.
+usar **el mismo valor al entrenar, evaluar y ejecutar** el modelo. Los modelos entrenados antes
+de activar la compensación (23 de noviembre) no sirven con ella.
 
 ### Recompensa — `reward.py`
 
@@ -339,7 +340,7 @@ repositorio**, y se lanzan al subir un cambio al fichero de disparo en la rama `
 | Workflow | Disparo | Qué hace |
 |---|---|---|
 | `pipeline.yml` | `.github/entrenar.txt` | optimiza el profesor (3 semillas), elige con 240 partidos y entrena 5 alumnos con DAgger y PPO (~4 h) |
-| `alumnos.yml` | `.github/alumnos.txt` | variantes del alumno sin PPO frente a la cámara: referencia, compensación de latencia, 6 fotogramas, más datos y todo junto, con 200 partidos de evaluación |
+| `alumnos.yml` | `.github/alumnos.txt` | alumnos DAgger sin PPO frente a la cámara, con 200 partidos de evaluación; la versión actual repite semillas de `compensado` y prueba a imitar a un profesor que decide con la bola que da la cámara |
 | `optimizar-profesor.yml` | `.github/optimizar-profesor.txt` | CMA‑ES por roles |
 | `train.yml` | `.github/lanzar-entrenamiento.txt` | variantes de red con DAgger y PPO |
 

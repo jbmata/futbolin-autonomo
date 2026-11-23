@@ -37,6 +37,7 @@ def _rollout(task):
     """Juega partidos y devuelve (obs, acciones del profesor, retornos, resumen)."""
     (seeds, team, rival, beta, student_path, teacher_path, noise_std, steps, *rest) = task
     ideal = bool(rest and rest[0])
+    perceived = bool(len(rest) > 1 and rest[1])
     import torch
     torch.set_num_threads(1)
     from env import FoosballEnv, RoleParams
@@ -49,7 +50,7 @@ def _rollout(task):
                       max_steps=steps, reward_config=final_reward_config(1.0),
                       spec=ideal_sensors_spec() if ideal else None)
     teacher = HeuristicAgent(env, seed=int(seeds[0]), reaction_delay=0.0,
-                             params=RoleParams.load(teacher_path))
+                             params=RoleParams.load(teacher_path), perceived=perceived)
     student = None
     if beta < 1.0 and student_path:
         from stable_baselines3 import PPO
@@ -88,7 +89,8 @@ def _rollout(task):
             (scored, conceded, minutes))
 
 
-def _tasks(n_matches, beta, student_path, teacher_path, noise_std, steps, seed, n_workers, ideal=False):
+def _tasks(n_matches, beta, student_path, teacher_path, noise_std, steps, seed, n_workers, ideal=False,
+           perceived=False):
     """Reparte los partidos en trabajos pequeños variando equipo y rival."""
     rng = np.random.default_rng(seed)
     per_job = max(n_matches // (n_workers * 2), 1)
@@ -97,7 +99,7 @@ def _tasks(n_matches, beta, student_path, teacher_path, noise_std, steps, seed, 
         team = "A" if rng.random() < 0.7 else "B"
         rival = RIVALS[int(rng.choice(len(RIVALS), p=RIVAL_WEIGHTS))]
         seeds = rng.integers(1, 10**9, size=min(per_job, n_matches - j))
-        tasks.append((seeds, team, rival, beta, student_path, teacher_path, noise_std, steps, ideal))
+        tasks.append((seeds, team, rival, beta, student_path, teacher_path, noise_std, steps, ideal, perceived))
     return tasks
 
 
@@ -105,7 +107,7 @@ def build_dagger(out: str, teacher_path: str, rounds=(1.0, 0.5, 0.25, 0.0, 0.0),
                  matches: int = 48, epochs_first: int = 40, epochs_next: int = 15,
                  workers: int = 6, steps: int = 1500, noise_std: float = 0.1,
                  seed: int = 0, log_std: float = -1.2, net_size: int = 256,
-                 ideal: bool = False):
+                 ideal: bool = False, teacher_view: str = "real"):
     from stable_baselines3.common.env_util import make_vec_env
     from imitation import pretrain
     from train import FoosballGymEnv, final_reward_config, make_model
@@ -120,7 +122,7 @@ def build_dagger(out: str, teacher_path: str, rounds=(1.0, 0.5, 0.25, 0.0, 0.0),
         for it, beta in enumerate(rounds):
             student_path = out + "_tmp" if it > 0 else None
             tasks = _tasks(matches, beta, student_path, teacher_path, noise_std, steps,
-                           seed * 1000 + it, workers, ideal)
+                           seed * 1000 + it, workers, ideal, teacher_view == "camera")
             res = pool.map(_rollout, tasks, chunksize=1)
             for o, a, r, _ in res:
                 data_o.append(o); data_a.append(a); data_r.append(r)
@@ -149,6 +151,8 @@ if __name__ == "__main__":
     ap.add_argument("--workers", type=int, default=6)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--net-size", type=int, default=256)
+    ap.add_argument("--teacher-view", choices=("real", "camera"), default="real",
+                    help="'camera': el profesor decide con la bola que da la cámara (como el alumno)")
     ap.add_argument("--epochs-first", type=int, default=40, help="Épocas de la primera ronda")
     ap.add_argument("--epochs-next", type=int, default=15, help="Épocas de cada ronda siguiente")
     ap.add_argument("--ideal-sensors", action="store_true",
@@ -157,4 +161,5 @@ if __name__ == "__main__":
     betas = [1.0, 0.5, 0.25] + [0.0] * max(args.rounds - 3, 0)
     build_dagger(args.out, args.teacher, rounds=tuple(betas[:args.rounds]), matches=args.matches,
                  workers=args.workers, seed=args.seed, net_size=args.net_size, ideal=args.ideal_sensors,
-                 epochs_first=args.epochs_first, epochs_next=args.epochs_next)
+                 epochs_first=args.epochs_first, epochs_next=args.epochs_next,
+                 teacher_view=args.teacher_view)

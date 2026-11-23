@@ -1,11 +1,12 @@
 name: Alumnos frente a la camara
 
-# Variantes del alumno DAgger (sin PPO) con el profesor fijo `base_90.json`. La cadena anterior
-# (run 45064712873) dejo: profesor +0,37, alumno con camara -0,32/-0,37/-0,32 y con sensores
-# ideales +0,15 goles/min. Hipotesis: la bola llega 70-90 ms tarde y no se adelanta al instante
-# actual (a 2,5 m/s son ~17 cm). FUTBOLIN_COMPENSAR=1 la adelanta con su velocidad y la latencia
-# nominal. Se evalua con 200 partidos (margen ~±0,14) y una referencia sin compensar en la misma
-# ejecucion. Se lanza subiendo un cambio a `.github/alumnos.txt` en la rama `train`.
+# Segunda ronda de alumnos DAgger (sin PPO), con la compensacion de latencia ya activada por
+# defecto. En la ronda anterior (run 45124636693) `compensado` quedo en -0,08 con una sola semilla
+# y el profesor en +0,35. Aqui: (1) otras dos semillas con el profesor de estado real, para saber
+# si ese -0,08 se repite; (2) tres alumnos que imitan a un profesor que decide con la bola que da
+# la camara (--teacher-view camera). Cada trabajo tambien mide a ese profesor "con ojos del alumno":
+# es el techo de lo que un heuristico puede hacer con la percepcion del robot.
+# Se lanza subiendo un cambio a `.github/alumnos.txt` en la rama `train`.
 on:
   workflow_dispatch:
   push:
@@ -28,19 +29,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # igual que la cadena anterior: mide el ruido entre ejecuciones
-          - { name: referencia,       comp: "0", history: "3", rounds: 8,  matches: 64,  ef: 40, en: 15 }
-          # solo la compensacion de latencia
-          - { name: compensado,       comp: "1", history: "3", rounds: 8,  matches: 64,  ef: 40, en: 15 }
-          # compensacion + 6 fotogramas (120 ms de memoria)
-          - { name: compensado_h6,    comp: "1", history: "6", rounds: 8,  matches: 64,  ef: 40, en: 15 }
-          # compensacion + 3 veces mas partidos
-          - { name: compensado_datos, comp: "1", history: "3", rounds: 12, matches: 128, ef: 40, en: 15 }
-          # todo junto
-          - { name: compensado_todo,  comp: "1", history: "6", rounds: 12, matches: 128, ef: 60, en: 25 }
+          - { name: compensado_s2, seed: 2, tv: real }
+          - { name: compensado_s3, seed: 3, tv: real }
+          - { name: ojos_s1,       seed: 1, tv: camera }
+          - { name: ojos_s2,       seed: 2, tv: camera }
+          - { name: ojos_s3,       seed: 3, tv: camera }
     env:
-      FUTBOLIN_COMPENSAR: ${{ matrix.comp }}
-      FUTBOLIN_HISTORY: ${{ matrix.history }}
+      FUTBOLIN_COMPENSAR: "1"
     defaults: { run: { working-directory: Modelo } }
     steps:
       - uses: actions/checkout@v4
@@ -53,8 +48,8 @@ jobs:
       - name: DAgger
         run: |
           python dagger.py --teacher models/teacher/base_90.json --out models/${{ matrix.name }}/student \
-            --workers 4 --rounds ${{ matrix.rounds }} --matches ${{ matrix.matches }} --seed 1 \
-            --epochs-first ${{ matrix.ef }} --epochs-next ${{ matrix.en }} | tee dagger.txt
+            --workers 4 --rounds 8 --matches 64 --seed ${{ matrix.seed }} \
+            --teacher-view ${{ matrix.tv }} | tee dagger.txt
       - name: Evaluar (200 partidos de 60 s)
         run: |
           python benchmark.py --matches 200 --seed 20000 --teacher models/teacher/base_90.json \

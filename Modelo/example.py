@@ -12,6 +12,7 @@ Uso:
 """
 
 import argparse
+import copy
 import numpy as np
 
 from env import FoosballEnv, HeuristicOpponent
@@ -30,17 +31,37 @@ class HeuristicAgent:
     """
 
     def __init__(self, env: FoosballEnv, skill: float = 1.0, seed: int = None,
-                 reaction_delay: float = None, params=None):
+                 reaction_delay: float = None, params=None, perceived: bool = False):
+        """`perceived=True`: decide con la bola y las barras rivales que daría la cámara (con
+        su retraso, ruido y compensación) en lugar de las reales, como lo haría el robot. Las
+        barras propias siguen siendo las reales (encoders)."""
         self.env      = env
+        self.perceived = perceived
         self.team     = env.controlled_team
         self.bar_idxs = get_team_bar_indices(self.team)
         self._policy  = HeuristicOpponent(skill=skill, rng=np.random.default_rng(seed),
                                           reaction_delay=reaction_delay, dt=env.dt, params=params)
 
+    def _view(self):
+        state = self.env.state
+        if not self.perceived:
+            return state
+        bx, by, bvx, bvy = self.env._builder.perceived_ball()
+        ball = copy.copy(state.ball)
+        ball.x, ball.y, ball.vx, ball.vy = bx, by, bvx, bvy
+        view = copy.copy(state)
+        view.ball = ball
+        view.bars = list(state.bars)
+        for i, (lin, ang, lv, av) in self.env._builder.perceived_opponent_bars().items():
+            bar = copy.copy(state.bars[i])
+            bar.linear_pos, bar.angle, bar.linear_vel, bar.angular_vel = lin, ang, lv, av
+            view.bars[i] = bar
+        return view
+
     def predict(self) -> np.ndarray:
         if self.env._step_count == 0:
             self._policy.reset()          # nuevo episodio
-        cmds = self._policy.get_commands(self.env.state, team=self.team)
+        cmds = self._policy.get_commands(self._view(), team=self.team)
         s = team_direction(self.team)
         action = np.zeros(8, dtype=np.float32)
         for k, bar_idx in enumerate(self.bar_idxs):

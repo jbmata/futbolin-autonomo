@@ -59,14 +59,16 @@ def play(policy, n_matches: int, seed: int, seconds: float = 60.0, opponent="heu
     }
 
 
-def heuristic_policy(params=None, reaction_delay=None):
-    """Heurístico del robot. Con `params` y retardo 0 es el profesor optimizado (ve el estado real)."""
+def heuristic_policy(params=None, reaction_delay=None, perceived=False):
+    """Heurístico del robot. Con `params` y retardo 0 es el profesor optimizado (ve el estado real).
+    Con `perceived=True` decide con la bola que daría la cámara: el techo de lo que puede imitar el alumno."""
     agent = {}
 
     def policy(env, obs):
         if agent.get("env") is not env:
             agent["env"], agent["a"] = env, HeuristicAgent(env, seed=0, params=params,
-                                                           reaction_delay=reaction_delay)
+                                                           reaction_delay=reaction_delay,
+                                                           perceived=perceived)
         return agent["a"].predict()
     return policy
 
@@ -103,6 +105,11 @@ def main():
             rows.append(("profesor optimizado (estado real)",
                          play(teacher, args.matches, args.seed, args.seconds,
                               opponent_skill=args.skill)))
+            if not args.ideal_sensors:
+                eyes = heuristic_policy(RoleParams.load(args.teacher), reaction_delay=0.0, perceived=True)
+                rows.append(("profesor con ojos del alumno (camara)",
+                             play(eyes, args.matches, args.seed, args.seconds,
+                                  opponent_skill=args.skill)))
     from hardware import ideal_sensors_spec
     spec = ideal_sensors_spec() if args.ideal_sensors else None
     for path in args.models:

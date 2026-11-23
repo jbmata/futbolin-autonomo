@@ -256,6 +256,22 @@ class RealismTests(unittest.TestCase):
         state.ball.reset(x=0.0, y=0.3, vx=0.0, vy=0.0)
         self.assertFalse(ball_occluded(state))
 
+    def test_teacher_can_decide_with_the_cameras_ball(self):
+        env = FoosballEnv(noise=True)
+        env.reset(seed=1)
+        agent = HeuristicAgent(env, reaction_delay=0.0, perceived=True)
+        for _ in range(30):
+            action = agent.predict()
+            env.step(action)
+        view = agent._view()
+        bx, by, bvx, bvy = env._builder.perceived_ball()
+        self.assertEqual((view.ball.x, view.ball.y, view.ball.vx, view.ball.vy), (bx, by, bvx, bvy))
+        self.assertIsNot(view.ball, env.state.ball)          # no toca la bola real
+        for i, (lin, ang, _, _) in env._builder.perceived_opponent_bars().items():
+            self.assertEqual((view.bars[i].linear_pos, view.bars[i].angle), (lin, ang))
+            self.assertIsNot(view.bars[i], env.state.bars[i])
+        self.assertEqual(action.shape, (8,))
+
     def test_asymmetric_actor_ignores_privileged_part(self):
         from observation import ACTOR_DIM
         from policies import actor_forward, actor_weights

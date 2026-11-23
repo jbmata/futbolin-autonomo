@@ -28,9 +28,10 @@ from world import (BALL_RADIUS, PLAYER_HALF_WIDTH, FOOT_LENGTH, FOOT_HALF_LENGTH
 
 # Compensar la latencia: adelantar bola y barras rivales al instante actual con su velocidad.
 # El sistema real puede hacerlo: sabe cuándo llega cada fotograma y resta la latencia nominal
-# medida (no la de cada momento, que varía). Por defecto apagado (FUTBOLIN_COMPENSAR=1 lo enciende)
-# hasta comparar; cambia lo que ve la red, así que hay que usar el mismo valor al entrenar y evaluar.
-COMPENSATE = os.environ.get("FUTBOLIN_COMPENSAR", "0") == "1"
+# medida (no la de cada momento, que varía). Activado por defecto: con 200 partidos subió al
+# alumno unos 0,35 goles/min (REFERENCIA §6). FUTBOLIN_COMPENSAR=0 lo apaga. Cambia lo que ve
+# la red, así que hay que usar el mismo valor al entrenar, evaluar y ejecutar.
+COMPENSATE = os.environ.get("FUTBOLIN_COMPENSAR", "1") != "0"
 
 BODY_HALF_X = 0.012       # m, semigrosor del cuerpo de la figura visto desde arriba
 _HIDE_MARGIN = 0.004      # m, la bola está oculta si su centro queda tapado con este margen

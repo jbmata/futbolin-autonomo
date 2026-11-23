@@ -430,6 +430,31 @@ que ve la red: hay que usar el mismo valor al entrenar, evaluar y ejecutar el mo
 referencia, compensado, compensado con 6 fotogramas, compensado con 3× partidos y todo junto,
 evaluadas con 200 partidos (margen ±0,14). PPO queda fuera.
 
+**Resultado (run 45124636693, 200 partidos de 60 s, nivel 0,7, goles/min):**
+
+| Alumno | Marca | Recibe | Diferencia |
+|---|---|---|---|
+| profesor (estado real) | 0,58 | 0,23 | +0,35 ± 0,13 |
+| referencia (sin compensar) | 0,30 | 0,73 | −0,43 ± 0,16 |
+| **compensado** | 0,46 | 0,54 | **−0,08 ± 0,16** |
+| compensado, 6 fotogramas | 0,32 | 0,62 | −0,31 ± 0,13 |
+| compensado, 3× partidos | 0,39 | 0,49 | −0,10 ± 0,14 |
+| compensado, 6 fotogramas, 3× partidos, más épocas | 0,50 | 0,56 | −0,07 ± 0,16 |
+
+La compensación sube al alumno unos **0,35 goles/min** (los márgenes no se tocan) y **es ahora el
+valor por defecto**. Más datos, más épocas o más memoria no añaden nada; con 6 fotogramas, solo, empeora.
+Quedan ~0,4 goles/min hasta el profesor.
+
+**Techo con esta percepción.** Un primer chequeo (24 partidos de 30 s, muy ruidoso) del
+mismo heurístico decidiendo con la bola que da la cámara compensada, aún con las barras rivales
+reales, dio −0,08, igual que el alumno, frente a +0,58 con el estado real en esos partidos. Si se confirma
+con 200 partidos, el hueco que queda no es de imitación: es lo que un heurístico no puede hacer
+con la bola vista a destiempo y con ruido, y el alumno ya lo iguala. La ronda siguiente
+(`alumnos.yml`, segunda versión) lo mide: semillas 2 y 3 de compensado, tres alumnos que imitan a
+ese profesor «con ojos del alumno», que ya ve también las barras rivales por la cámara
+(`HeuristicAgent(perceived=True)`, `dagger.py --teacher-view camera`) y la fila de ese profesor
+en cada evaluación (`benchmark.py`).
+
 ---
 
 ## 7. Lecciones aprendidas

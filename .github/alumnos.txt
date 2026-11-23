@@ -1,2 +1,2 @@
 Cambiar este fichero en la rama train lanza .github/workflows/alumnos.yml.
-2026-11-23: compensacion de latencia de la camara (referencia, compensado, +6 fotogramas, +datos, todo).
+2026-11-23 (2): semillas 2 y 3 de compensado y tres alumnos que imitan a un profesor con los ojos del alumno.
