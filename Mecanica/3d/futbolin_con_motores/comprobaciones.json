@@ -1,50 +1,75 @@
 [
   {
     "barra": "Barra_01_A_1jug",
+    "rol": "GK",
     "guia_mm": 400,
     "eje_barra_sobre_perfil_mm": 56,
     "separadores_ruedas_mm": 16,
-    "carrera_mm": 115.68162270359889,
+    "carrera_mm": 239.60000000000002,
+    "recorrido_util_robot_mm": 182.2933958053589,
     "centro_carro_desde_inicio_guia_mm": [
-      138.40080646550035,
-      254.08242916909924
+      79.19339580535883,
+      318.7933958053589
     ],
-    "holgura_minima_collarin_pared_mm": 33.900806465500395
+    "mango_a_pared_en_tope_interior_mm": -7.306604194641131,
+    "holgura_carro_fin_de_guia_mm": 6.456604194641169,
+    "conflictos": [
+      "en el tope interior el mango queda a -7.3 mm de la pared y el actuador necesita 50: el collarin inferior choca con el soporte de pared",
+      "en el tope interior el carro entra 3.6 mm en el tramo del soporte de pared"
+    ]
   },
   {
     "barra": "Barra_02_A_2jug",
-    "guia_mm": 400,
+    "rol": "DEF",
+    "guia_mm": 570,
     "eje_barra_sobre_perfil_mm": 56,
     "separadores_ruedas_mm": 16,
-    "carrera_mm": 115.68162270359889,
+    "carrera_mm": 388.6000000000001,
+    "recorrido_util_robot_mm": 349.7933905601502,
     "centro_carro_desde_inicio_guia_mm": [
-      138.4008255389867,
-      254.08244824258563
+      97.69339056015008,
+      486.29339056015016
     ],
-    "holgura_minima_collarin_pared_mm": 33.90082553898672
+    "mango_a_pared_en_tope_interior_mm": 11.193390560150117,
+    "holgura_carro_fin_de_guia_mm": 8.956609439849771,
+    "conflictos": [
+      "en el tope interior el mango queda a 11.2 mm de la pared y el actuador necesita 50: el collarin inferior choca con el soporte de pared"
+    ]
   },
   {
     "barra": "Barra_04_A_5jug",
-    "guia_mm": 400,
+    "rol": "MID",
+    "guia_mm": 340,
     "eje_barra_sobre_perfil_mm": 56,
     "separadores_ruedas_mm": 16,
-    "carrera_mm": 115.68162270359889,
+    "carrera_mm": 158.60000000000002,
+    "recorrido_util_robot_mm": 119.79332141876222,
     "centro_carro_desde_inicio_guia_mm": [
-      138.40077070271352,
-      254.08239340631238
+      97.6933214187622,
+      256.2933214187622
     ],
-    "holgura_minima_collarin_pared_mm": 33.90077070271354
+    "mango_a_pared_en_tope_interior_mm": 11.193321418762197,
+    "holgura_carro_fin_de_guia_mm": 8.956678581237831,
+    "conflictos": [
+      "en el tope interior el mango queda a 11.2 mm de la pared y el actuador necesita 50: el collarin inferior choca con el soporte de pared"
+    ]
   },
   {
     "barra": "Barra_06_A_3jug",
-    "guia_mm": 400,
+    "rol": "ATK",
+    "guia_mm": 460,
     "eje_barra_sobre_perfil_mm": 56,
     "separadores_ruedas_mm": 16,
-    "carrera_mm": 115.68161892854408,
+    "carrera_mm": 274.6,
+    "recorrido_util_robot_mm": 239.79341726303102,
     "centro_carro_desde_inicio_guia_mm": [
-      138.40082450459371,
-      254.0824434331378
+      101.69341726303097,
+      376.293417263031
     ],
-    "holgura_minima_collarin_pared_mm": 33.90082450459375
+    "mango_a_pared_en_tope_interior_mm": 15.193417263031,
+    "holgura_carro_fin_de_guia_mm": 8.956582736969033,
+    "conflictos": [
+      "en el tope interior el mango queda a 15.2 mm de la pared y el actuador necesita 50: el collarin inferior choca con el soporte de pared"
+    ]
   }
 ]

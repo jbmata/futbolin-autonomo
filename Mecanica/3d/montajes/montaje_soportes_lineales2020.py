@@ -9,6 +9,9 @@ Poleas, perfil y motor son referencias, no piezas para imprimir.
 from pathlib import Path
 from math import pi, sqrt
 from build123d import Axis, Box, Compound, Cylinder, Face, Line, Plane, Pos, ThreePointArc, Wire, extrude
+import sys
+from pathlib import Path as _P
+sys.path.insert(0, str(_P(__file__).resolve().parent.parent / 'piezas'))
 import _comun
 from soporte_lineal_motor2020 import (ALTURA_EJE_MOTOR,ALTURA_PASO_CORREA,ANCLAJES,ESPESOR,ESPESOR_PARED_SOPORTE,
                                      INICIO_PASO_CORREA,Z_SUPERIOR,
@@ -136,7 +139,6 @@ def comprobar(p):
 
 if __name__=="__main__":
     args=_comun.argumentos(__doc__.splitlines()[0])
-    if Path(args.out).resolve()==_comun.CARPETA.resolve():args.out=str(_comun.CARPETA/"montajes")
     piezas=montaje();comprobar(piezas)
     _comun.exportar(Compound(piezas),"montaje_soportes_lineales2020",args.out,stl=False)
     if args.ver:_comun.mostrar(*piezas,nombres=["un perfil 2020","soporte motor","tensor doble","motor exterior","motriz","loca","dos separadores 5.2mm","correa superior/inferior"],colores=["silver","orange","royalblue","dimgray","gold","gold","silver","seagreen"])

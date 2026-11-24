@@ -2,16 +2,24 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 from build123d import export_step, export_stl
 
-CARPETA = Path(__file__).parent
+CARPETA = Path(__file__).resolve().parent            # piezas/
+RAIZ = CARPETA.parent                                # Mecanica/3d/
+REFERENCIAS = RAIZ / "referencias"                   # STEP descargados (no son nuestros)
+
+
+def carpeta_del_script() -> Path:
+    """Carpeta del script que se ejecuta: ahí se escriben por defecto el STEP y el STL."""
+    return Path(sys.argv[0]).resolve().parent
 
 
 def argumentos(descripcion: str) -> argparse.Namespace:
     ap = argparse.ArgumentParser(description=descripcion)
-    ap.add_argument("--out", default=str(CARPETA), help="carpeta de salida (por defecto: la del script)")
+    ap.add_argument("--out", default=str(carpeta_del_script()), help="carpeta de salida (por defecto: la del script)")
     ap.add_argument("--ver", action="store_true",
                     help="mostrarlo en OCP CAD Viewer (VS Code: Ctrl+Shift+P > OCP CAD Viewer: Open viewer)")
     return ap.parse_args()

@@ -5,6 +5,9 @@
 """
 from build123d import Compound
 
+import sys
+from pathlib import Path as _P
+sys.path.insert(0, str(_P(__file__).resolve().parent.parent / 'piezas'))
 import _comun
 from carrovsolt_nema17 import soporte_nema17
 from motor_17hs4401 import motor_referencia

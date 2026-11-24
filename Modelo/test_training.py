@@ -29,7 +29,7 @@ from train import (FoosballEvalCallback, FoosballGymEnv, FoosballMetricsCallback
 from world import (BALL_RADIUS, FOOT_ROUNDING, KICK_ANGLE_MAX, OBS_DIM_V1, OBS_DIM_V2,
                    create_standard_world, get_team_bar_indices)
 
-ATK_A = 5   # delanteros A (x = +0.212 en la mesa cad, +0.20 en la sim)
+ATK_A = 5   # delanteros A (x = +0.212 en la mesa de Medidas/mesa.json, +0.20 en la sim)
 
 
 def _drive(state, bar_idx, actuator):
@@ -595,9 +595,9 @@ class RoleTests(unittest.TestCase):
                     # Bola descentrada hacia el lado contrario: el mejor hueco es cruzar suave
                     want = -side * dist * math.tan(math.radians(AIM_TABLE[bar.role][0][0]))
                     # Donde algún jugador puede armar y barrer el tiro sin salirse de sus topes
-                    from world import LINEAR_RANGE
                     m = max(setup for _, setup, _ in AIM_TABLE[bar.role])
-                    spans = [(o - LINEAR_RANGE + m, o + LINEAR_RANGE - m) for o in bar.player_offsets]
+                    r = bar.linear_range
+                    spans = [(o - r + m, o + r - m) for o in bar.player_offsets]
                     y = min((min(max(want, a), b) for a, b in spans), key=lambda v: abs(v - want))
                     if y * want <= 0 or abs(y) < 0.5 * abs(want):
                         self.skipTest(f"con estos topes la barra no llega a y={want:+.3f}")
@@ -957,27 +957,64 @@ class TrainingTests(unittest.TestCase):
                 train_ppo(**kwargs)
 
 
-class CadTableTests(unittest.TestCase):
-    """La mesa `cad` reproduce las posiciones y los topes del montaje 3D."""
+class MeasuredTableTests(unittest.TestCase):
+    """La mesa del simulador sale de Medidas/mesa.json, igual que el 3D."""
 
-    def test_players_sit_where_the_cad_puts_them_at_each_stop(self):
-        # Con la barra en el final de carrera de sus motores (s = 0), cada jugador está a home_mm
-        # de la banda de ese lado; en el tope contrario (s = carrera), a home_mm + carrera.
+    def test_players_sit_where_the_measurements_put_them_at_each_stop(self):
+        # Con la barra en el final de carrera de sus motores (s = 0), cada jugador está a
+        # (agujero − punta_mango_a_banda_en_s0) de la banda de ese lado; en s = carrera, eso + carrera.
         import world
-        if world.MESA != "cad":
-            self.skipTest("solo con FUTBOLIN_MESA=cad")
-        c = world._MESAS["cad"]
+        if world.MESA != "mesa":
+            self.skipTest("solo con FUTBOLIN_MESA=mesa")
+        m = world.load_measurements()
         half_w = world.FIELD_WIDTH / 2
         state = create_standard_world()
-        for bar, (travel, home) in zip(state.bars, c["bars_mm"]):
-            for s in (0.0, travel):
-                bar.linear_pos = world.linear_pos_from_s(bar.team, s / 1000.0)
-                self.assertLessEqual(abs(bar.linear_pos), world.LINEAR_RANGE + 1e-9)
-                self.assertAlmostEqual(world.s_from_linear_pos(bar.team, bar.linear_pos) * 1000, s, places=6)
+        for bar in state.bars:
+            r = m["roles"][bar.role]
+            self.assertAlmostEqual(bar.linear_range * 2000, r["travel"], places=6)
+            self.assertAlmostEqual(abs(bar.bar_x) * 1000, r["x"], places=6)
+            for s in (0.0, r["travel"]):
+                bar.linear_pos = world.linear_pos_from_s(bar, s / 1000.0)
+                self.assertLessEqual(abs(bar.linear_pos), bar.linear_range + 1e-9)
+                self.assertAlmostEqual(world.s_from_linear_pos(bar, bar.linear_pos) * 1000, s, places=6)
                 side = world.motor_side(bar.team)
                 got = sorted((half_w - side * y) * 1000 for y in bar.get_player_abs_y())
-                for g, w in zip(got, sorted(d + s for d in home)):
-                    self.assertAlmostEqual(g, w, delta=0.06)      # offsets redondeados a 0,1 mm
+                for g, w in zip(got, sorted(d + s for d in r["home"])):
+                    self.assertAlmostEqual(g, w, places=6)
+
+    def test_each_bar_moves_over_its_own_travel(self):
+        # Con carreras distintas por barra, cada actuador llega a su propio tope y no más.
+        import json, os, subprocess, sys, tempfile
+        import world
+        with open(world._MEDIDAS_PATH, encoding="utf-8") as fh:
+            raw = json.load(fh)
+        # Topes distintos: la carrera de cada barra sale de ellos (y de los agujeros del plano)
+        raw["topes"]["largo_taco_goma"]["valor"] = 35.0
+        raw["topes"]["largo_muelle"]["valor"] = 15.0
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "mesa.json")
+            with open(path, "w", encoding="utf-8") as fh:
+                json.dump(raw, fh)
+            travel = {r: m["travel"] for r, m in world.load_measurements(path)["roles"].items()}
+            self.assertEqual(len({round(t, 3) for t in travel.values()}), 4)
+            code = chr(10).join((
+                "import numpy as np, world",
+                "from env import FoosballEnv",
+                "env = FoosballEnv(opponent=None, noise=False); env.reset(seed=0)",
+                "for _ in range(150): env.step(np.tile([1.0, 0.0], 4))",
+                "for i in env._team_bar_idxs:",
+                "    b = env.state.bars[i]",
+                "    print(b.role, round(b.linear_range * 2000, 3),"
+                " round(world.s_from_linear_pos(b, b.linear_pos) * 1000, 3))"))
+            env = dict(os.environ, FUTBOLIN_MEDIDAS=path, FUTBOLIN_MESA="mesa")
+            out = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True,
+                                 cwd=os.path.dirname(os.path.abspath(world.__file__)), check=True).stdout
+        seen = {role: (float(rng), float(s)) for role, rng, s in (l.split() for l in out.splitlines() if l)}
+        for role, t in travel.items():
+            rng, s = seen[role]
+            self.assertAlmostEqual(rng, t, places=3)
+            # orden +1 en el marco del equipo A es +y: lejos del lado de los motores (−y), s = carrera
+            self.assertAlmostEqual(s, t, delta=1.0)
 
 
 if __name__ == "__main__":

@@ -361,7 +361,7 @@ class HeuristicOpponent:
             # Al apuntar, la figura que arma el golpe es la que lo termina
             aiming = P.aim_on > 0.5 and mode != "idle" and idx in self._figure
             for off in ((self._figure[idx],) if aiming else bar.player_offsets):
-                lin = min(max(target_y - off, -LINEAR_RANGE), LINEAR_RANGE)
+                lin = min(max(target_y - off, -bar.linear_range), bar.linear_range)
                 err = abs(lin + off - target_y) + 0.05 * abs(lin - bar.linear_pos)
                 if err < best_err:
                     best_lin, best_err = lin, err
@@ -371,7 +371,7 @@ class HeuristicOpponent:
             placed = (abs(best_lin - bar.linear_pos) < 0.003 and abs(bar.linear_vel) < 0.03
                       and (not self._aim.get(idx, 0)
                            or (bar.angle * d < max(-1.45, lo_t + 0.12) and abs(bar.angular_vel) < 3.0)))
-            linear_cmd = best_lin / LINEAR_RANGE
+            linear_cmd = best_lin / bar.linear_range
 
             # Golpeo
             front = (ball.x - bar.bar_x) * d          # >0: bola delante del pie
@@ -569,7 +569,8 @@ class FoosballEnv:
             n_players=[n for _, n, _, _ in BAR_DEFINITIONS], spec=self.spec,
             # El final de carrera está donde se levanta cada equipo (pie atrás)
             home_signs=[-team_direction(t) for _, _, t, _ in BAR_DEFINITIONS],
-            limits=[angle_limits(r, t) for _, _, t, r in BAR_DEFINITIONS])
+            limits=[angle_limits(r, t) for _, _, t, r in BAR_DEFINITIONS],
+            lin_ranges=[b.linear_range for b in self.state.bars])
 
         self._team_bar_idxs = get_team_bar_indices(controlled_team)
         self._n_agent_bars  = len(self._team_bar_idxs)   # 4

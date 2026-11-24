@@ -1,0 +1,209 @@
+{
+  "_que_es": "Medidas de la mesa: unica fuente para el simulador (Modelo/world.py) y el 3D (Mecanica/3d/futbolin_actualizado). Ver Medidas/README.md.",
+  "_fuente": "real = medido en la mesa | plano = plano de futbolinmadrid.com (Medidas/plano_barras_futbolinmadrid.jpg) | cad = sacado del 3D | ficha = ficha de un fabricante | estimado = supuesto",
+  "unidades": "mm y g",
+  "_referencia_barras": "Agujeros medidos desde la punta del mango (lado de los motores). s = 0: barra contra el tope del lado de los motores. En cada lado de cada barra, de dentro a la pared: jugador del extremo (portero: pasador), taco de goma, muelle y guia de la pared. Todo eso quita carrera por los dos lados.",
+  "campo": {
+    "largo_plancha": {
+      "valor": 1150,
+      "fuente": "plano"
+    },
+    "ancho_plancha": {
+      "valor": 680,
+      "fuente": "plano"
+    },
+    "distancia_entre_guias": {
+      "valor": 748.6,
+      "fuente": "cad"
+    },
+    "ancho_porteria": {
+      "valor": 200,
+      "fuente": "estimado"
+    }
+  },
+  "topes": {
+    "_que_es": "Piezas entre el jugador del extremo (o el pasador del portero) y la guia de la pared, en cada lado.",
+    "largo_taco_goma": {
+      "valor": 20,
+      "fuente": "real"
+    },
+    "_muelle": "Se considera que el muelle no se comprime: el tope es cuando toca la guia con su largo libre.",
+    "largo_muelle": {
+      "valor": 30,
+      "fuente": "real"
+    },
+    "radio_pasador": {
+      "valor": 2.5,
+      "fuente": "estimado"
+    }
+  },
+  "barras": {
+    "GK": {
+      "largo_barra": {
+        "valor": 1100,
+        "fuente": "plano"
+      },
+      "agujeros_desde_punta_mango": {
+        "valor": [
+          400,
+          602,
+          804
+        ],
+        "fuente": "plano"
+      },
+      "jugadores_en_agujeros": {
+        "valor": [
+          1
+        ],
+        "fuente": "plano"
+      },
+      "tope": {
+        "valor": "pasadores",
+        "fuente": "real"
+      },
+      "pasadores_en_agujeros": {
+        "valor": [
+          0,
+          2
+        ],
+        "fuente": "real"
+      },
+      "x_eje_desde_centro": {
+        "valor": 493,
+        "fuente": "cad"
+      }
+    },
+    "DEF": {
+      "largo_barra": {
+        "valor": 1240,
+        "fuente": "plano"
+      },
+      "agujeros_desde_punta_mango": {
+        "valor": [
+          580,
+          810
+        ],
+        "fuente": "plano"
+      },
+      "jugadores_en_agujeros": {
+        "valor": [
+          0,
+          1
+        ],
+        "fuente": "plano"
+      },
+      "tope": {
+        "valor": "jugador",
+        "fuente": "real"
+      },
+      "x_eje_desde_centro": {
+        "valor": 352,
+        "fuente": "cad"
+      }
+    },
+    "MID": {
+      "largo_barra": {
+        "valor": 1050,
+        "fuente": "plano"
+      },
+      "agujeros_desde_punta_mango": {
+        "valor": [
+          350,
+          465,
+          580,
+          695,
+          810
+        ],
+        "fuente": "plano"
+      },
+      "jugadores_en_agujeros": {
+        "valor": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "fuente": "plano"
+      },
+      "tope": {
+        "valor": "jugador",
+        "fuente": "real"
+      },
+      "x_eje_desde_centro": {
+        "valor": 71,
+        "fuente": "cad"
+      }
+    },
+    "ATK": {
+      "largo_barra": {
+        "valor": 1150,
+        "fuente": "plano"
+      },
+      "agujeros_desde_punta_mango": {
+        "valor": [
+          470,
+          642,
+          814
+        ],
+        "fuente": "plano"
+      },
+      "jugadores_en_agujeros": {
+        "valor": [
+          0,
+          1,
+          2
+        ],
+        "fuente": "plano"
+      },
+      "tope": {
+        "valor": "jugador",
+        "fuente": "real"
+      },
+      "x_eje_desde_centro": {
+        "valor": 212,
+        "fuente": "cad"
+      }
+    }
+  },
+  "figura": {
+    "eje_a_suela": {
+      "valor": 71,
+      "fuente": "ficha"
+    },
+    "eje_a_cabeza": {
+      "valor": 48,
+      "fuente": "ficha"
+    },
+    "ancho_pie": {
+      "valor": 30,
+      "fuente": "ficha"
+    },
+    "largo_pie": {
+      "valor": 30,
+      "fuente": "estimado"
+    },
+    "alto_taco": {
+      "valor": 20,
+      "fuente": "estimado"
+    },
+    "holgura_suela_campo": {
+      "valor": 3,
+      "fuente": "estimado"
+    },
+    "ancho_en_barra": {
+      "valor": 30,
+      "fuente": "estimado"
+    }
+  },
+  "bola": {
+    "diametro": {
+      "valor": 35,
+      "fuente": "estimado"
+    },
+    "masa": {
+      "valor": 24,
+      "fuente": "estimado"
+    }
+  }
+}

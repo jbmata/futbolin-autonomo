@@ -2,7 +2,7 @@
 world.py
 --------
 Estado completo del sistema — futbolín tipo Madrid.
-Geometría de la mesa según FUTBOLIN_MESA (sim: estimación inicial; cad: montaje CAD).
+Geometría de la mesa según FUTBOLIN_MESA (mesa: Medidas/mesa.json; sim: estimación inicial).
 8 barras totales (4 por equipo), con posición lineal Y y ángulo de rotación.
 
 Convenciones geométricas
@@ -33,43 +33,28 @@ from typing import List
 # ---------------------------------------------------------------------------
 
 # Geometría de la mesa. FUTBOLIN_MESA elige el juego de medidas:
-#   sim: estimaciones iniciales (campo de 116 x 70 cm, recorrido ±70 mm). Los modelos entrenados
-#        antes del 23/11/2026 se entrenaron con esta mesa: evaluarlos con FUTBOLIN_MESA=sim.
-#   cad (por defecto): montaje CAD de Mecanica/3d/futbolin_actualizado (docs/MEDIDAS_CAD_VS_SIMULADOR.md):
-#        plancha de 115 x 68 cm, posiciones de las barras, posición de cada jugador y carrera de
-#        115,68 mm de los topes del CAD.
-#
-# Referencia de las barras (mesa cad): cada barra se mide desde el final de carrera del lado de
-# SUS motores (el lado del puño; en el equipo A es −y y en el B es +y):
-#   s = 0      la barra está contra ese tope (jugadores lo más cerca posible de esa banda);
-#   s = carrera la barra está contra el tope contrario.
-#   home_mm: distancia de cada jugador (centro del pie) a la banda del lado de los motores,
-#            medida con la barra en s = 0. Todo positivo y medible en la mesa real con una regla.
-# Internamente el simulador usa linear_pos = s − carrera/2 en el equipo A y carrera/2 − s en el
-# B (0 = mitad de la carrera, con +y del mundo), porque así la normaliza la observación.
-# Valores sacados de futbolin_madrid.glb. Los topes del rival no están guardados en el CAD: se han
-# deducido de su animación suponiendo la misma carrera (con los cuatro del robot el método acierta);
-# salen como el espejo de los del robot con unos 2 mm de diferencia.
-# shortcut: ninguna de las dos mesas está medida en la mesa real; medir carrera y home_mm de
-# cada barra y la plancha.
+#   mesa (por defecto): Medidas/mesa.json, la misma fuente que usa el 3D de
+#        Mecanica/3d/futbolin_actualizado. Cada dato lleva su fuente (real, plano, cad, ficha,
+#        estimado); ver Medidas/README.md. FUTBOLIN_MEDIDAS=ruta usa otro fichero.
+#   sim: estimaciones iniciales (campo de 116 x 70 cm, recorrido ±70 mm, jugadores centrados).
+#        Los modelos entrenados antes del 23/11/2026 se entrenaron con esta mesa.
 # Cambia el comportamiento de la mesa: usar el mismo valor al entrenar, evaluar y ejecutar.
-_MESAS = {
-    "sim": dict(length=1.16, width=0.70, linear_range=0.07,
-                bar_x=(0.50, 0.36, 0.20, 0.05), spacing={2: 0.14, 3: 0.14, 5: 0.12}),
-    "cad": dict(length=1.15, width=0.68,
-                bar_x=(0.493, 0.352, 0.212, 0.071),
-                # (carrera, home_mm) de cada rol, igual en los dos equipos: la mesa es simétrica
-                # por rotación de 180° (en el CAD el rival difiere unos 2 mm: 283,1 en el portero;
-                # 261,1 · 491,1 en la defensa; 31,1 … 491,1 en los medios; 146,8 · 318,8 · 490,8
-                # en los delanteros). Se usan las barras del robot, cuyos topes sí están en el CAD.
-                roles_mm={"GK":  (115.68, [284.9]),
-                          "DEF": (115.68, [263.0, 493.0]),
-                          "MID": (115.68, [32.9, 147.9, 262.9, 377.9, 492.9]),
-                          "ATK": (115.68, [152.9, 324.9, 496.9])}),
-}
+#
+# Referencia de las barras (mesa): cada barra se mide desde el final de carrera del lado de SUS
+# motores (el lado del puño; equipo A en −y, B en +y). s = 0 es la barra contra ese tope y
+# s = carrera, contra el contrario. Los jugadores van en los agujeros del plano, medidos desde la
+# punta del mango; con la barra en s = 0 cada uno queda a (agujero − punta_mango_a_banda_en_s0)
+# de la banda de ese lado. La mesa es simétrica por rotación de 180°: el rival usa las mismas
+# medidas desde su lado. Internamente linear_pos = 0 es la mitad de la carrera de cada barra, con
+# +y del mundo (así se normaliza la observación); ver linear_pos_from_s().
+_DEFAULT_FIGURE = dict(eje_a_suela=71.0, eje_a_cabeza=48.0, ancho_pie=30.0, largo_pie=30.0,
+                       alto_taco=20.0, holgura_suela_campo=3.0)
+_ROLES = ("GK", "DEF", "MID", "ATK")
 # equipo y rol de cada barra, en el orden de BAR_DEFINITIONS
 _BAR_ROLES = (('A', 'GK'), ('A', 'DEF'), ('B', 'ATK'), ('A', 'MID'),
               ('B', 'MID'), ('A', 'ATK'), ('B', 'DEF'), ('B', 'GK'))
+_MEDIDAS_PATH = os.environ.get("FUTBOLIN_MEDIDAS") or os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), os.pardir, "Medidas", "mesa.json")
 
 
 def motor_side(team: str) -> float:
@@ -77,40 +62,94 @@ def motor_side(team: str) -> float:
     return -1.0 if team == 'A' else 1.0
 
 
-def linear_pos_from_s(team: str, s: float) -> float:
-    """linear_pos interno [m] a partir de s [m] medido desde el final de carrera de los motores."""
-    return -motor_side(team) * (s - LINEAR_RANGE)
+def load_measurements(path: str = None) -> dict:
+    """Lee Medidas/mesa.json y devuelve la mesa en mm: campo, figura, bola y, por rol, x del eje,
+    carrera y distancia de cada jugador a la banda de los motores con la barra en s = 0."""
+    import json
+    with open(path or _MEDIDAS_PATH, encoding="utf-8") as fh:
+        raw = json.load(fh)
+    v = lambda d: d["valor"]
+    guides, width = v(raw["campo"]["distancia_entre_guias"]), v(raw["campo"]["ancho_plancha"])
+    guide_to_band = (guides - width) / 2.0           # cara de la guía → borde de la plancha
+    # En cada lado de cada barra, de dentro a la pared: jugador del extremo (o pasador del portero),
+    # taco de goma, muelle (sin comprimir: el tope es cuando toca) y guía. Lo que ocupan quita carrera
+    # por los dos lados.
+    t = raw["topes"]
+    cushion = v(t["largo_taco_goma"]) + v(t["largo_muelle"])
+    roles = {}
+    for role in _ROLES:
+        b = raw["barras"][role]
+        holes = v(b["agujeros_desde_punta_mango"])
+        players = sorted(holes[k] for k in v(b["jugadores_en_agujeros"]))
+        if v(b["tope"]) == "pasadores":
+            # Pasadores en dos agujeros: en s = 0 el del lado del mango, con su goma y su muelle,
+            # toca la guía de los motores.
+            p0, p1 = sorted(holes[k] for k in v(b["pasadores_en_agujeros"]))
+            stack = v(t["radio_pasador"]) + cushion      # centro del pasador → guía
+            first = players[0] - p0 + stack              # primer jugador → guía de los motores
+            travel = guides - (p1 - p0) - 2.0 * stack
+        elif v(b["tope"]) == "jugador":
+            # El jugador de cada extremo, con su goma y su muelle, toca la guía de su lado.
+            stack = v(raw["figura"]["ancho_en_barra"]) / 2.0 + cushion   # centro del jugador → guía
+            first = stack
+            travel = guides - (players[-1] - players[0]) - 2.0 * stack
+        else:
+            raise ValueError(f"{role}: tope {v(b['tope'])!r} desconocido (pasadores o jugador)")
+        if travel <= 0:
+            raise ValueError(f"{role}: la carrera sale {travel:.1f} mm; revisa las medidas")
+        home = [first - guide_to_band + (p - players[0]) for p in players]
+        roles[role] = dict(x=v(b["x_eje_desde_centro"]), travel=travel, home=home)
+    return dict(length=v(raw["campo"]["largo_plancha"]), width=v(raw["campo"]["ancho_plancha"]),
+                goal=v(raw["campo"]["ancho_porteria"]), roles=roles,
+                figure={k: v(d) for k, d in raw["figura"].items()},
+                ball_diameter=v(raw["bola"]["diametro"]), ball_mass=v(raw["bola"]["masa"]))
 
 
-def s_from_linear_pos(team: str, linear_pos: float) -> float:
-    """s [m] desde el final de carrera del lado de los motores (0 .. 2·LINEAR_RANGE)."""
-    return LINEAR_RANGE - motor_side(team) * linear_pos
+def _table_from_measurements(m: dict) -> dict:
+    half_w = m["width"] / 2.0
+    offsets, ranges = [], []
+    for team, role in _BAR_ROLES:
+        r = m["roles"][role]
+        # y de cada jugador (desde el centro del campo) con la barra a mitad de carrera
+        offsets.append(sorted(motor_side(team) * (half_w - d - r["travel"] / 2.0) / 1000.0
+                              for d in r["home"]))
+        ranges.append(r["travel"] / 2000.0)
+    return dict(length=m["length"] / 1000.0, width=m["width"] / 1000.0, goal=m["goal"] / 1000.0,
+                bar_x=tuple(m["roles"][k]["x"] / 1000.0 for k in _ROLES),
+                offsets=offsets, ranges=ranges, figure=m["figure"],
+                ball_radius=m["ball_diameter"] / 2000.0, ball_mass=m["ball_mass"] / 1000.0)
 
 
-if "roles_mm" in _MESAS["cad"]:
-    _c = _MESAS["cad"]
-    _c["bars_mm"] = tuple(_c["roles_mm"][role] for _, role in _BAR_ROLES)
-    _trav = {t for t, _ in _c["bars_mm"]}
-    assert len(_trav) == 1, f"el simulador usa una sola carrera para todas las barras: {_trav}"
-    _c["linear_range"] = _trav.pop() / 2000.0
-    # y de cada jugador (desde el centro del campo) con la barra a mitad de carrera
-    _half_w = _c["width"] * 500.0
-    _c["offsets_mm"] = tuple(
-        sorted(motor_side(team) * (_half_w - d - t / 2.0) for d in home)
-        for (team, _), (t, home) in zip(_BAR_ROLES, _c["bars_mm"]))
-MESA = os.environ.get("FUTBOLIN_MESA", "cad")
-if MESA not in _MESAS:
-    raise ValueError(f"FUTBOLIN_MESA={MESA!r}: usa uno de {sorted(_MESAS)}")
-_M = _MESAS[MESA]
+MESA = os.environ.get("FUTBOLIN_MESA", "mesa")
+if MESA == "mesa":
+    _M = _table_from_measurements(load_measurements())
+elif MESA == "sim":
+    _M = dict(length=1.16, width=0.70, goal=0.20, bar_x=(0.50, 0.36, 0.05, 0.20),
+              offsets=None, ranges=[0.07] * 8, spacing={2: 0.14, 3: 0.14, 5: 0.12},
+              figure=_DEFAULT_FIGURE, ball_radius=0.0175, ball_mass=0.024)
+else:
+    raise ValueError(f"FUTBOLIN_MESA={MESA!r}: usa 'mesa' o 'sim'")
 
 FIELD_LENGTH  = _M["length"]   # m  (eje X, largo)
 FIELD_WIDTH   = _M["width"]    # m  (eje Y, ancho)
-# shortcut: bola y portería estimadas, sustituir al medir la mesa real.
-BALL_RADIUS   = 0.0175  # m  (diámetro 35 mm)
-GOAL_WIDTH    = 0.20    # m  (abertura de portería, centrada en Y=0)
+BALL_RADIUS   = _M["ball_radius"]   # m
+GOAL_WIDTH    = _M["goal"]     # m  (abertura de portería, centrada en Y=0)
 
-# Recorrido lineal de cada barra: ±LINEAR_RANGE alrededor de la mitad de su carrera.
-LINEAR_RANGE  = _M["linear_range"]   # m
+# Recorrido lineal: cada barra va de −linear_range a +linear_range alrededor de la mitad de su
+# carrera (BarState.linear_range). LINEAR_RANGE es el mayor, para lo que necesita un solo valor.
+BAR_LINEAR_RANGES = tuple(_M["ranges"])   # m, en el orden de BAR_DEFINITIONS
+LINEAR_RANGE  = max(BAR_LINEAR_RANGES)     # m
+
+
+def linear_pos_from_s(bar, s: float) -> float:
+    """linear_pos interno [m] de una barra a partir de s [m] desde el final de carrera de sus motores."""
+    return -motor_side(bar.team) * (s - bar.linear_range)
+
+
+def s_from_linear_pos(bar, linear_pos: float) -> float:
+    """s [m] desde el final de carrera del lado de los motores (0 .. carrera)."""
+    return bar.linear_range - motor_side(bar.team) * linear_pos
+
 
 # Giro de las barras: 0 = jugador vertical (pie abajo). Los motores van de -90° a +90°.
 ANGULAR_RANGE = math.pi / 2     # rad, orden ±1 → ±90°
@@ -148,15 +187,16 @@ ANGULAR_ALPHA_MAX = 60.0        # rad/s²  (aceleración alta para golpes rápid
 # 48 mm a la cabeza, 119 mm en total y 30 mm de anchura máxima (billaresbalsalobre.com,
 # billaresyjuegos.com).
 # shortcut: el largo y el alto del taco no figuran en las fichas; medir una figura real.
-FOOT_LENGTH       = 0.071   # m  (eje de la barra → suela del taco)
-HEAD_LENGTH       = 0.048   # m  (eje de la barra → cabeza)
-FOOT_HEIGHT       = 0.020   # m  (alto del taco)
-FOOT_HALF_LENGTH  = 0.015   # m  (semilargo del taco en X: puntera / talón)
-PLAYER_HALF_WIDTH = 0.015   # m  (semiancho del taco en Y: 30 mm de anchura máxima)
+_F = _M["figure"]
+FOOT_LENGTH       = _F["eje_a_suela"] / 1000.0          # m  (eje de la barra → suela del taco)
+HEAD_LENGTH       = _F["eje_a_cabeza"] / 1000.0         # m  (eje de la barra → cabeza)
+FOOT_HEIGHT       = _F["alto_taco"] / 1000.0            # m  (alto del taco)
+FOOT_HALF_LENGTH  = _F["largo_pie"] / 2000.0            # m  (semilargo del taco en X: puntera / talón)
+PLAYER_HALF_WIDTH = _F["ancho_pie"] / 2000.0            # m  (semiancho del taco en Y)
 PLAYER_DEPTH      = 0.008   # m  (semigrosor de la pierna en X)
 BODY_HALF_DEPTH   = 0.010   # m  (semigrosor del torso y la cabeza en X)
 FOOT_ROUNDING     = 0.002   # m  (radio de redondeo de las aristas)
-FOOT_CLEARANCE    = 0.003   # m  (holgura entre la suela y el campo)
+FOOT_CLEARANCE    = _F["holgura_suela_campo"] / 1000.0   # m  (holgura entre la suela y el campo)
 ROD_HEIGHT        = FOOT_LENGTH + FOOT_CLEARANCE   # m  (altura del eje de la barra)
 
 
@@ -186,7 +226,7 @@ MAX_BALL_SPEED = 3.5    # m/s
 # Masas e inercias
 # shortcut: bola de 35 mm de unos 24 g y figuras de ~40 g; pesar las piezas reales.
 GRAVITY         = 9.81
-BALL_MASS       = 0.024    # kg
+BALL_MASS       = _M["ball_mass"]   # kg
 FIGURE_MASS     = 0.040    # kg por figura
 FIGURE_GYRATION = 0.045    # m, radio de giro de una figura respecto al eje de la barra
 ROD_MASS        = 0.70     # kg, varilla hueca de acero de ~16 mm
@@ -213,7 +253,7 @@ def bar_mass(n_players: int) -> float:
 # ---------------------------------------------------------------------------
 #  idx  x_pos   n_players  equipo  rol
 # shortcut: posiciones y separaciones de figuras sin medir en la mesa real (ver MESA).
-_GK_X, _DEF_X, _ATK_X, _MID_X = _M["bar_x"]
+_GK_X, _DEF_X, _MID_X, _ATK_X = _M["bar_x"]
 BAR_DEFINITIONS = [
     (-_GK_X,  1, 'A', 'GK'),    # 0  Portero A
     (-_DEF_X, 2, 'A', 'DEF'),   # 1  Defensa A
@@ -289,7 +329,7 @@ class BarState:
     Estado de una barra del futbolín.
 
     Dos grados de libertad:
-      - linear_pos [m]: desplazamiento lateral (eje Y) dentro de ±LINEAR_RANGE
+      - linear_pos [m]: desplazamiento lateral (eje Y) dentro de ±linear_range
       - angle [rad]:    ángulo de rotación de la barra, 0 = pie hacia abajo
     """
     bar_x:          float       = 0.0
@@ -297,13 +337,14 @@ class BarState:
     team:           str         = 'A'
     role:           str         = 'GK'
     player_offsets: List[float] = field(default_factory=list)
+    linear_range:   float       = LINEAR_RANGE   # m, media carrera de esta barra
 
     # Propiedades físicas (efectivas, incluyen motor o mano)
     inertia:     float = 1e-4  # kg·m² respecto al eje
     lin_mass:    float = 1.0   # kg en el desplazamiento lateral
 
     # Estado dinámico
-    linear_pos:  float = 0.0   # [-LINEAR_RANGE, +LINEAR_RANGE]
+    linear_pos:  float = 0.0   # [-linear_range, +linear_range]
     angle:       float = 0.0   # [-π, +π]
     linear_vel:  float = 0.0   # m/s
     angular_vel: float = 0.0   # rad/s
@@ -349,7 +390,7 @@ class BarState:
     def as_array(self) -> np.ndarray:
         """Vector normalizado de estado de la barra (marco del mundo)."""
         return np.array([
-            self.linear_pos  / LINEAR_RANGE,
+            self.linear_pos  / self.linear_range,
             self.angle       / np.pi,
             self.linear_vel  / LINEAR_VMAX,
             self.angular_vel / ANGULAR_OMEGA_MAX,
@@ -446,7 +487,7 @@ class WorldState:
                 ang += float(bar_noise[i, 1])
             lin_obs[i], ang_obs[i] = lin, ang
             obs.extend((
-                s * lin / LINEAR_RANGE,
+                s * lin / bar.linear_range,
                 s * ang / math.pi,
                 s * bar.linear_vel / LINEAR_VMAX,
                 s * bar.angular_vel / ANGULAR_OMEGA_MAX,
@@ -472,9 +513,9 @@ def create_standard_world() -> WorldState:
     """Crea un mundo con las 8 barras estándar del futbolín tipo Madrid."""
     bars = []
     for i, (bar_x, n_players, team, role) in enumerate(BAR_DEFINITIONS):
-        if "offsets_mm" in _M:
-            offsets = [o / 1000.0 for o in _M["offsets_mm"][i]]
-            assert len(offsets) == n_players
+        if _M["offsets"] is not None:
+            offsets = list(_M["offsets"][i])
+            assert len(offsets) == n_players, (role, offsets)
         else:
             offsets = _compute_offsets(n_players)
         bars.append(BarState(
@@ -483,6 +524,7 @@ def create_standard_world() -> WorldState:
             team=team,
             role=role,
             player_offsets=offsets,
+            linear_range=BAR_LINEAR_RANGES[i],
             inertia=bar_inertia(n_players),
             lin_mass=bar_mass(n_players),
         ))

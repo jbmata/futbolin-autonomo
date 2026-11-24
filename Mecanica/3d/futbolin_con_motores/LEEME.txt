@@ -1,3 +1,20 @@
+ESTADO A 2026-11-24 (lo que sigue debajo de este bloque describe el montaje del 2026-11-23)
+- La mesa ya no se copia: montar_blender.py abre ../futbolin_actualizado/futbolin_madrid.blend
+  (que sigue Medidas/mesa.json), no la modifica y guarda el resultado aparte. La copia original/ se borro.
+- Cada barra lleva su guia segun su carrera (guias.json): portero 400, defensa 570, medios 340,
+  delanteros 460 mm. piezas.json coincide con guias.json.
+- futbolin_con_motores.blend, vista_general.png, detalle_actuador.png y comprobaciones.json son del
+  2026-11-24, sobre la mesa nueva.
+- CONFLICTO SIN RESOLVER: con los topes reales el actuador no cabe en el tope interior. Por debajo de
+  50 mm entre el extremo del mango y la pared, el collarin inferior choca con el soporte de pared; en el
+  tope interior el mango queda a -7,3 (portero), 11,2 (defensa y medios) y 15,2 mm (delanteros).
+  Recorrido util del robot: portero 182,3, defensa 349,8, medios 119,8, delanteros 239,8 mm (la mesa
+  permite 239,6 / 388,6 / 158,6 / 274,6). montar_blender.py no para: anota los conflictos en
+  comprobaciones.json. Falta que el usuario decida: limitar el recorrido, redisenar el soporte o
+  cambiar los topes.
+- PENDIENTE: el video de video/ es todavia del 2026-11-23 (mesa anterior).
+Detalle en Vault/Referencias/montaje-con-motores.md.
+
 ABRIR: futbolin_con_motores.blend
 
 Montaje visual sobre una copia del futbolin actualizado, a escala real en metros.

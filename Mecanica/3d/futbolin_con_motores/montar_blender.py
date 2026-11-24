@@ -1,4 +1,10 @@
-"""Montaje visual de cuatro actuadores sobre una copia del futbolin. Blender --background --python."""
+"""Montaje visual de cuatro actuadores sobre la mesa de ../futbolin_actualizado. Blender --background --python.
+
+La mesa se abre sin tocarla (se guarda como futbolin_con_motores.blend). Cada barra lleva su guia, con la
+longitud de guias.json (preparar_piezas.py la calcula con la carrera de Medidas/mesa.json).
+
+    blender --background --python montar_blender.py
+"""
 import json
 import math
 from pathlib import Path
@@ -8,11 +14,15 @@ from bpy_extras.object_utils import world_to_camera_view
 from mathutils import Vector
 
 SALIDA = Path(__file__).resolve().parent
-bpy.ops.wm.open_mainfile(filepath=str(SALIDA / 'original/futbolin_madrid.blend'))
+MESA = SALIDA.parent / 'futbolin_actualizado' / 'futbolin_madrid.blend'
+bpy.ops.wm.open_mainfile(filepath=str(MESA))
 sc = bpy.context.scene
 sc.frame_set(1)
 originales = {o.name for o in sc.objects}
 datos = json.loads((SALIDA / 'piezas.json').read_text(encoding='utf-8'))
+guias = json.loads((SALIDA / 'guias.json').read_text(encoding='utf-8'))
+ROL = {1: 'GK', 2: 'DEF', 3: 'ATK', 5: 'MID'}
+INICIO_LIBRE, FIN_LIBRE, MEDIO_CARRO = .050, .042, .03275     # m: tramo de la guia que el carro no puede usar
 
 def material(nombre, color, metal=0, rough=.4):
     m = bpy.data.materials.new('Montaje_' + nombre)
@@ -64,13 +74,21 @@ def limites(ob):
     v = [ob.matrix_world @ Vector(c) for c in ob.bound_box]
     return [Vector([f(p[i] for p in v) for i in range(3)]) for f in (min,max)]
 
-pared = limites(bpy.data.objects['Table_008'])[0].y
+pared = limites(bpy.data.objects['Table_008'])[0].y     # cara exterior de la pared del lado del equipo A
+banda = limites(bpy.data.objects['Camp'])[0].y
+assert abs((banda - pared) * 1000 - guias['pared_fuera_plancha_mm']) < .5, \
+    'La pared no esta a la distancia que supuso preparar_piezas.py (PARED_FUERA_PLANCHA): volver a ejecutarlo'
 barras = sorted([o for o in sc.objects if o.name.startswith('Barra_') and o['equipo']=='A'], key=lambda o:o.name)
 assert len(barras)==4
 informes = []
 conjuntos = []
 for barra in barras:
     numero = barra.name.split('_')[1]
+    rol = ROL[int(barra.name.split('_')[3].replace('jug', ''))]
+    largo = guias['guia_mm'][rol]
+    assert abs(barra['carrera_mm'] - guias['carrera_mm'][rol]) < .01, \
+        f'{barra.name}: el 3D de la mesa tiene {barra["carrera_mm"]:.2f} mm de carrera y las piezas se prepararon para ' \
+        f'{guias["carrera_mm"][rol]:.2f}: ejecutar aplicar_medidas.py y preparar_piezas.py'
     col = bpy.data.collections.new('Actuador_' + numero)
     sc.collection.children.link(col)
     mango = next(o for o in barra.children if o.name.startswith('Handle'))
@@ -106,17 +124,35 @@ for barra in barras:
     fijo = vacio('Guia_fija_' + numero,col,(barra.location.x,pared-.068,barra.location.z-.056))
     fijo.rotation_euler.z = -math.pi/2
     for tipo in ('Perfil2020','Soporte_pared','Tensor','NEMA17_lineal','Polea_motriz','Polea_loca','Separador','Correa'):
-        pieza(tipo,numero+'_'+tipo,col,fijo)
+        pieza(tipo + (f'_{largo}' if tipo in ('Perfil2020','Tensor','Polea_loca','Correa') else ''),
+              numero+'_'+tipo,col,fijo)
     # El carro solo se traslada; la campana gira con la barra y el motor permanece fijo al carro.
     movil['pendiente'] = 'Ruedas, separadores y anclaje de correa provisionales; falta apoyo axial independiente.'
     lo,hi = barra['recorrido_min_m'],barra['recorrido_max_m']
     posiciones = [pared-y_puno+.1545-.068-y for y in (lo,hi)]
-    assert min(posiciones)-.03275>.050 and max(posiciones)+.03275<.358, 'Carro fuera del tramo libre de guia'
-    hueco_pared = pared-y_puno-hi-.018
-    assert hueco_pared>.030, 'Collarin demasiado cerca de la pared'
-    informes.append({'barra':barra.name,'guia_mm':400,'eje_barra_sobre_perfil_mm':56,'separadores_ruedas_mm':16,'carrera_mm':(hi-lo)*1000,
+    # El extremo de la guia lo fija preparar_piezas.py con la carrera: si no cabe, las piezas no valen.
+    assert max(posiciones)+MEDIO_CARRO<largo/1000-FIN_LIBRE, \
+        f'{barra.name}: el carro se sale por el tensor de la guia de {largo} mm: ejecutar preparar_piezas.py'
+    # El lado de la pared depende de la mesa: con los topes reales el mango llega casi a la pared y el
+    # actuador no cabe. No se para: se anota cuanto falta y el recorrido util del robot (sin decidir).
+    mango_pared = pared-y_puno-hi                     # extremo interior del mango a la pared, en el tope interior
+    holgura = guias['holgura_pared_mm']/1000
+    conflictos = []
+    if mango_pared < holgura:
+        conflictos.append(f'en el tope interior el mango queda a {mango_pared*1000:.1f} mm de la pared y el actuador '
+                          f'necesita {holgura*1000:.0f}: el collarin inferior choca con el soporte de pared')
+    if min(posiciones)-MEDIO_CARRO < INICIO_LIBRE:
+        conflictos.append(f'en el tope interior el carro entra {(INICIO_LIBRE-min(posiciones)+MEDIO_CARRO)*1000:.1f} mm '
+                          f'en el tramo del soporte de pared')
+    util = (hi-lo)*1000 - max(0.0, holgura-mango_pared)*1000
+    informes.append({'barra':barra.name,'rol':rol,'guia_mm':largo,'eje_barra_sobre_perfil_mm':56,'separadores_ruedas_mm':16,
+                     'carrera_mm':(hi-lo)*1000,'recorrido_util_robot_mm':util,
                      'centro_carro_desde_inicio_guia_mm':[x*1000 for x in sorted(posiciones)],
-                     'holgura_minima_collarin_pared_mm':hueco_pared*1000})
+                     'mango_a_pared_en_tope_interior_mm':mango_pared*1000,
+                     'holgura_carro_fin_de_guia_mm':(largo/1000-FIN_LIBRE-max(posiciones)-MEDIO_CARRO)*1000,
+                     'conflictos':conflictos})
+    for c in conflictos:
+        print(f'CONFLICTO {barra.name}: {c}', flush=True)
     conjuntos.append((barra,giro,movil,fijo,y_puno))
 
 # Comprueba la cinemática conservada en la copia, incluyendo los extremos reales del recorrido.
@@ -141,8 +177,8 @@ assert len([o for o in sc.objects if o.get('pieza','').startswith('NEMA17')])==8
 
 cam = sc.camera
 objetivo = bpy.data.objects['Objetivo_camara']
-objetivo.location = (-.02,-.15,.55)
-cam.location = (-2.15,-2.8,2.05); cam.data.lens = 46
+objetivo.location = (-.02,-.25,.55)
+cam.location = (-2.15,-3.2,2.05); cam.data.lens = 46
 sc.render.engine = 'BLENDER_EEVEE'
 sc.eevee.taa_render_samples = 32
 sc.render.resolution_x,sc.render.resolution_y = 1600,1000
@@ -150,12 +186,12 @@ sc.render.resolution_percentage = 100
 sc.render.image_settings.media_type = 'IMAGE'
 sc.render.image_settings.file_format = 'PNG'
 sc.world.color = (.15,.15,.15)
-sc['montaje'] = 'Cuatro barras del equipo A; ocho NEMA17. Soporte fijo rebajado para paso de brida. Referencia pendiente de validacion mecanica.'
+sc['montaje'] = 'Cuatro barras del equipo A; ocho NEMA17. Cada barra con su guia segun su carrera (Medidas/mesa.json). Soporte fijo rebajado para paso de brida. Referencia pendiente de validacion mecanica.'
 sc['acople'] = 'Campana propia actual con salida8 y referencia5-8. No incluye el modelo Cults.'
 sc['unidades'] = 'Metros, CAD convertido desde milimetros sin escalar las piezas.'
 
 # Encuadra tambien el extremo de los perfiles, no solo el futbolin original.
-for intento in range(8):
+for intento in range(30):
     bpy.context.view_layer.update()
     puntos = [world_to_camera_view(sc,cam,o.matrix_world@Vector(c)) for o in sc.objects if o.type=='MESH' and o.name!='Suelo' for c in o.bound_box]
     if all(.035<p.x<.965 and .035<p.y<.965 and p.z>0 for p in puntos):break
@@ -184,4 +220,6 @@ cam.location = (barra.location.x-.42,yp-.60,barra.location.z+.34)
 cam.data.lens = 52
 sc.render.filepath = str(SALIDA/'detalle_actuador.png')
 bpy.ops.render.render(write_still=True)
-print('OK: 4 actuadores, 8 motores, escala real, copia intacta, ejes y recorrido comprobados.',flush=True)
+n = sum(len(i['conflictos']) for i in informes)
+print(f'OK: 4 actuadores, 8 motores, escala real, mesa intacta, ejes y recorrido comprobados. '
+      f'{n} conflictos con la pared anotados en comprobaciones.json.',flush=True)

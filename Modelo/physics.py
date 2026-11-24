@@ -613,6 +613,6 @@ class PhysicsEngine:
             if abs(ball.x - bar.bar_x) > _BAR_REACH_X + margin:
                 continue
             for off in bar.player_offsets:
-                if abs(ball.y - off) <= LINEAR_RANGE + _BAR_REACH_Y + margin:
+                if abs(ball.y - off) <= bar.linear_range + _BAR_REACH_Y + margin:
                     return True
         return False

@@ -169,7 +169,7 @@ def exportar_stl(pieza,nombre,carpeta,invertir=False):
 
 if __name__=='__main__':
     args = _comun.argumentos(__doc__.splitlines()[0])
-    if Path(args.out).resolve()==_comun.CARPETA.resolve():args.out=str(_comun.CARPETA/'acople_puno_nema17')
+    if Path(args.out).resolve()==_comun.carpeta_del_script():args.out=str(_comun.carpeta_del_script()/'acople_puno_nema17')
     lista = piezas();comprobar(lista)
     nombres = ['collarin_superior_metal','collarin_inferior_metal','campana_superior','campana_inferior','salida_eje8_metal']
     for i,(p,nombre) in enumerate(zip(lista,nombres)):

@@ -1,5 +1,9 @@
 """Construye un .blend del futbolin con las 8 barras articuladas.
 
+OJO: los topes y la posicion de cada barra que deja este script son los del modelo generico.
+Despues hay que ejecutar aplicar_medidas.py, que los pone segun Medidas/mesa.json (la misma mesa
+que el simulador); ver Medidas/README.md.
+
 Cada barra es un Empty "Barra_XX_..." situado sobre el eje de la barra
 (paralelo a Y, a la altura del eje). Todas las piezas de esa barra (jugadores,
 mango, arandelas, topes de goma...) cuelgan de el:

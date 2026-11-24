@@ -188,12 +188,13 @@ la entrada del actor es de 372). Ésta y `FUTBOLIN_COMPENSAR` cambian lo que ve 
 usar **el mismo valor al entrenar, evaluar y ejecutar** el modelo. Los modelos entrenados antes
 de activar la compensación (23 de noviembre) no sirven con ella.
 
-`FUTBOLIN_MESA` elige las medidas de la mesa: `cad` (por defecto desde el 23 de noviembre: plancha
-de 115 × 68 cm, barras, jugadores y topes del montaje CAD, carrera de 115,68 mm, con cada barra
-medida desde el final de carrera del lado de sus motores) o `sim` (las
-estimaciones anteriores, ±70 mm). Todos los modelos guardados hasta esa fecha se entrenaron con
-`sim`: evaluarlos con `FUTBOLIN_MESA=sim`. Detalle en
-[docs/MEDIDAS_CAD_VS_SIMULADOR.md](docs/MEDIDAS_CAD_VS_SIMULADOR.md).
+`FUTBOLIN_MESA` elige las medidas de la mesa: `mesa` (por defecto) lee
+[`../Medidas/mesa.json`](../Medidas/README.md), la misma fuente que el 3D: agujeros de los
+jugadores del plano de futbolinmadrid.com, topes reales (pasadores en el portero, tope y muelle
+junto a los jugadores de los extremos en el resto) y una carrera distinta por barra, medida desde
+el final de carrera del lado de sus motores. `sim` son las estimaciones iniciales (±70 mm,
+jugadores centrados). Todos los modelos guardados hasta el 23 de noviembre se entrenaron con
+`sim`: evaluarlos con `FUTBOLIN_MESA=sim`.
 
 ### Recompensa — `reward.py`
 

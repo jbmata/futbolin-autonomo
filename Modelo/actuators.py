@@ -22,7 +22,7 @@ HumanBarActuator (alias BarActuator) — barra manejada por una persona, o
     Un golpe le cambia la velocidad y la mano la vuelve a llevar a su objetivo.
 
 Control: posición objetivo normalizada en [-1, 1].
-  - lineal:  cmd → objetivo ∈ [-LINEAR_RANGE, +LINEAR_RANGE]
+  - lineal:  cmd → objetivo ∈ [-lin_range, +lin_range] (media carrera de la barra)
   - angular: cmd → objetivo ∈ [-90°, +90°] (0 = vertical). El tope es de la orden: un
     golpe puede empujar la barra más allá.
 """
@@ -274,8 +274,9 @@ class HumanBarActuator:
 
     def __init__(self, dt: float = 0.02, add_noise: bool = True, seed: int = None,
                  randomize: bool = False, n_players: int = 1, human: HumanSpec = None,
-                 ideal: bool = False, limits: tuple = None):
+                 ideal: bool = False, limits: tuple = None, lin_range: float = LINEAR_RANGE):
         self.angle_lo, self.angle_hi = limits or (-ANGULAR_RANGE, ANGULAR_RANGE)
+        self.lin_range = lin_range
         self.dt = dt
         self.add_noise = add_noise
         self.randomize = randomize
@@ -295,7 +296,7 @@ class HumanBarActuator:
             self.slippage = False
         self.inertia = bar_inertia(n_players) * factor
         self.lin_mass = bar_mass(n_players) * factor
-        self._linear = _TrapezoidalActuator(-LINEAR_RANGE, LINEAR_RANGE, *lin,
+        self._linear = _TrapezoidalActuator(-lin_range, lin_range, *lin,
                                             LINEAR_POS_NOISE, dt, add_noise, self.rng)
         self._angular = _TrapezoidalActuator(*_stops(self.angle_lo, self.angle_hi), *rot,
                                              ANGULAR_POS_NOISE, dt, add_noise, self.rng)
@@ -310,7 +311,7 @@ class HumanBarActuator:
         self._angular.randomize_limits(self.randomize, self.skill_scale)
 
     def set_command(self, linear_cmd: float, angular_cmd: float):
-        self._linear.set_target(linear_cmd * LINEAR_RANGE)
+        self._linear.set_target(linear_cmd * self.lin_range)
         self._angular.set_target(_cmd_to_angle(angular_cmd, self.angle_lo, self.angle_hi))
 
     def update(self, h: float = None) -> tuple:
@@ -349,9 +350,10 @@ class HumanBarActuator:
 # Nombre histórico: actuador ideal con los límites de world.py
 class BarActuator(HumanBarActuator):
     def __init__(self, dt: float = 0.02, add_noise: bool = True, seed: int = None,
-                 randomize: bool = False, n_players: int = 1, limits: tuple = None):
+                 randomize: bool = False, n_players: int = 1, limits: tuple = None,
+                 lin_range: float = LINEAR_RANGE):
         super().__init__(dt, add_noise, seed, randomize, n_players, human=None, ideal=True,
-                         limits=limits)
+                         limits=limits, lin_range=lin_range)
 
 
 class StepperBarActuator:
@@ -361,9 +363,10 @@ class StepperBarActuator:
 
     def __init__(self, dt: float = 0.02, add_noise: bool = True, seed: int = None,
                  randomize: bool = False, n_players: int = 1, robot: RobotSpec = None,
-                 home_sign: float = -1.0, limits: tuple = None):
+                 home_sign: float = -1.0, limits: tuple = None, lin_range: float = LINEAR_RANGE):
         robot = robot or DEFAULT_SPEC.robot
         self.angle_lo, self.angle_hi = limits or (-ANGULAR_RANGE, ANGULAR_RANGE)
+        self.lin_range = lin_range
         self.dt = dt
         self.add_noise = add_noise
         self.randomize = randomize
@@ -381,7 +384,7 @@ class StepperBarActuator:
                                      robot.rot_friction / g, robot, self.rng,
                                      home=home if robot.home_switch else None,
                                      closed_loop=robot.encoders)
-        self._linear = _StepperAxis(-LINEAR_RANGE, LINEAR_RANGE, 1.0 / robot.pulley_radius,
+        self._linear = _StepperAxis(-lin_range, lin_range, 1.0 / robot.pulley_radius,
                                     J_lin_shaft, robot.lin_friction * robot.pulley_radius,
                                     robot, self.rng)
         self._update_effective()
@@ -403,7 +406,7 @@ class StepperBarActuator:
         self._update_effective()
 
     def set_command(self, linear_cmd: float, angular_cmd: float):
-        self._linear.set_target(linear_cmd * LINEAR_RANGE)
+        self._linear.set_target(linear_cmd * self.lin_range)
         self._angular.set_target(_cmd_to_angle(angular_cmd, self.angle_lo, self.angle_hi))
 
     def update(self, h: float = None) -> tuple:
@@ -452,22 +455,27 @@ class ActuatorBank:
 
     def __init__(self, n_bars: int = 8, dt: float = 0.02, add_noise: bool = True,
                  seed: int = None, randomize: bool = False, kinds=None,
-                 n_players=None, spec: SimSpec = None, home_signs=None, limits=None):
+                 n_players=None, spec: SimSpec = None, home_signs=None, limits=None,
+                 lin_ranges=None):
         home_signs = home_signs or [-1.0] * n_bars
         limits = limits or [None] * n_bars
+        lin_ranges = lin_ranges or [LINEAR_RANGE] * n_bars
         spec = spec or DEFAULT_SPEC
         kinds = kinds or ["ideal"] * n_bars
         n_players = n_players or [1] * n_bars
         seeds = np.random.SeedSequence(seed).spawn(n_bars)
         self.actuators = []
-        for kind, n, s, home_sign, lim in zip(kinds, n_players, seeds, home_signs, limits):
+        for kind, n, s, home_sign, lim, lr in zip(kinds, n_players, seeds, home_signs, limits,
+                                                  lin_ranges):
             child = int(s.generate_state(1)[0])
             if kind == "stepper":
-                act = StepperBarActuator(dt, add_noise, child, randomize, n, spec.robot, home_sign, lim)
+                act = StepperBarActuator(dt, add_noise, child, randomize, n, spec.robot, home_sign, lim,
+                                         lr)
             elif kind == "human":
-                act = HumanBarActuator(dt, add_noise, child, randomize, n, spec.human, limits=lim)
+                act = HumanBarActuator(dt, add_noise, child, randomize, n, spec.human, limits=lim,
+                                       lin_range=lr)
             else:
-                act = BarActuator(dt, add_noise, child, randomize, n, lim)
+                act = BarActuator(dt, add_noise, child, randomize, n, lim, lr)
             self.actuators.append(act)
 
     def reset(self, seed=None):

@@ -1,0 +1,23 @@
+{
+  "guia_mm": {
+    "GK": 400,
+    "DEF": 570,
+    "MID": 340,
+    "ATK": 460
+  },
+  "carrera_mm": {
+    "GK": 239.60000000000002,
+    "DEF": 388.6,
+    "MID": 158.60000000000002,
+    "ATK": 274.6
+  },
+  "carrera_util_mm": {
+    "GK": 182.3,
+    "DEF": 349.79999999999995,
+    "MID": 119.80000000000001,
+    "ATK": 239.8
+  },
+  "pared_fuera_plancha_mm": 60.0,
+  "largo_mango_mm": 89.5,
+  "holgura_pared_mm": 50.0
+}

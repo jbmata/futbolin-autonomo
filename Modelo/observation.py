@@ -101,7 +101,8 @@ class ObservationBuilder:
         out = {}
         for i, (lin, ang, lv, av) in zip(self.opp, cam.opponent_bars()):
             if lead > 0.0:
-                lin = min(max(lin + lv * lead, -LINEAR_RANGE), LINEAR_RANGE)
+                r = self.env.state.bars[i].linear_range
+                lin = min(max(lin + lv * lead, -r), r)
                 ang = ang + av * lead
             out[i] = (lin, ang, lv, av)
         return out
@@ -122,16 +123,17 @@ class ObservationBuilder:
         for i in self.own:
             lin, ang, lv, av = env.actuators[i].estimate()
             est.append((i, lin))
-            out.extend((s * lin / LINEAR_RANGE, s * _clip(ang / ANGULAR_RANGE),
+            out.extend((s * lin / state.bars[i].linear_range, s * _clip(ang / ANGULAR_RANGE),
                         _clip(s * lv / LIN_V_SCALE), _clip(s * av / ANG_V_SCALE)))
-        for lin, ang, lv, av in cam.opponent_bars():
+        for i, (lin, ang, lv, av) in zip(self.opp, cam.opponent_bars()):
+            r = state.bars[i].linear_range
             if lead > 0.0:
-                lin = min(max(lin + lv * lead, -LINEAR_RANGE), LINEAR_RANGE)
+                lin = min(max(lin + lv * lead, -r), r)
                 ang = ang + av * lead
-            out.extend((s * lin / LINEAR_RANGE, s * _clip(ang / ANGULAR_RANGE),
+            out.extend((s * lin / r, s * _clip(ang / ANGULAR_RANGE),
                         _clip(s * lv / LIN_V_SCALE), _clip(s * av / ANG_V_SCALE)))
-        for lin, ang in cam.own_bars():
-            out.extend((s * lin / LINEAR_RANGE, s * ang / ANGULAR_RANGE))
+        for i, (lin, ang) in zip(self.own, cam.own_bars()):
+            out.extend((s * lin / state.bars[i].linear_range, s * ang / ANGULAR_RANGE))
         for i, lin in est:
             bar = state.bars[i]
             rel_x = s * (bx - bar.bar_x) / OBS_REL_X_SCALE
@@ -152,7 +154,7 @@ class ObservationBuilder:
                _clip(s * b.wx / BALL_V_SCALE), _clip(s * b.wy / BALL_V_SCALE)]
         for i in self.own + self.opp:
             bar = state.bars[i]
-            out.extend((s * bar.linear_pos / LINEAR_RANGE, s * bar.angle / ANGULAR_RANGE,
+            out.extend((s * bar.linear_pos / bar.linear_range, s * bar.angle / ANGULAR_RANGE,
                         _clip(s * bar.linear_vel / LIN_V_SCALE),
                         _clip(s * bar.angular_vel / ANG_V_SCALE)))
         for i in self.own:
@@ -163,7 +165,7 @@ class ObservationBuilder:
         for i in self.own:
             bar = state.bars[i]
             lin, ang, _, _ = env.actuators[i].estimate()
-            out.append(_clip(s * (bar.linear_pos - lin) / LINEAR_RANGE * 10.0))
+            out.append(_clip(s * (bar.linear_pos - lin) / bar.linear_range * 10.0))
             out.append(_clip(s * (bar.angle - ang) / ANGULAR_RANGE * 10.0))
         return out
 

@@ -12,26 +12,37 @@ contra una persona, con un agente entrenado en simulación y preparado para pasa
 - [Hardware/MCU-RT](./Hardware/MCU-RT/README.md): esquema KiCad con STM32H733ZGT6,
   ocho drivers TMC2209, ocho puertos AS5600 mediante TCA9548A y ocho finales
   mecánicos, con instrucciones de montaje y validación.
-- `Mecanica/3d/`: piezas 3D en [build123d](https://github.com/gumyr/build123d) (un `.py` por pieza: `carrovsolt.py`, `carrovsolt_nema17.py`,
-  `motor_17hs4401.py`, `vslot2020.py` y `montaje.py`). Cada uno genera su `.step`/`.stl` y admite `--ver` (OCP CAD Viewer).
-  Los soportes lineales están separados: `soporte_lineal_motor2020.py` y
-  `soporte_lineal_tensor2020.py`, cada uno con su STEP, STL y PNG individuales,
-  sin perfil, motor ni poleas. `montaje_soportes_lineales2020.py` comprueba
-  interferencias y exporta el conjunto de referencia con perfil en la subcarpeta
-  `montajes/`, aparte de las piezas para fabricar.
+- [Medidas](./Medidas/README.md): `mesa.json`, la fuente única de medidas de la mesa para el simulador
+  y el 3D, la hoja de qué medir en la mesa real y `comprobar.py`, que comprueba que coinciden.
+- `Mecanica/3d/`:
+  - `piezas/`: piezas en [build123d](https://github.com/gumyr/build123d), un `.py` por pieza con su
+    `.step`/`.stl` (`carrovsolt.py`, `carrovsolt_nema17.py`, `motor_17hs4401.py`, `vslot2020.py`,
+    `acople_puno_nema17.py`, `soporte_lineal_motor2020.py` y `soporte_lineal_tensor2020.py`).
+    Cada uno admite `--ver` (OCP CAD Viewer). Los soportes lineales van sin perfil, motor ni poleas.
+  - `montajes/`: `montaje.py` (carro y motor) y `montaje_soportes_lineales2020.py`, que comprueba
+    interferencias y exporta el conjunto de referencia con perfil, aparte de las piezas para fabricar.
+  - `referencias/`: STEP de terceros, sin modificar.
+  - `futbolin_actualizado/`: la mesa completa (Blender, GLB y STEP), ajustada a `Medidas/mesa.json`
+    con `aplicar_medidas.py`.
+  - `futbolin_con_motores/`: los actuadores del robot montados sobre la mesa, con una guía por barra
+    según su carrera. **Conflicto sin resolver**: con los topes reales el actuador no cabe en el tope
+    interior (ver su `LEEME.txt`). El vídeo es todavía de la mesa anterior.
 
 La versión con fijación a pared mediante cuatro tornillos está conservada en
 [`Mecanica/3d/copias/soporte_motor2020_pared_4_tornillos/`](./Mecanica/3d/copias/soporte_motor2020_pared_4_tornillos/),
 con fuentes, dependencias, STEP, STL, imágenes y comprobaciones SHA256 de los archivos copiados.
 
-[`Mecanica/3d/nema17_40mm_descargado.step`](./Mecanica/3d/nema17_40mm_descargado.step)
+[`Mecanica/3d/referencias/nema17_40mm_descargado.step`](./Mecanica/3d/referencias/nema17_40mm_descargado.step)
 es el modelo NEMA 17 genérico de cuerpo de 40 mm descargado de
 [Xem Studio](https://www.xemstudio.com/objects/nema-17-stepper/) el 23/11/2026,
 licencia [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), sin modificar.
 No es un plano certificado del 17HS4401 ni sustituye la envolvente actual de los
 montajes; comprobarlo con el motor real antes de usarlo para ajustar piezas.
 
-El vídeo del futbolín actual está en
+El perfil V-Slot de 100 mm del fabricante, que usa `vslot2020.py --comparar`, también está en
+`Mecanica/3d/referencias/`.
+
+El vídeo del futbolín (todavía de la mesa anterior al 24/11/2026, sin los topes nuevos) está en
 [`Mecanica/3d/futbolin_actualizado/video/futbolin_animado.mp4`](./Mecanica/3d/futbolin_actualizado/video/futbolin_animado.mp4):
 12 segundos a 24 fps, 1280 × 720, con giro y desplazamiento de las ocho barras y
 recorrido de cámara. El `.blend` animado y `crear_video.py` están en esa misma carpeta.

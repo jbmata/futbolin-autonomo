@@ -157,13 +157,13 @@ if __name__ == "__main__":
     import argparse
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--largo", type=float, default=100.0)
-    ap.add_argument("--out", default=str(_comun.CARPETA))
+    ap.add_argument("--out", default=str(_comun.carpeta_del_script()))
     ap.add_argument("--ver", action="store_true")
     ap.add_argument("--comparar", action="store_true")
     args = ap.parse_args()
     pieza = vslot2020(args.largo)
     _comun.exportar(pieza, "vslot2020", args.out)
     if args.comparar:
-        comparar(str(_comun.CARPETA / "3663_2025012894452_2020 V-slot 100mm.STEP"))
+        comparar(str(_comun.REFERENCIAS / "3663_2025012894452_2020 V-slot 100mm.STEP"))
     if args.ver:
         _comun.mostrar(pieza, nombres=["V-Slot 2020"], colores=["silver"])
