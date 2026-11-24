@@ -58,5 +58,6 @@ en un simulador propio (`Modelo/`) pensado para pasar a la mesa real.
 - Motor de referencia 17HS4401 a 12 V. `Firmware/Control/` existe pero está vacía.
 
 ## Git
-- Rama de trabajo `train` (último commit subido: `7557467`). El trabajo del 2026-11-24 (medidas,
-  carrera por barra, 3D, comprobación, limpieza y esta vault) **no está commiteado**.
+- Rama de trabajo `train`. Último commit subido: `9f2cd35` (2026-11-24: medidas, carrera por barra,
+  3D organizado, montaje con motores y vault). Fuera del commit: los cambios de `Hardware/` (PCB en curso)
+  y los borrados de `Mecanica/3d/futbolin3d/`.

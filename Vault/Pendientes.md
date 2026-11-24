@@ -27,7 +27,7 @@ _Última actualización: 2026-11-24_
 
 ## Simulador y entrenamiento
 - [x] Pasar la batería completa de pruebas con la mesa nueva (2026-11-24: 57 OK).
-- [ ] Hacer commit y push del trabajo del 2026-11-24.
+- [x] Commit y push del trabajo del 2026-11-24 (`9f2cd35`). Quedan sin subir `Hardware/` y los borrados de `futbolin3d/`.
 - [ ] Reoptimizar el profesor y reentrenar el alumno con la mesa de `mesa.json`.
 - [ ] Polea del motor lineal: el montaje usa GT2 de 20 dientes y `hardware.py` sigue con 30.
       **Tema aparcado por el usuario: no tocar sin que lo pida** ([[motores-tema-aparcado]]).
